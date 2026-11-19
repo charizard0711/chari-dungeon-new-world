@@ -1,0 +1,240 @@
+import type Phaser from 'phaser';
+import { Player, makeWeapon, makeShield } from '../player';
+import { PlayerAnimation } from '../playerAnimation';
+import { TOWN_STEP_MS,townWalkPose } from './walkPose';
+import {weaponSkill,planSkill} from '../weaponSkills';
+import {playPaintedSkill,skillImpactTime} from '../skillEffects';
+import {chatBubbleText} from './chatBubble';
+import { makeItem } from '../data';
+import { ITEM_CATALOG, ITEM_CATALOG_CODE } from '../itemCatalog';
+import type {ItemKind,Weapon,Shield} from '../types';
+import {EquipmentRenderer} from '../equipmentRenderer';
+import {groundLootPose,walkoverDrop} from './groundLoot';
+import {townPath,type TownTile} from './gridPath';
+import { versionedPlayerAssetPath,playerFrameIndex, playerSheetKey,makePlayerArmor,isPlayerArmor } from '../playerAppearance';
+import { IS_MOBILE, MAP_X,MAP_Y,MAP_W,MAP_H,GAME_W,GAME_H } from '../layout';
+import { world, type WorldState, type WorldPlayer } from './worldApi';
+import { TOWN_COLUMNS,TOWN_ROWS,TOWN_TILE as TILE,TOWN_TREES,TOWN_LAMPS,TRAINING_TARGET,townBlocked } from './townLayout';
+import {entryMessageId,messagesAfterEntry,playTownSound} from './presentation';
+import {mountTownLoading,type TownLoading} from './townLoading';
+import { mountTownChat } from './chat';
+
+// Use the running game's Phaser and UIScene. This also keeps deployed solo rules intact.
+export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)=>void){
+ if(host.scene.manager.keys.OnlineTownScene)return;
+ const SceneBase=Object.getPrototypeOf(Object.getPrototypeOf(host)).constructor as new(key:string)=>Phaser.Scene;
+ const HudBase=host.scene.get('UIScene').constructor as new()=>any;
+ class Lobby extends SceneBase{
+  constructor(){super('OnlineLobbyScene');}
+  create(){const image=this.add.image(GAME_W/2,GAME_H/2,'title_citadel_v1');image.setScale(Math.max(GAME_W/image.width,GAME_H/image.height));lobby(this as Phaser.Scene);}
+ }
+ class Town extends SceneBase{
+  packet!:WorldState;preview=false;player=new Player();playerGender='male';difficulty='normal';eventMode=false;floor=1;turn=0;
+  dungeon={};discovered=new Set();discoveredEquipment=new Set(['w_iron_dagger','armor_leather']);secretQuests={fragments:0,kills:{},claimed:[],announced:[]};
+  logHistory:{msg:string;type:string}[]=[];damageHistory:any[]=[];adventureHistory:any[]=[];
+  busy=false;gameEnded=false;reviving=false;inBossRoom=false;floorBossDefeated=true;bossRewardClaimed=false;pendingEquipment=null;
+  secretDualUnlocked=false;transformation=null;timeStopTurns=0;lanceSkillTurns=0;skillStepsRemaining=0;skillChargeRequired=100;skillArmed=false;skillPreview:any;
+  holdBoostTier=0;holdStartedAt=0;heldDir=null;touchDir:string|null=null;shopRemaining={};weaponWonThisFloor=false;
+  actors=new Map<string,{body:any;anchor:any;shadow:any;leftFoot:any;rightFoot:any;label:any;x:number;y:number;dir:WorldPlayer['dir'];movingUntil:number;animation:PlayerAnimation;lastSnapshotAt:number;distance:number;weight:number;lastPoseTime:number;previousX:number;previousY:number;attackUntil:number;attackStarted:number;attackWindup:number;projectileLaunched:boolean;attackPoint?:{x:number;y:number};renderer:EquipmentRenderer;weapon:Weapon|null;shield:Shield|null;queue:TownTile[];stepTarget?:TownTile;stepping:boolean;lastFacing:WorldPlayer['dir']}>();
+  bubbles=new Map<string,{root:any;until:number}>();lastBubbleId:number|undefined;lastHitId:number|undefined;trainingBarrel:any;attackTarget=false;lastAttackAttempt=-1000;spaceKey:any;
+  cursorTile:any;groundSprites:any[]=[];groundMotions:{sprite:any;glow:any;x:number;y:number;phase:number}[]=[];autoPickupIgnored=new Set<string>();groundSignature='';pickupTarget?:string;dropArtPending=new Set<string>();
+  entryLoading?:TownLoading;chatAfterId=0;
+  chat?:ReturnType<typeof mountTownChat>;pollTimer?:ReturnType<typeof setInterval>;requestBusy=false;pollBusy=false;requestRevision=0;generation=0;lastMove=0;destination?:{x:number;y:number};hud:any;cursors:any;
+  get playerArmor(){return this.player.armor?.key??'leather';}
+  constructor(){super('OnlineTownScene');}
+  init(data:{state:WorldState;preview?:boolean;entryLoading?:TownLoading}){this.entryLoading=data.entryLoading??mountTownLoading(this as Phaser.Scene);this.chatAfterId=entryMessageId(data.state.messages);this.preview=!!data.preview&&(import.meta as any).env.DEV&&location.hostname==='localhost';this.packet=data.state;this.generation++;this.gameEnded=false;this.requestBusy=false;this.pollBusy=false;this.actors=new Map();this.destination=undefined;this.lastMove=0;this.logHistory=[];this.adventureHistory=[];this.lastBubbleId=undefined;this.lastHitId=undefined;this.bubbles.clear();this.autoPickupIgnored=new Set();this.attackTarget=false;this.lastAttackAttempt=-1000;this.skillArmed=false;this.player=new Player();this.player.weapons=[makeWeapon('w_iron_dagger',[])];this.player.armors[0].trait=undefined;this.syncPlayer();}
+  preload(){
+   this.load.on('progress',(progress:number)=>this.entryLoading?.update(.12+progress*.84));
+   for(const kind of ['hit','step'] as const)if(!this.cache.audio.exists(`online_charia_${kind}`))this.load.audio(`online_charia_${kind}`,`assets/online/charia-${kind}-v1.wav`);
+   const manifest=this.registry.get('assetManifest') as any[]??[];
+   const needed=new Set(ITEM_CATALOG.filter(e=>this.packet.superAccount||this.packet.active?.inventory[e.key]||this.packet.active?.equipment?.weapon.some(k=>k.replace(/^star_/, '')===e.key)||this.packet.active?.equipment?.shield.includes(e.key)).flatMap(e=>[e.textureKey,`star_${e.textureKey}`,`icon_${e.textureKey}`,`arrow_${e.key}`,`held_${e.key}`,`sheath_${e.key}`]));
+   for(const e of manifest.filter(e=>needed.has(e.key)||/^(ui_|armor_|player_|held_|arrow_|sheath_|katana_|fx_hw_|fx_bolt$|fx_|skill_|w_soldier_blade$|s_iron_round$|w_iron_dagger$|terrain_healing_fountain$|gacha_ritual_v2$|coin$|i_potion$|potion$|held_w_iron_dagger$)/.test(e.key))){
+    const source=this.textures.exists(e.key)?this.textures.get(e.key).getSourceImage():null;
+    if((source as HTMLImageElement|null)?.tagName==='IMG'&&!(source as HTMLImageElement).src.startsWith('data:'))continue;
+    if(this.textures.exists(e.key))this.textures.remove(e.key);
+    if(e.kind==='spritesheet')this.load.spritesheet(e.key,versionedPlayerAssetPath(e.path),e.config);else this.load.image(e.key,versionedPlayerAssetPath(e.path));
+   }
+   for(const entry of ITEM_CATALOG.filter(e=>e.category==='weapon')){const key=`star_${entry.key}`;const source=this.textures.exists(key)?this.textures.get(key).getSourceImage():null;if((source as HTMLImageElement|null)?.tagName!=='IMG'){if(this.textures.exists(key))this.textures.remove(key);this.load.image(key,`assets/star-weapons-v1/${key}.webp`);}if(entry.key.startsWith('w_katana_')){const sheath=`sheath_${key}`;if(!this.textures.exists(sheath))this.load.image(sheath,`assets/katana-sheaths-v1/${sheath}.webp`);}}
+   this.load.spritesheet('online_town_props','assets/online/town-props-v2.png',{frameWidth:512,frameHeight:512});
+   this.load.spritesheet('online_town_floor','assets/terrain/ruins-floor-v1/1.png',{frameWidth:64,frameHeight:64});
+   this.load.spritesheet('online_town_grass','assets/online/town-grass-v1.png',{frameWidth:128,frameHeight:128});
+   this.load.image('online_training_barrel','assets/online/training-barrel-v1.png');
+   this.load.image('online_town_fountain','assets/terrain/objects/healing-fountain-pixel.png');
+  }
+  create(){
+   this.busy=true;this.entryLoading?.update(.98,'町と冒険者を準備中…');
+   const loading=this.game.canvas.ownerDocument.getElementById('loading-screen');if(loading)loading.style.display='none';
+   this.cameras.main.setViewport(MAP_X,MAP_Y,MAP_W,MAP_H).setBounds(0,0,TOWN_COLUMNS*TILE,TOWN_ROWS*TILE).setBackgroundColor('#253c33');
+   for(let y=0;y<TOWN_ROWS;y++)for(let x=0;x<TOWN_COLUMNS;x++){
+    const stone=!townBlocked(x,y);
+    if(stone)this.add.image(x*TILE+TILE/2,y*TILE+TILE/2,'online_town_floor',(x*7+y*3)%6).setDisplaySize(TILE,TILE).setTint(0xdad1b8);
+    else this.add.image(x*TILE+TILE/2,y*TILE+TILE/2,'online_town_grass',(x*7+y*3)%64).setDisplaySize(TILE+1,TILE+1);
+   }
+   const grid=this.add.graphics();for(let y=1;y<18;y++)for(let x=1;x<24;x++)if(!townBlocked(x,y))grid.lineStyle(1,0x181c18,.5).strokeRect(x*TILE,y*TILE,TILE,TILE);
+   const prop=(frame:number,x:number,y:number,w:number,h:number)=>this.add.image((x+.5)*TILE,(y+1)*TILE,'online_town_props',frame).setOrigin(.5,1).setDisplaySize(w,h).setDepth(y+1);
+   prop(0,5,5,300,280);prop(1,20,5,300,280);
+   this.groundSprites=[];this.groundMotions=[];this.groundSignature='';this.pickupTarget=undefined;this.dropArtPending.clear();
+   for(const [x,y] of TOWN_TREES)prop(2,x,y,150,160);
+   for(const [x,y] of TOWN_LAMPS)prop(3,x,y,100,140);
+   prop(4,7,12,180,115);prop(4,18,12,180,115);
+   const fountain=this.add.image(12.5*TILE,9.5*TILE,'online_town_fountain').setDisplaySize(144,144).setDepth(10.7);
+   this.tweens.add({targets:fountain,alpha:.88,duration:1600,yoyo:true,repeat:-1});
+   const npc=prop(5,16,11,64,64).setInteractive({useHandCursor:true});
+   npc.on('pointerdown',(pointer:any)=>{if(pointer.rightButtonDown())return;this.stopClickPath();this.log('案内人リーフ「ようこそ、はじまりの町へ。ここで冒険仲間を待っていてね。迷宮への道は準備中だよ。」');});
+   for(const [x,y,label] of [[5,5,'冒険者の宿'],[20,5,'倉庫（準備中）'],[16,11,'案内人リーフ']] as const)this.add.text((x+.5)*TILE,(y+1)*TILE+5,label,{fontFamily:'Meiryo',fontSize:'13px',color:'#ffe4ae',backgroundColor:'#10231bba',padding:{x:5,y:3}}).setOrigin(.5,0).setDepth(90);
+   this.cursorTile=this.add.rectangle(0,0,TILE,TILE,0xffffff,.12).setStrokeStyle(1,0xffffff,.3).setDepth(34).setName('cursor-tile').setVisible(false);
+   this.trainingBarrel=this.add.image((TRAINING_TARGET.x+.5)*TILE,(TRAINING_TARGET.y+1)*TILE,'online_training_barrel').setOrigin(.5,1).setDisplaySize(80,80).setDepth(TRAINING_TARGET.y+.8).setInteractive({useHandCursor:true});
+   this.trainingBarrel.on('pointerdown',(pointer:any,_x:any,_y:any,event:any)=>{if(pointer.rightButtonDown())return;event?.stopPropagation();this.queueTraining();});
+   this.add.text((TRAINING_TARGET.x+.5)*TILE,(TRAINING_TARGET.y+1)*TILE-82,'練習樽 · 壊れません',{fontFamily:'Meiryo',fontSize:'12px',color:'#ffe3a4',backgroundColor:'#10231bbb',padding:{x:4,y:3}}).setOrigin(.5,1).setDepth(90);
+   this.skillPreview=this.add.graphics().setDepth(33);this.input.mouse?.disableContextMenu();this.input.keyboard?.on('keydown-Q',(event:KeyboardEvent)=>{if(!event.repeat&&!['INPUT','TEXTAREA'].includes(document.activeElement?.tagName??''))this.useWeaponSkill();});
+   this.cursors=this.input.keyboard?.createCursorKeys();this.spaceKey=this.input.keyboard?.addKey('SPACE');
+   this.input.on('pointerdown',(p:any)=>{if(this.busy||this.hud?.overlayMode!=='none'||p.x<MAP_X||p.y<MAP_Y||p.x>MAP_X+MAP_W||p.y>MAP_Y+MAP_H)return;if(this.hud?.isSkillPointer(p.x,p.y))return;const point=this.cameras.main.getWorldPoint(p.x,p.y);const x=Math.floor(point.x/TILE),y=Math.floor(point.y/TILE);if(p.rightButtonDown()){this.stopClickPath();const dx=x-this.player.x,dy=y-this.player.y;const dir=Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):dy?(dy>0?'down':'up'):this.player.dir;void this.performAttack(dir);return;}if(x===this.player.x&&y===this.player.y){this.stopClickPath();if(!this.requestBusy)void this.action('wait').catch(e=>this.log(e.message));return;}if(x!==TRAINING_TARGET.x||y!==TRAINING_TARGET.y)this.attackTarget=false;if(!townBlocked(x,y)&&!this.occupiedByOther(x,y))this.destination={x,y};else if(this.occupiedByOther(x,y))this.log('そこにはほかの冒険者がいます。');});
+   this.scene.launch('OnlineUIScene');this.hud=this.scene.get('OnlineUIScene');
+   this.chat=mountTownChat(this as Phaser.Scene,async message=>{await this.action('chat',{message});});
+   this.log('はじまりの町に入場しました。落ちたアイテムはそのマスに乗ると拾えます。');
+   this.drawPlayers();
+   const entryLoading=this.entryLoading;this.events.once('shutdown',()=>entryLoading?.destroy());this.game.events.once('postrender',()=>{if(!this.scene.isActive())return;entryLoading?.finish(()=>{this.busy=false;});if(!entryLoading)this.busy=false;});
+   const generation=this.generation;
+   this.pollTimer=setInterval(()=>{if(this.preview||this.requestBusy||this.pollBusy||!this.scene.isActive())return;this.pollBusy=true;const revision=this.requestRevision;void world('poll').then(state=>{if(generation===this.generation&&revision===this.requestRevision&&!this.requestBusy){this.packet=state;this.syncPlayer();this.drawPlayers();}}).catch(e=>this.log((e as Error).message)).finally(()=>{this.pollBusy=false;});},400);
+   this.events.once('shutdown',()=>{this.generation++;clearInterval(this.pollTimer);this.chat?.destroy();this.chat=undefined;this.scene.stop('OnlineUIScene');if(!this.preview)void world('leave').catch(()=>{});});
+  }
+  syncPlayer(){const c=this.packet.active;if(!c)return;this.player.name=c.name;this.playerGender=c.gender;this.player.hp=c.hp;this.skillStepsRemaining=c.skillStepsRemaining??0;this.timeStopTurns=c.timeStopTurns??0;
+   const equipment=c.equipment??{weapon:['w_iron_dagger'],armor:['leather'],shield:[]};
+   this.player.weapons=equipment.weapon.map(id=>{const w=makeWeapon(id.replace(/^star_/,''),[]);w.variantRolled=true;if(id.startsWith('star_')){w.starred=true;w.name+='★';}return w;});
+   this.player.armors=equipment.armor.filter(isPlayerArmor).map(key=>{const a=makePlayerArmor(key);a.trait=undefined;return a;});this.player.shields=equipment.shield.map(key=>makeShield(key));
+   const weaponKey=c.gear.weapon_key??'w_iron_dagger',armorKey=c.gear.armor_key??'leather';
+   this.player.weapon=c.gear.weapon?this.player.weapons.find(w=>(w.starred?'star_':'')+w.key===weaponKey)??null:null;
+   this.player.armor=c.gear.armor?this.player.armors.find(a=>a.key===armorKey)??null:null;this.player.shield=c.gear.shield?this.player.shields.find(s=>s.key===c.gear.shield_key)??null:null;
+   this.discoveredEquipment=new Set([...equipment.weapon.map(k=>k.replace(/^star_/,'')),...equipment.armor.map(k=>'armor_'+k),...equipment.shield]);
+   this.player.inventory=[];for(const [kind,count]of Object.entries(c.inventory))if(ITEM_CATALOG.some(e=>e.category==='item'&&e.key===kind))for(let i=0;i<count;i++)this.player.inventory.push(makeItem(kind as ItemKind));this.events.emit('refresh');
+  }
+  drawPlayers(){
+   const living=new Set(this.packet.players.map(p=>p.character_id));for(const[id,a]of this.actors)if(!living.has(id)){a.renderer.weapon.destroy();a.renderer.offhand.destroy();a.renderer.scabbard.destroy();a.renderer.waistFitting.destroy();this.bubbles.get(id)?.root.destroy();this.bubbles.delete(id);a.body.destroy();a.anchor.destroy();a.shadow.destroy();a.leftFoot.destroy();a.rightFoot.destroy();a.label.destroy();this.actors.delete(id);}
+   for(const p of this.packet.players){let a=this.actors.get(p.character_id);const x=(p.x+.5)*TILE,y=(p.y+.45)*TILE;
+    if(!a){const renderer=new EquipmentRenderer(this as Phaser.Scene);const anchor=this.add.zone(x,y,1,1);const shadow=this.add.ellipse(x,y+27,25,7,0x000000,.22);const leftFoot=this.add.ellipse(x-7,y+28,12,4,0x000000,.17);const rightFoot=this.add.ellipse(x+7,y+28,12,4,0x000000,.17);const body=this.add.image(x,y,playerSheetKey(p.gender,isPlayerArmor(p.armor)?p.armor:'leather'),playerFrameIndex(p.dir,'idle')).setDisplaySize(64,64);const label=this.add.text(x,y+30,p.name,{fontFamily:'Meiryo',fontSize:'12px',color:'#fff0c6',stroke:'#07130b',strokeThickness:3}).setOrigin(.5).setDepth(95);a={renderer,body,anchor,shadow,leftFoot,rightFoot,label,x:p.x,y:p.y,dir:p.dir,movingUntil:0,animation:new PlayerAnimation(),lastSnapshotAt:this.time.now,distance:0,weight:0,lastPoseTime:this.time.now,previousX:x,previousY:y,attackUntil:0,attackStarted:0,attackWindup:58,projectileLaunched:false,weapon:null,shield:null,queue:[],stepping:false,lastFacing:p.dir};this.actors.set(p.character_id,a);}
+    if(a.x!==p.x||a.y!==p.y)this.moveActor(a,p,TOWN_STEP_MS);a.weapon=p.character_id===this.packet.active?.id?this.player.weapon:this.visualWeapon(p.weapon===undefined?'w_iron_dagger':p.weapon);a.shield=p.character_id===this.packet.active?.id?this.player.shield:p.shield?makeShield(p.shield):null;
+    const texture=playerSheetKey(p.gender,isPlayerArmor(p.armor)?p.armor:'leather');if(a.body.texture.key!==texture)a.body.setTexture(texture,playerFrameIndex(p.dir,a.animation.sample(this.time.now)));a.body.setDepth(p.y+.8);if(!a.stepping)a.dir=p.dir;a.lastFacing=p.dir;a.x=p.x;a.y=p.y;a.lastSnapshotAt=this.time.now;
+    if(p.character_id===this.packet.active?.id){this.player.x=p.x;this.player.y=p.y;this.player.dir=p.dir;this.cameras.main.startFollow(a.anchor,true,.18,.18);}
+   }
+   this.chat?.update(messagesAfterEntry(this.packet.messages,this.chatAfterId));
+   this.drawDrops();this.renderTownEvents();
+  }
+  renderTownEvents(){
+   const newestMessage=Math.max(0,...this.packet.messages.map(m=>Number(m.id)));
+   if(this.lastBubbleId!==undefined)for(const message of this.packet.messages)if(Number(message.id)>this.lastBubbleId&&Number(message.id)>this.chatAfterId&&message.character_id&&this.actors.has(message.character_id))this.showBubble(message.character_id,message.message);
+   this.lastBubbleId=newestMessage;
+   const hits=this.packet.trainingHits??[],newestHit=Math.max(0,...hits.map(h=>Number(h.id)));
+   if(this.lastHitId!==undefined)for(const hit of hits)if(Number(hit.id)>this.lastHitId)this.showTrainingHit(hit);
+   this.lastHitId=newestHit;
+  }
+  showBubble(id:string,message:string){this.bubbles.get(id)?.root.destroy();const text=this.add.text(0,0,chatBubbleText(message),{fontFamily:'Meiryo',fontSize:'12px',color:'#17241f',wordWrap:{width:164,useAdvancedWrap:true},lineSpacing:3}).setOrigin(.5,1);const w=Math.max(36,text.width+18),h=text.height+14;const bg=this.add.graphics();bg.fillStyle(0xfff9e8,.97).fillRoundedRect(-w/2,-h,w,h,8);bg.lineStyle(1,0x9f8960,.95).strokeRoundedRect(-w/2,-h,w,h,8);bg.fillStyle(0xfff9e8,.97).fillTriangle(-5,0,5,0,0,7);text.setY(-7);const root=this.add.container(0,0,[bg,text]).setDepth(120);this.bubbles.set(id,{root,until:this.time.now+6000});}
+  queueTraining(){this.attackTarget=true;this.destination=undefined;this.pickupTarget=undefined;}
+  tryTraining(){const dx=TRAINING_TARGET.x-this.player.x,dy=TRAINING_TARGET.y-this.player.y;const type=this.player.weapon?.weaponType;const reach=type==='bow'||type==='handgun'?3:type==='lance'?2:1;
+   if((dx===0||dy===0)&&Math.abs(dx)+Math.abs(dy)<=reach){if(this.time.now-this.lastAttackAttempt<340)return;this.attackTarget=false;this.destination=undefined;this.lastAttackAttempt=this.time.now;void this.action('train').catch(e=>this.log(e.message));return;}
+   if(!this.destination){const options=[[0,1],[-1,0],[1,0],[0,-1]].map(([dx,dy])=>({x:TRAINING_TARGET.x+dx,y:TRAINING_TARGET.y+dy})).filter(p=>!townBlocked(p.x,p.y)&&!this.occupiedByOther(p.x,p.y));options.sort((a,b)=>Math.abs(a.x-this.player.x)+Math.abs(a.y-this.player.y)-Math.abs(b.x-this.player.x)-Math.abs(b.y-this.player.y));this.destination=options[0];if(!this.destination){this.attackTarget=false;this.log('樽の周りが埋まっています。');}}
+  }
+  async performAttack(dir:WorldPlayer['dir']){if(this.busy||this.requestBusy||this.hud?.overlayMode!=='none')return;const skill=this.skillArmed;try{await this.action(skill?'skill':'attack',{dir});if(skill)this.skillArmed=false;}catch(e){this.log((e as Error).message);}}
+  showTrainingHit(hit:NonNullable<WorldState['trainingHits']>[number]){const actor=this.actors.get(hit.character_id);if(hit.action_kind==='wait'){if(actor)actor.movingUntil=this.time.now+TOWN_STEP_MS;if(hit.character_id===this.packet.active?.id)this.time.delayedCall(TOWN_STEP_MS/2,()=>playTownSound(this as Phaser.Scene,'step'));return;}if(actor){actor.dir=hit.dir;const originX=hit.origin_x??Math.round(actor.anchor.x/TILE-.5),originY=hit.origin_y??Math.round(actor.anchor.y/TILE-.45);actor.attackPoint={x:originX,y:originY};for(let n=1;n<=3;n++){const next={x:originX+(hit.dir==='left'?-n:hit.dir==='right'?n:0),y:originY+(hit.dir==='up'?-n:hit.dir==='down'?n:0)};if(townBlocked(next.x,next.y)&&!(next.x===12&&next.y===5))break;actor.attackPoint=next;if(next.x===12&&next.y===5)break;}if(hit.weapon_key!==undefined)actor.weapon=this.visualWeapon(hit.weapon_key);const type=actor.weapon?.weaponType,hero=actor.weapon?.key==='w_hero_sword';actor.attackWindup=hero?200:58;actor.animation.attackFrameMs=hero?65:type==='katana'?52:26;actor.animation.windupFrameMs=hero?90:type==='katana'?70:29;actor.attackStarted=this.time.now;actor.attackUntil=this.time.now+actor.attackWindup+Math.max(210,actor.animation.attackFrameMs*4);actor.projectileLaunched=hit.action_kind==='skill';actor.animation.play('atkWindup',this.time.now);if(hit.action_kind==='skill'&&actor.weapon){const attackWeapon=actor.weapon,type=attackWeapon.weaponType,origin={x:hit.origin_x??Math.round(actor.anchor.x/TILE-.5),y:hit.origin_y??Math.round(actor.anchor.y/TILE-.45)},skill=weaponSkill(type)!;const plan=planSkill(type,origin,hit.dir,{blocked:(x,y)=>townBlocked(x,y)&&!(x===12&&y===5),enemyAt:(x,y)=>x===12&&y===5?true:null,canHit:()=>true});actor.attackWindup=type==='katana'?170:actor.weapon.key==='w_hero_sword'?200:0;actor.attackUntil=this.time.now+actor.attackWindup+Math.max(350,skillImpactTime(type));this.time.delayedCall(actor.attackWindup,()=>playPaintedSkill(this as Phaser.Scene,type,origin,hit.dir,hit.skill_type==='dagger_finish'?plan.tiles.slice(0,1):plan.tiles,(attackWeapon.starred?'star_':'')+attackWeapon.key,skill.color,TILE));if(hit.character_id===this.packet.active?.id)this.log((hit.skill_type==='dagger_finish'?'零刻領域の追撃':skill.name)+'！'+(type==='dagger'&&hit.skill_type!=='dagger_finish'?' 5回の移動・足踏み後に正面へ追撃します。':''));}}
+   if(hit.hit_target===false||hit.damage===0)return;
+   const impactDelay=actor?(actor.attackWindup+(hit.action_kind==='skill'&&actor.weapon?skillImpactTime(actor.weapon.weaponType):actor.weapon?.weaponType==='bow'||actor.weapon?.weaponType==='handgun'?180:45)):0;this.time.delayedCall(impactDelay,()=>{if(hit.character_id===this.packet.active?.id)playTownSound(this as Phaser.Scene,'hit');
+   const x=(TRAINING_TARGET.x+.5)*TILE,y=(TRAINING_TARGET.y+.3)*TILE;const text=this.add.text(x+(Math.random()-.5)*18,y,`${hit.damage}`,{fontFamily:'Meiryo',fontSize:'22px',fontStyle:'bold',color:'#ffe297',stroke:'#361f12',strokeThickness:4}).setOrigin(.5).setDepth(125);this.tweens.add({targets:text,y:y-38,alpha:0,duration:850,onComplete:()=>text.destroy()});
+   if(this.trainingBarrel){this.tweens.killTweensOf(this.trainingBarrel);this.trainingBarrel.setAngle(-3).setTint(0xffd395);this.tweens.add({targets:this.trainingBarrel,angle:3,duration:55,yoyo:true,repeat:1,onComplete:()=>{this.trainingBarrel.setAngle(0).clearTint();}});}
+   if(hit.character_id===this.packet.active?.id)this.log(`練習樽に${hit.damage}ダメージ。樽は壊れません。`);
+   });
+  }
+  visualWeapon(id:string|null){if(!id)return null;const weapon=makeWeapon(id.replace(/^star_/,''),[]);weapon.starred=id.startsWith('star_');return weapon;}
+  occupiedByOther(x:number,y:number){return this.packet.players.some(p=>p.character_id!==this.packet.active?.id&&p.x===x&&p.y===y);}
+  moveActor(a:any,p:{x:number;y:number;dir:WorldPlayer['dir']},_duration:number){const start=a.stepTarget??{x:Math.round(a.anchor.x/TILE-.5),y:Math.round(a.anchor.y/TILE-.45)};a.queue=townPath(start,p,this.packet.players.filter(other=>this.actors.get(other.character_id)!==a));a.x=p.x;a.y=p.y;a.lastFacing=p.dir;this.advanceActor(a);}
+  advanceActor(a:any){if(a.stepping||!a.queue.length)return;const tile=a.queue.shift()!;a.stepTarget=tile;a.stepping=true;const dx=(tile.x+.5)*TILE-a.anchor.x,dy=(tile.y+.45)*TILE-a.anchor.y;a.dir=Math.abs(dx)>.1?(dx>0?'right':'left'):(dy>0?'down':'up');a.animation.play('walk1',this.time.now);this.tweens.add({targets:a.anchor,x:(tile.x+.5)*TILE,y:(tile.y+.45)*TILE,duration:TOWN_STEP_MS,ease:'Sine.easeInOut',onComplete:()=>{a.stepping=false;a.stepTarget=undefined;if(this.actors.get(this.packet.active?.id??'')===a)playTownSound(this as Phaser.Scene,'step');if(a.queue.length)this.advanceActor(a);else a.dir=a.lastFacing;}});}
+  groundItemInfo(item:{kind:string;category?:string}){const key=item.kind.replace(/^star_/,'');const entry=ITEM_CATALOG.find(e=>e.key===key);return {name:(entry?.name??item.kind)+(item.kind.startsWith('star_')?'★':''),texture:entry?.textureKey??'ui_nav_inventory'};}
+  ensureDropArt(key:string){const exists=this.textures.exists(key);const source=exists?this.textures.get(key).getSourceImage():null;const entry=(this.registry.get('assetManifest') as any[]??[]).find(e=>e.key===key&&e.kind!=='spritesheet');if((source as HTMLImageElement|null)?.tagName==='IMG'||!entry||this.dropArtPending.has(key))return;this.dropArtPending.add(key);if(exists)this.textures.remove(key);this.load.once(`filecomplete-image-${key}`,()=>{this.dropArtPending.delete(key);this.groundSignature='';if(this.scene.isActive())this.drawDrops();});this.load.image(key,entry.path);this.load.start();}
+  drawDrops(){const signature=JSON.stringify(this.packet.drops??[]);if(signature===this.groundSignature)return;this.groundSignature=signature;for(const sprite of this.groundSprites)sprite.destroy();this.groundSprites=[];this.groundMotions=[];
+   for(const item of this.packet.drops??[]){const phase=[...item.id].reduce((n,c)=>(n*31+c.charCodeAt(0))>>>0,0)%6283/1000,pose=groundLootPose(item.x,item.y,this.time.now,phase),info=this.groundItemInfo(item);this.ensureDropArt(info.texture);const glow=this.add.ellipse(pose.x,(item.y+.5)*TILE+4,30,9,0x9de1c0,.16).setDepth(item.y+.4);const icon=this.add.image(pose.x,pose.y,this.textures.exists(info.texture)?info.texture:'ui_nav_inventory').setDisplaySize(30,30).setDepth(item.y+.5).setName('online-ground-drop').setData('dropId',item.id).setInteractive({useHandCursor:true});icon.on('pointerdown',(pointer:any)=>{if(pointer.rightButtonDown()||this.hud?.overlayMode!=='none')return;this.autoPickupIgnored.delete(item.id);this.pickupTarget=item.id;this.destination={x:item.x,y:item.y};});this.groundSprites.push(glow,icon);this.groundMotions.push({sprite:icon,glow,x:item.x,y:item.y,phase});}
+  }
+  ignoreOwnDrops(previous:Set<string>){for(const item of this.packet.drops??[])if(!previous.has(item.id)&&item.x===this.player.x&&item.y===this.player.y)this.autoPickupIgnored.add(item.id);}
+
+  dropWeapon(index:number){this.dropEquipment('weapon',index);}
+  dropArmor(index:number){this.dropEquipment('armor',index);}
+  dropShield(index:number){this.dropEquipment('shield',index);}
+  dropEquipment(slot:'weapon'|'armor'|'shield',index:number){const item=slot==='weapon'?this.player.weapons[index]:slot==='armor'?this.player.armors[index]:this.player.shields[index];if(!item)return;const key=slot==='weapon'&&'starred'in item&&item.starred?'star_'+item.key:item.key;const previous=new Set((this.packet.drops??[]).map(d=>d.id));void this.action('drop_equipment',{slot,index,key}).then(()=>{this.ignoreOwnDrops(previous);this.log(`${item.name}を落としました。`);if(this.hud?.overlayMode==='inv')this.hud.setOverlay('inv');}).catch(e=>{this.log(e.message);this.hud?.setOverlay('none');});}
+  async dropItem(kind:string){const previous=new Set((this.packet.drops??[]).map(d=>d.id));await this.action('drop_item',{kind});this.ignoreOwnDrops(previous);this.log('回復ポーションを1個落としました。ほかのプレイヤーも拾えます。');}
+  async action(action:string,payload:Record<string,unknown>={}){if(this.requestBusy)throw Error('処理中です。少し待ってからお試しください。');this.requestBusy=true;this.requestRevision++;const gen=this.generation;try{if(this.preview){
+    const c=this.packet.active!,me=this.packet.players.find(p=>p.character_id===c.id)!;
+    if(action==='wait'){c.skillStepsRemaining=Math.max(0,(c.skillStepsRemaining??0)-1);c.timeStopTurns=Math.max(0,(c.timeStopTurns??0)-1);this.packet.trainingHits??=[];this.packet.trainingHits.push({id:Math.max(0,...this.packet.trainingHits.map(h=>h.id))+1,character_id:c.id,damage:0,dir:me.dir,action_kind:'wait',hit_target:false});}
+    else if(action==='move'){c.skillStepsRemaining=Math.max(0,(c.skillStepsRemaining??0)-1);c.timeStopTurns=Math.max(0,(c.timeStopTurns??0)-1);const nx=Number(payload.x),ny=Number(payload.y);me.dir=nx>me.x?'right':nx<me.x?'left':ny>me.y?'down':'up';me.x=nx;me.y=ny;}
+    else if(action==='chat'){this.packet.messages.push({id:Math.max(0,...this.packet.messages.map(m=>Number(m.id)))+1,name:c.name,message:String(payload.message),character_id:c.id});this.packet.messages=this.packet.messages.slice(-50);}
+    else if(action==='attack'||action==='skill'){const weapon=this.player.weapon,type=weapon?.weaponType,skill=weaponSkill(type);if(action==='skill'&&(!skill||this.skillStepsRemaining>0))throw Error('スキルのチャージが必要です。');me.dir=payload.dir as WorldPlayer['dir'];if(action==='skill'){c.skillStepsRemaining=100;if(type==='dagger')c.timeStopTurns=5;}const plan=type?planSkill(type,me,me.dir,{blocked:(x,y)=>townBlocked(x,y)&&!(x===12&&y===5),enemyAt:(x,y)=>x===12&&y===5?true:null,canHit:()=>true}):{targets:[]};this.packet.trainingHits??=[];this.packet.trainingHits.push({id:Math.max(0,...this.packet.trainingHits.map(h=>h.id))+1,character_id:c.id,damage:plan.targets.length?18:0,dir:me.dir,weapon_key:weapon?.key??null,action_kind:action==='skill'?'skill':'attack',skill_type:action==='skill'?type:null,origin_x:me.x,origin_y:me.y,hit_target:!!plan.targets.length});}
+    else if(action==='train'){if(Math.abs(me.x-TRAINING_TARGET.x)+Math.abs(me.y-TRAINING_TARGET.y)>3)throw Error('練習樽の近くまで移動してください。');this.packet.trainingHits??=[];this.packet.trainingHits.push({id:Math.max(0,...this.packet.trainingHits.map(h=>h.id))+1,character_id:c.id,weapon_key:this.player.weapon?(this.player.weapon.starred?'star_':'')+this.player.weapon.key:null,damage:Math.round((this.player.atkMin+this.player.atkMax)/2),dir:me.x<TRAINING_TARGET.x?'right':me.x>TRAINING_TARGET.x?'left':me.y<TRAINING_TARGET.y?'down':'up'});}
+    else if(action==='drop_equipment'||action==='drop_weapon'){const index=Number(payload.index),key=String(payload.key);c.equipment??={weapon:['w_iron_dagger'],armor:['leather'],shield:[]};const slot=(payload.slot??'weapon') as 'weapon'|'armor'|'shield';if(c.equipment[slot][index]!==key)throw Error('その武器は持っていません。');c.equipment[slot].splice(index,1);if((c.gear[`${slot}_key`]??(slot==='weapon'?'w_iron_dagger':slot==='armor'?'leather':null))===key){c.gear[slot]=false;if(slot==='weapon')c.hp=Math.min(c.hp,100);}this.packet.drops??=[];this.packet.drops.push({id:crypto.randomUUID(),kind:slot==='armor'?'armor_'+key:key,category:slot,x:me.x,y:me.y});}
+    else if(action==='drop_item'){if(!c.inventory.potion)throw Error('落とせるアイテムがありません。');c.inventory.potion--;this.packet.drops??=[];this.packet.drops.push({id:crypto.randomUUID(),kind:'potion',x:me.x,y:me.y});}
+    else if(action==='pickup_item'){const item=this.packet.drops?.find(d=>d.id===payload.drop_id);if(!item||Math.abs(item.x-me.x)+Math.abs(item.y-me.y)>1)throw Error('アイテムの近くまで移動してください。');this.packet.drops=this.packet.drops!.filter(d=>d.id!==item.id);if(item.category&&item.category!=='item'){c.equipment??={weapon:['w_iron_dagger'],armor:['leather'],shield:[]};c.equipment[item.category as 'weapon'|'armor'|'shield'].push(item.category==='armor'?item.kind.slice(6):item.kind);}else c.inventory.potion++;}
+    this.syncPlayer();this.drawPlayers();return;
+   }const state=await world(action,payload);if(gen===this.generation){this.packet=state;this.syncPlayer();this.drawPlayers();}}catch(error){if(gen===this.generation)this.drawPlayers();throw error;}finally{this.requestBusy=false;}}
+  updateCursorTile(){const p=this.input.activePointer;const valid=this.input.isOver&&!p.wasTouch&&this.hud?.overlayMode==='none'&&p.x>=MAP_X&&p.x<MAP_X+MAP_W&&p.y>=MAP_Y&&p.y<MAP_Y+MAP_H;if(!valid){this.cursorTile?.setVisible(false);return;}const point=this.cameras.main.getWorldPoint(p.x,p.y);const x=Math.floor(point.x/TILE),y=Math.floor(point.y/TILE);this.cursorTile?.setPosition((x+.5)*TILE,(y+.5)*TILE).setVisible(x>=0&&y>=0&&x<TOWN_COLUMNS&&y<TOWN_ROWS);}
+  update(time:number){
+   this.updateCursorTile();for(const item of this.groundMotions){const pose=groundLootPose(item.x,item.y,time,item.phase);item.sprite.setPosition(pose.x,pose.y).setAngle(pose.angle);item.glow.setAlpha(.16+pose.pulse*.06).setScale(.9+pose.pulse*.08);}
+   if(this.chat)this.chat.root.style.visibility=this.hud?.overlayMode==='none'?'visible':'hidden';
+   if(this.hud?.topText)this.hud.topText.setText('はじまりの町 · サーバー1');
+   this.showSkillRangePreview(this.skillArmed||!!this.hud?.skillHovered);
+   for(const [actorId,a]of this.actors){
+    const dx=a.anchor.x-a.previousX,dy=a.anchor.y-a.previousY,moved=Math.hypot(dx,dy),dt=Math.max(0,Math.min(100,time-a.lastPoseTime));
+    a.previousX=a.anchor.x;a.previousY=a.anchor.y;a.lastPoseTime=time;a.distance+=moved;
+    const stamping=time<a.movingUntil;if(stamping)a.distance+=dt*TILE/TOWN_STEP_MS;const walking=moved>.02||stamping;a.weight+=(Number(walking)-a.weight)*Math.min(1,dt/65);
+    const attacking=time<a.attackUntil;if(attacking){if(time-a.attackStarted>=a.attackWindup&&a.animation.action!=='attack')a.animation.play('atk',time);}else a.animation.play(walking?'walk1':'idle',time);const pose=townWalkPose(a.distance,a.weight,a.dir);
+    const frame=attacking?a.animation.sample(time):walking?pose.frame:a.animation.sample(time),strikeElapsed=time-a.attackStarted-a.attackWindup,ranged=a.weapon?.weaponType==='bow'||a.weapon?.weaponType==='handgun',lungeMs=a.weapon?.key==='w_hero_sword'?130:116*.45,lunge=attacking&&!ranged&&strikeElapsed>=0&&strikeElapsed<lungeMs*2?15*(1-Math.pow(1-Math.min(strikeElapsed,2*lungeMs-strikeElapsed)/lungeMs,2)):0;a.body.setPosition(a.anchor.x+(attacking?(a.dir==='left'?-lunge:a.dir==='right'?lunge:0):pose.sway),a.anchor.y+(attacking?(a.dir==='up'?-lunge:a.dir==='down'?lunge:0):pose.bob)).setAngle(attacking?0:pose.angle).setFrame(playerFrameIndex(a.dir,frame));
+    a.label.setPosition(a.anchor.x,a.anchor.y+30);
+    const depth=a.anchor.y/TILE+.2;a.shadow.setPosition(a.anchor.x,a.anchor.y+27).setDepth(depth-.03);
+    a.leftFoot.setPosition(a.anchor.x-7,a.anchor.y+28+pose.footOffset).setAlpha(pose.leftFoot).setDepth(depth-.02);
+    a.rightFoot.setPosition(a.anchor.x+7,a.anchor.y+28-pose.footOffset).setAlpha(pose.rightFoot).setDepth(depth-.02);
+    a.body.setDepth(depth);
+    const gender=this.packet.players.find(p=>p.character_id===actorId)?.gender??'male';
+    a.renderer.update(a.body,a.weapon,a.shield,a.dir,frame,gender,attacking?Math.max(0,time-a.animation.since):0,true);
+    if(attacking&&!a.projectileLaunched&&time-a.attackStarted>=a.attackWindup&&(a.weapon?.weaponType==='bow'||a.weapon?.weaponType==='handgun')){a.projectileLaunched=true;const key=a.weapon.weaponType==='bow'?`arrow_${a.weapon.key}`:'fx_bolt';if(this.textures.exists(key)){const shot=this.add.image(a.anchor.x,a.anchor.y,key).setDisplaySize(24,24).setDepth(100).setRotation(Math.atan2(((a.attackPoint?.y??TRAINING_TARGET.y)+.5)*TILE-a.anchor.y,((a.attackPoint?.x??TRAINING_TARGET.x)+.5)*TILE-a.anchor.x)+(a.weapon.weaponType==='bow'?Math.PI/4:0));this.tweens.add({targets:shot,x:((a.attackPoint?.x??TRAINING_TARGET.x)+.5)*TILE,y:((a.attackPoint?.y??TRAINING_TARGET.y)+.5)*TILE,duration:180,ease:'Quad.easeIn',onComplete:()=>shot.destroy()});}}
+
+    const bubble=this.bubbles.get(actorId);if(bubble){if(time>bubble.until){bubble.root.destroy();this.bubbles.delete(actorId);}else bubble.root.setPosition(a.anchor.x,a.anchor.y-48);}
+
+   }
+   if(this.requestBusy||time-this.lastMove<TOWN_STEP_MS||this.hud?.overlayMode!=='none'||this.busy||['INPUT','TEXTAREA'].includes(document.activeElement?.tagName??''))return;
+   const self=this.actors.get(this.packet.active?.id??'');if(self?.stepping||self?.queue.length)return;
+   if(this.spaceKey?.isDown)this.queueTraining();if(this.attackTarget)this.tryTraining();if(this.requestBusy||this.attackTarget&&!this.destination||time<(this.actors.get(this.packet.active?.id??'')?.attackUntil??0))return;
+   if(this.pickupTarget&&!this.packet.drops?.some(d=>d.id===this.pickupTarget)){this.pickupTarget=undefined;this.destination=undefined;}
+   const loot=walkoverDrop(this.packet.drops??[],this.player,this.autoPickupIgnored);if(loot){this.pickupTarget=undefined;void this.action('pickup_item',{drop_id:loot.id}).then(()=>this.log(this.groundItemInfo(loot).name+'を拾いました。')).catch(e=>{this.autoPickupIgnored.add(loot.id);this.log(e.message);});return;}
+
+   let dir=this.touchDir??(this.cursors?.left.isDown?'left':this.cursors?.right.isDown?'right':this.cursors?.up.isDown?'up':this.cursors?.down.isDown?'down':null);
+   if(dir){this.destination=undefined;this.pickupTarget=undefined;this.attackTarget=false;}
+   else if(this.destination){const dx=this.destination.x-this.player.x,dy=this.destination.y-this.player.y;if(!dx&&!dy)this.destination=undefined;else dir=this.pathStep(this.destination.x,this.destination.y);}
+   if(!dir)return;const x=this.player.x+(dir==='left'?-1:dir==='right'?1:0),y=this.player.y+(dir==='up'?-1:dir==='down'?1:0);this.lastMove=time;if(x===TRAINING_TARGET.x&&y===TRAINING_TARGET.y){this.queueTraining();this.tryTraining();return;}if(townBlocked(x,y)||this.occupiedByOther(x,y))return;
+   void this.action('move',{x,y}).catch(e=>{this.destination=undefined;this.log((e as Error).message);});
+  }
+  pathStep(tx:number,ty:number){const occupied=this.packet.players.filter(p=>p.character_id!==this.packet.active?.id);const path=townPath(this.player,{x:tx,y:ty},occupied);const next=path[0];if(!next){this.destination=undefined;return null;}return next.x>this.player.x?'right':next.x<this.player.x?'left':next.y>this.player.y?'down':'up';}
+  log(msg:string,type='sys'){this.logHistory.push({msg,type});if(this.logHistory.length>100)this.logHistory.shift();this.adventureHistory.push({msg,type,floor:0,turn:0});if(this.adventureHistory.length>100)this.adventureHistory.shift();this.chat?.notice(msg);this.events.emit('log',{msg,type});}
+  floorHasGate(){return false;}clearMoveInput(){this.touchDir=null;this.heldDir=null;}stopClickPath(){this.destination=undefined;this.attackTarget=false;}setBoostTier(){}showDynamiteRangePreview(){}showSkillRangePreview(show=false){this.skillPreview?.clear();const type=this.player.weapon?.weaponType;if(!(show||this.skillArmed)||!type||this.hud?.overlayMode!=='none')return;const p=this.input.activePointer,point=this.cameras.main.getWorldPoint(p.x,p.y),dx=Math.floor(point.x/TILE)-this.player.x,dy=Math.floor(point.y/TILE)-this.player.y,dir=Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):dy?(dy>0?'down':'up'):this.player.dir;const plan=planSkill(type,this.player,dir,{blocked:(x,y)=>townBlocked(x,y)&&!(x===12&&y===5),enemyAt:(x,y)=>x===12&&y===5?true:null,canHit:()=>true});for(const tile of plan.tiles)this.skillPreview.fillStyle(weaponSkill(type)!.color,.18).fillRect(tile.x*TILE,tile.y*TILE,TILE,TILE).lineStyle(1,weaponSkill(type)!.color,.75).strokeRect(tile.x*TILE,tile.y*TILE,TILE,TILE);}useWeaponSkill(){if(this.busy||this.hud?.overlayMode!=='none'||!this.player.weapon)return;if(this.skillStepsRemaining>0){this.log(`スキルはあと${this.skillStepsRemaining}歩で使えます。`);return;}this.skillArmed=!this.skillArmed;this.log(this.skillArmed?`${weaponSkill(this.player.weapon.weaponType)!.name}を選択。右クリックで発動します。`:'スキル選択を解除しました。');}saveRun(){return true;}
+  equipWeapon(index:number){const w=this.player.weapons[index];if(w)void this.action('equip',{slot:'weapon',equipped:true,key:(w.starred?'star_':'')+w.key}).catch(e=>this.log(e.message));}
+  equipArmor(index:number){const a=this.player.armors[index];if(a)void this.action('equip',{slot:'armor',equipped:true,key:a.key}).catch(e=>this.log(e.message));}
+  equipShield(index:number){const s=this.player.shields[index];if(s)void this.action('equip',{slot:'shield',equipped:true,key:s.key}).catch(e=>this.log(e.message));}
+  unequipEquipment(slot:string){void this.action('equip',{slot,equipped:false}).catch(e=>this.log(e.message));}
+  useItem(index:number){const item=this.player.inventory[index];if(item)void this.action('use_item',{kind:item.kind}).catch(e=>this.log(e.message));}
+  ownsArmor(key:string){return this.player.armors.some(a=>a.key===key);}weaponSellPrice(){return 0;}armorSellPrice(){return 0;}shieldSellPrice(){return 0;}itemSellPrice(){return 0;}
+  sellWeapon(index?:number){if(typeof index==='number')this.dropWeapon(index);else this.log('町のお店は準備中です。');}sellArmor(index?:number){if(typeof index==='number')this.dropArmor(index);else this.sellWeapon();}sellShield(index?:number){if(typeof index==='number')this.dropShield(index);else this.sellWeapon();}sellItem(kind:string){if(kind!=='potion'){this.log('この道具のドロップは準備中です。');return;}void this.dropItem(kind).then(()=>this.hud?.setOverlay('inv')).catch(e=>{this.log(e.message);this.hud?.setOverlay('none');});}buyItem(){this.sellWeapon();}repairEquipment(){return false;}
+  async redeemOnlineCode(code:string){await this.action('redeem_code',{code});this.log(code===ITEM_CATALOG_CODE?'スーパーアカウント：全アイテム一覧を開きました。':'体力を全回復しました。');}
+  async claimOnlineItem(key:string,starred:boolean){await this.action('claim_item',{key,starred});this.log('アイテム一覧から装備・道具を取得しました。');}
+  redeemCode(){return false;}unlockDualWieldSecret(){return false;}claimCatalogItem(){return{status:'rejected',message:'オンラインの通常アカウントでは使えません。'};}
+ }
+ class TownHud extends HudBase{
+  create(){super.create();}
+  buildTopBar(){super.buildTopBar();for(const child of this.children.list as any[])if(typeof child.text==='string'&&child.text.startsWith('ちゃりだんじょん  /'))child.setText('NEW WORLD  /  はじまりの町'+(this.gs.packet.superAccount?' [SUPER]':''));}
+  update(){super.update();if(this.skillCounter)this.skillCounter.setText(this.gs.timeStopTurns>0?`時停止 ${this.gs.timeStopTurns}`:this.gs.skillStepsRemaining>0?String(this.gs.skillStepsRemaining):this.gs.skillArmed?'選択中':'');if(this.skillButton)this.skillButton.setAlpha(this.gs.skillArmed?1:.85);}
+  buildLeftMenu(){this.panel(8,48,160,512,'メニュー');this.buildGachaCard();let y=184;for(const [icon,label,fn]of [['ui_nav_explore','探索',()=>this.setOverlay('none')],['ui_nav_inventory','持ち物・装備',()=>this.openInventory()],['ui_nav_shop','ショップ',()=>this.setOverlay('shop')],['ui_nav_codex','冒険図鑑',()=>this.setOverlay('codex')],['ui_nav_damage_log','詳細ログ',()=>this.setOverlay('details')],['ui_nav_settings','設定',()=>this.showSettings()]] as const){this.menuButton(16,y,144,40,icon,label,fn);y+=43;}this.add.text(16,y+6,'矢印・クリック：移動\n右クリック：攻撃  Q：スキル',{fontFamily:'Meiryo',fontSize:'10px',color:'#789093',lineSpacing:5});}
+  buildMobileNav(){this.panel(8,800,374,36);const items=[['ui_nav_shop','店',()=>this.setOverlay('shop')],['ui_nav_gacha','ガチャ',()=>this.setOverlay('gacha')],['ui_nav_codex','図鑑',()=>this.setOverlay('codex')],['ui_nav_damage_log','ログ',()=>this.setOverlay('details')],['ui_nav_settings','設定',()=>this.showSettings()]] as const;items.forEach(([icon,label,fn],i)=>{const x=12+i*366/items.length,w=366/items.length-4;this.add.rectangle(x+w/2,818,w,30,0x25121e).setStrokeStyle(1,this.theme.color).setInteractive({useHandCursor:true}).on('pointerdown',fn);this.add.image(x+14,818,icon).setDisplaySize(20,20);this.add.text(x+28,818,label,{fontFamily:'Meiryo',fontSize:'10px',color:'#ffe6b8'}).setOrigin(0,.5);});}
+  showControlsGuide(){this.gs.log('矢印キー・地面クリックで移動。左下のチャットで会話できます。');}
+  buildBottom(){this.panel(8,568,700,184);this.logTexts=[];this.panel(716,568,GAME_W-724,184,'クイックアイテム（クリックで使用）');this.itemContainer=this.add.container(0,0);}
+  submitCode(){if(this.gs.requestBusy)return;const code=this.codeDigits;this.codeMessage='確認中…';this.rebuildOverlay();void this.gs.redeemOnlineCode(code).then(()=>{this.codeDigits='';this.codeMessage='';if(code===ITEM_CATALOG_CODE){this.catalogCategory='all';this.catalogPageIndex=0;this.catalogDetail=null;this.setOverlay('itemcatalog');}else{this.codeMessage='体力を全回復しました';this.rebuildOverlay();}}).catch((e:Error)=>{this.codeMessage=e.message;this.rebuildOverlay();});}
+  selectCatalogItem(entry:any){if(this.overlayMode==='equipmentcatalog'){super.selectCatalogItem(entry);return;}if(this.gs.requestBusy)return;this.catalogClaimMessage='取得中…';this.rebuildOverlay();void this.gs.claimOnlineItem(entry.key,entry.textureKey.startsWith('star_')).then(()=>{this.catalogClaimMessage='1個取得しました。所持品に保存しました。';this.catalogDetail=ITEM_CATALOG.find(e=>e.key===entry.key)??entry;this.rebuildOverlay();}).catch((e:Error)=>{this.catalogClaimMessage=e.message;this.rebuildOverlay();});}
+  rebuildOverlay(){super.rebuildOverlay();if(this.overlayMode==='equip')for(const child of this.overlay?.list??[])if(child.text==='装備・売却')child.setText('装備・ドロップ');}
+  rowButton(x:number,y:number,w:number,label:string,highlight:boolean,onClick:()=>void,enabled=true,palette?:any){if(w===112&&label.startsWith('売却 '))label='1個落とす';if((w===94||w===72)&&(/^(売却 \d+G|装備中)$/.test(label))){label='落とす';enabled=!this.gs.requestBusy;}return super.rowButton(x,y,w,label,highlight,onClick,enabled,palette);}
+  setOverlay(mode:string){if(['shop','gacha','quests'].includes(mode)){this.gs.log('町のこの機能は準備中です。');return;}if(mode==='itemcatalog'&&(!this.gs.packet.superAccount||!this.gs.packet.active?.catalogUnlocked)){this.gs.log('スーパーアカウントでコードを入力してください。');return;}super.setOverlay(mode);}
+  buildSettingsOverlay(x:number,y:number,w:number,h:number){super.buildSettingsOverlay(x,y,w,h);if(this.gs.packet.superAccount)this.overlay.add(this.add.text(x+20,y+h-95,'SUPER：19960711 アイテム一覧 ／ 11111111 全回復',{fontFamily:'Meiryo',fontSize:'12px',color:'#ffe09a',wordWrap:{width:w-40}}));const row=this.overlay.getByName('settings-return-title');if(row){const hit=row.getByName('row-hit');hit?.removeAllListeners('pointerdown');hit?.on('pointerdown',()=>{this.gs.scene.stop('OnlineUIScene');this.gs.scene.start('TitleScene');});}}
+ }
+ host.scene.add('OnlineLobbyScene',new Lobby());host.scene.add('OnlineTownScene',new Town());const hud=new TownHud();hud.sys.settings.key='OnlineUIScene';host.scene.add('OnlineUIScene',hud);
+}
+

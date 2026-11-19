@@ -1,0 +1,8 @@
+node_modules/
+dist/
+dist-verifier/
+.env
+.env.*
+!.env.example
+outputs/
+tmp/

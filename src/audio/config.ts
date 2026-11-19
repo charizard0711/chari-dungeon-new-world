@@ -1,0 +1,115 @@
+// ========================================================================
+import type { MonsterElement, WeaponType } from '../types';
+// 音源パス定数
+// 本物のmp3/oggに差し替える場合は public/assets/audio/ に
+// 下記ファイル名で置くだけでOK（自動で読み込まれ、仮BGMより優先される）。
+// ファイルが無い場合は synth.ts が仮チップチューンを自動生成する。
+// ========================================================================
+
+export interface AudioDef {
+  key: string;     // Phaser sound キー
+  path: string;    // 音源ファイルパス（public/ 基準）
+  volume: number;  // 基本音量 (0-1)
+  loop?: boolean;
+}
+
+// ---- BGM ----
+export const BGM_DEFS = {
+  // タイトル画面：「のんびり冒険日和」候補①（Suno、90 BPM指定）
+  title:    { key: 'bgm_title',    path: 'assets/audio/title-nonbiri-suno-v1.mp3',    volume: 0.5,  loop: true },
+  // 通常探索：1F〜30Fを通して「古樹と石環（ハープ版）」を流す
+  floor01:  { key: 'bgm_floor01',  path: 'assets/audio/bgm_floors_01_02.mp3', volume: 0.5, loop: true },
+  // 7x7中ボス部屋：入口封鎖から撃破まで「紅蓮ブースト」（184 BPM）
+  midboss:  { key: 'bgm_midboss',  path: 'assets/audio/bgm_midboss_crimson_boost.mp3', volume: 0.16, loop: true },
+  // 5階ごとの大ボス部屋：氷晶大聖堂（チェレスタ＋弦楽＋控えめな合唱）
+  boss:     { key: 'bgm_boss',     path: 'assets/audio/bgm_boss.mp3', volume: 0.46, loop: true },
+  halloweenMap: { key: 'bgm_halloween_map', path: 'assets/audio/halloween-v1/map_01.wav', volume: 0.46, loop: true },
+  halloweenMidboss: { key: 'bgm_halloween_midboss', path: 'assets/audio/halloween-v1/mid_01.wav', volume: 0.40, loop: true },
+  halloweenBoss: { key: 'bgm_halloween_boss', path: 'assets/audio/halloween-v1/boss_01.wav', volume: 0.42, loop: true },
+  halloweenGolden: { key: 'bgm_halloween_golden', path: 'assets/audio/halloween-v1/gold_01.wav', volume: 0.42, loop: true },
+  // クリア：短い勝利ジングル
+  clear:    { key: 'bgm_clear',    path: 'assets/audio/bgm_clear.mp3',    volume: 0.6,  loop: false },
+  // ゲームオーバー：短い敗北ジングル
+  gameover: { key: 'bgm_gameover', path: 'assets/audio/bgm_gameover.mp3', volume: 0.6,  loop: false }
+} satisfies Record<string, AudioDef>;
+
+export type BgmName = keyof typeof BGM_DEFS;
+// 配置済みの圧縮BGM。タイトル・ジングルは未配置のため内蔵音を使う。
+export const FILE_BGM_NAMES: readonly BgmName[] = ['title', 'floor01', 'midboss', 'boss', 'halloweenMap', 'halloweenMidboss', 'halloweenBoss', 'halloweenGolden'];
+
+// 階層 → BGMトラックのマッピング
+export function bgmForFloor(_floor: number): BgmName {
+  return 'floor01';
+}
+
+// ---- 効果音（システム音）----
+export const SE_DEFS = {
+  click:   { key: 'se_click',   path: 'assets/audio/se_click.mp3',   volume: 0.5 },  // UIクリック
+  step:    { key: 'se_step',    path: 'assets/audio/se_step.mp3',    volume: 0.35 }, // 足音
+  attack:  { key: 'se_attack',  path: 'assets/audio/se_attack.wav',  volume: 0.6 },  // 素手の打撃
+  weaponDagger:     { key: 'se_weapon_dagger',     path: 'assets/audio/se_weapon_dagger.wav',     volume: 0.48 },
+  weaponLongsword:  { key: 'se_weapon_longsword',  path: 'assets/audio/se_weapon_longsword.wav',  volume: 0.52 },
+  weaponLance:      { key: 'se_weapon_lance',      path: 'assets/audio/se_weapon_lance.wav',      volume: 0.54 },
+  weaponBow:        { key: 'se_weapon_bow',        path: 'assets/audio/se_weapon_bow.wav',        volume: 0.52 },
+  weaponHandgun:    { key: 'se_weapon_handgun',    path: 'assets/audio/se_weapon_handgun.wav',    volume: 0.54 },
+  weaponGreatsword: { key: 'se_weapon_greatsword', path: 'assets/audio/se_weapon_greatsword.wav', volume: 0.56 },
+  weaponDual:       { key: 'se_weapon_dual',       path: 'assets/audio/se_weapon_dual.wav',       volume: 0.50 },
+  clockTick: { key: 'se_clock_tick', path: 'assets/audio/se_clock_tick.wav', volume: 0.48 },
+  skillDagger: { key: 'se_skill_dagger', path: 'assets/audio/se_skill_dagger.wav', volume: 0.58 },
+  skillLongsword: { key: 'se_skill_longsword', path: 'assets/audio/se_skill_longsword.wav', volume: 0.58 },
+  skillLance: { key: 'se_skill_lance', path: 'assets/audio/se_skill_lance.wav', volume: 0.58 },
+  skillBow: { key: 'se_skill_bow', path: 'assets/audio/se_skill_bow.wav', volume: 0.58 },
+  skillHandgun: { key: 'se_skill_handgun', path: 'assets/audio/se_skill_handgun.wav', volume: 0.54 },
+  skillGreatsword: { key: 'se_skill_greatsword', path: 'assets/audio/se_skill_greatsword.wav', volume: 0.58 },
+  skillDual: { key: 'se_skill_dual', path: 'assets/audio/se_skill_dual.wav', volume: 0.58 },
+  elementFire:    { key: 'se_element_fire',    path: 'assets/audio/se_element_fire.mp3',    volume: 0.62 }, // 火属性攻撃
+  elementWater:   { key: 'se_element_water',   path: 'assets/audio/se_element_water.mp3',   volume: 0.58 }, // 水属性攻撃
+  elementThunder: { key: 'se_element_thunder', path: 'assets/audio/se_element_thunder.mp3', volume: 0.62 }, // 雷属性攻撃
+  elementIce:     { key: 'se_element_ice',     path: 'assets/audio/se_element_ice.mp3',     volume: 0.58 }, // 氷属性攻撃
+  hit:     { key: 'se_hit',     path: 'assets/audio/se_hit.mp3',     volume: 0.6 },  // 命中
+  hurt:    { key: 'se_hurt',    path: 'assets/audio/se_hurt.mp3',    volume: 0.6 },  // 被ダメージ
+  kill:    { key: 'se_kill',    path: 'assets/audio/se_kill.mp3',    volume: 0.6 },  // 敵撃破
+  coin:    { key: 'se_coin',    path: 'assets/audio/se_coin.mp3',    volume: 0.5 },  // コイン・宝石
+  pickup:  { key: 'se_pickup',  path: 'assets/audio/se_pickup.mp3',  volume: 0.5 },  // アイテム取得
+  chest:   { key: 'se_chest',   path: 'assets/audio/se_chest.mp3',   volume: 0.6 },  // 宝箱
+  stairs:  { key: 'se_stairs',  path: 'assets/audio/se_stairs.mp3',  volume: 0.6 },  // 階段
+  levelup: { key: 'se_levelup', path: 'assets/audio/se_levelup.mp3', volume: 0.65 }, // レベルアップ
+  heal:    { key: 'se_heal',    path: 'assets/audio/se_heal.mp3',    volume: 0.55 }, // 回復
+  dynamite: { key: 'se_dynamite', path: 'assets/audio/se_dynamite.wav', volume: 0.68 },
+  bomb:    { key: 'se_bomb',    path: 'assets/audio/se_bomb.mp3',    volume: 0.7 },  // 爆発
+  warp:    { key: 'se_warp',    path: 'assets/audio/se_warp.mp3',    volume: 0.55 }, // ワープ
+  weaponBreak: { key: 'se_weapon_break', path: 'assets/audio/se_weapon_break.wav', volume: 0.65 },
+  shieldBreak: { key: 'se_shield_break', path: 'assets/audio/se_shield_break.wav', volume: 0.65 },
+  break:   { key: 'se_break',   path: 'assets/audio/se_break.mp3',   volume: 0.65 }, // 装備破損
+  seal:    { key: 'se_seal',    path: 'assets/audio/se_seal.mp3',    volume: 0.55 }, // 封印・魔法
+  deny:    { key: 'se_deny',    path: 'assets/audio/se_deny.mp3',    volume: 0.4 }   // 不可・ブロック
+} satisfies Record<string, AudioDef>;
+
+export type SeName = keyof typeof SE_DEFS;
+// Only packaged sounds are requested; the remaining effects use their synth definitions.
+export const FILE_SE_NAMES: readonly SeName[] = [
+  'clockTick', 'weaponBreak', 'shieldBreak', 'dynamite', 'attack', 'weaponDagger', 'weaponLongsword', 'weaponLance', 'weaponBow',
+  'weaponHandgun', 'weaponGreatsword', 'weaponDual', 'skillDagger', 'skillLongsword',
+  'skillLance', 'skillBow', 'skillHandgun', 'skillGreatsword', 'skillDual'
+];
+
+export function elementAttackSe(element?: MonsterElement): SeName {
+  if (!element) return 'attack';
+  return ({
+    fire: 'elementFire', water: 'elementWater', thunder: 'elementThunder', ice: 'elementIce', dark: 'warp'
+  } as const)[element];
+}
+
+export function weaponAttackSe(type?: WeaponType): SeName {
+  if (!type) return 'attack';
+  return ({
+    dagger: 'weaponDagger',
+    longsword: 'weaponLongsword',
+    lance: 'weaponLance',
+    bow: 'weaponBow',
+    handgun: 'weaponHandgun',
+    greatsword: 'weaponGreatsword', katana: 'weaponLongsword',
+    dual_sword: 'weaponDual',
+    twin_daggers: 'weaponDual'
+  } as const)[type];
+}

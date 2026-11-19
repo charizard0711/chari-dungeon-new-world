@@ -1,0 +1,11 @@
+import fs from 'node:fs/promises';
+import ts from 'typescript';
+import assert from 'node:assert/strict';
+const code=ts.transpileModule(await fs.readFile('src/online/presentation.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText.replace(/^import .*;\r?$/gm,'');
+const {entryMessageId,messagesAfterEntry,townSoundLevel,playTownSound}=await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+const old=[{id:7},{id:8}],baseline=entryMessageId(old);assert.equal(baseline,8);assert.deepEqual(messagesAfterEntry([...old,{id:9},{id:10}],baseline),[{id:9},{id:10}]);assert.equal(messagesAfterEntry(old,baseline).length,0);assert.equal(messagesAfterEntry([{id:10}],10).length,0);assert.equal(entryMessageId([]),0);
+const calls=[];const audio={seOn:true,seVolume:.2};const scene={registry:{get:()=>audio},sound:{mute:false,play:(key,config)=>calls.push({key,...config})},game:{config:{audio:{noAudio:false}}},cache:{audio:{exists:()=>true}}};
+globalThis.location={search:'?mute=1'};playTownSound(scene,'hit');playTownSound(scene,'step');assert.equal(calls.length,0);
+location.search='';scene.game.config.audio.noAudio=true;playTownSound(scene,'hit');assert.equal(calls.length,0);scene.game.config.audio.noAudio=false;audio.seOn=false;playTownSound(scene,'hit');assert.equal(calls.length,0);audio.seOn=true;scene.sound.mute=true;playTownSound(scene,'step');assert.equal(calls.length,0);scene.sound.mute=false;
+playTownSound(scene,'hit');playTownSound(scene,'step');assert.equal(calls[0].key,'online_charia_hit');assert.equal(calls[0].volume,.1);assert.equal(calls[1].key,'online_charia_step');assert.ok(calls[1].rate>=.96&&calls[1].rate<=1.04);audio.seVolume=.8;playTownSound(scene,'hit');assert.equal(calls.at(-1).volume,.4);assert.equal(townSoundLevel(undefined,false,false,'hit'),0);assert.equal(townSoundLevel({seOn:true,seVolume:5},false,false,'hit'),.5);
+console.log('PASS: entry cutoffs and re-entry exclude prior chat; current settings, SE toggle, master mute, mute URL, noAudio, quiet footsteps and hit playback route (mock audio only)');

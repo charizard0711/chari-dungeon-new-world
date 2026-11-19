@@ -1,0 +1,699 @@
+import { runRandom } from './ranking/random';
+import type { Weapon, Shield, Item, ItemKind, MonsterDef, MagicCode, EquipmentGrade, Element, MonsterElement, WeaponType, WeaponPassive, ShieldPassive } from './types';
+import { HALLOWEEN_WEAPONS, HALLOWEEN_SHIELDS, HALLOWEEN_MONSTERS } from './halloweenContent';
+
+// ===== 武器定義 =====
+export interface WeaponDef {
+  key: string;
+  name: string;
+  atkMin: number;
+  atkMax: number;
+  durMax: number;
+  minFloor: number;
+  rarity: number; // 出現しやすさの重み（小さいほどレア）
+  grade: EquipmentGrade;
+  dual?: boolean; // 二刀流（1ターンに2回攻撃・盾装備不可）
+  weaponType: WeaponType;
+  element?: Element;
+  passive?: WeaponPassive;
+  ss?: boolean;
+  initialPlus?: number;
+  exclusiveLoot?: boolean;
+}
+
+export const WEAPON_DEFS: WeaponDef[] = [
+  // 盾と併用できる刀。全グレードと4属性。
+  { key: 'w_katana_iron', name: '黒鉄の刀', atkMin: 7, atkMax: 15, durMax: 180, minFloor: 1, rarity: 12, grade: 'D', weaponType: 'katana' },
+  { key: 'w_katana_mist', name: '霞斬り', atkMin: 9, atkMax: 18, durMax: 195, minFloor: 3, rarity: 9, grade: 'C', weaponType: 'katana' },
+  { key: 'w_katana_moon', name: '月影の刀', atkMin: 11, atkMax: 22, durMax: 210, minFloor: 8, rarity: 6, grade: 'B', weaponType: 'katana' },
+  { key: 'w_katana_sun', name: '日輪刀アカツキ', atkMin: 13, atkMax: 26, durMax: 225, minFloor: 13, rarity: 3, grade: 'A', weaponType: 'katana' },
+  { key: 'w_katana_dragon', name: '龍牙刀ムラクモ', atkMin: 15, atkMax: 30, durMax: 240, minFloor: 21, rarity: 1, grade: 'S', weaponType: 'katana' },
+  { key: 'w_katana_sky', name: '天翔刀アマツカゼ', atkMin: 17, atkMax: 33, durMax: 255, minFloor: 25, rarity: 1, grade: 'SS', weaponType: 'katana' },
+  { key: 'w_katana_divine', name: '神刀タツマキ', atkMin: 19, atkMax: 36, durMax: 285, minFloor: 30, rarity: 1, grade: 'SSS', weaponType: 'katana', exclusiveLoot: true },
+  { key: 'w_katana_fire', name: '焔刀カエン', atkMin: 9, atkMax: 18, durMax: 195, minFloor: 4, rarity: 9, grade: 'C', weaponType: 'katana', element: 'fire' },
+  { key: 'w_katana_water', name: '水刀シズク', atkMin: 9, atkMax: 18, durMax: 195, minFloor: 4, rarity: 9, grade: 'C', weaponType: 'katana', element: 'water' },
+  { key: 'w_katana_thunder', name: '雷刀イカヅチ', atkMin: 11, atkMax: 22, durMax: 210, minFloor: 8, rarity: 6, grade: 'B', weaponType: 'katana', element: 'thunder' },
+  { key: 'w_katana_ice', name: '氷刀シラユキ', atkMin: 11, atkMax: 22, durMax: 210, minFloor: 8, rarity: 6, grade: 'B', weaponType: 'katana', element: 'ice' },
+  { key: 'w_secret_ember', name: '焔凰剣フェニクシア', atkMin: 12, atkMax: 22, durMax: 190, minFloor: 1, rarity: 1, grade: 'S', weaponType: 'longsword', element: 'fire', initialPlus: 3, exclusiveLoot: true,
+    passive: { key: 'sturdy', name: '不滅の刃', description: '被ダメージを5%軽減する' } },
+  { key: 'w_secret_tide', name: '海嘯弓ネレイア', atkMin: 10, atkMax: 20, durMax: 170, minFloor: 1, rarity: 1, grade: 'S', weaponType: 'bow', element: 'water', initialPlus: 3, exclusiveLoot: true,
+    passive: { key: 'eagle_eye', name: '深海の照準', description: '会心率+4%' } },
+  { key: 'w_secret_storm', name: '霆天槍ヴォルトレア', atkMin: 12, atkMax: 24, durMax: 180, minFloor: 1, rarity: 1, grade: 'S', weaponType: 'lance', element: 'thunder', initialPlus: 3, exclusiveLoot: true,
+    passive: { key: 'pierce', name: '雷霆の穿孔', description: '敵の防御を8%無視する' } },
+  { key: 'w_secret_frost', name: '氷鴉刃ノクティス', atkMin: 10, atkMax: 18, durMax: 160, minFloor: 1, rarity: 1, grade: 'S', weaponType: 'dagger', element: 'ice', initialPlus: 3, exclusiveLoot: true,
+    passive: { key: 'backstab', name: '凍夜の暗殺', description: '背後からの一撃を強化する' } },
+  { key: 'w_secret_solar', name: '赫日銃レオニス', atkMin: 11, atkMax: 21, durMax: 170, minFloor: 1, rarity: 1, grade: 'S', weaponType: 'handgun', element: 'fire', initialPlus: 3, exclusiveLoot: true,
+    passive: { key: 'quickdraw', name: '暁の早撃ち', description: '2マス先へ射撃・会心率+8%' } },
+  { key: 'w_hero_sword', name: '覇天剣アルカディア', atkMin: 16, atkMax: 30, durMax: 300, minFloor: 21, rarity: 1, grade: 'SSS', weaponType: 'greatsword', initialPlus: 10, exclusiveLoot: true,
+    passive: { key: 'hero_heal', name: '英雄の祝福', description: '敵に攻撃を当てるとHPが10回復' } },
+  // 属性は後付け抽選せず、武器の種類・名前・専用アートに固定する。
+  { key: 'w_dagger_fire', name: '焔牙カグツチ', atkMin: 6, atkMax: 14, durMax: 120, minFloor: 1, rarity: 10, grade: 'D', weaponType: 'dagger', element: 'fire' },
+  { key: 'w_dagger_water', name: '潮刃ミナヅキ', atkMin: 6, atkMax: 14, durMax: 120, minFloor: 1, rarity: 10, grade: 'D', weaponType: 'dagger', element: 'water' },
+  { key: 'w_dagger_thunder', name: '雷針イカヅチ', atkMin: 7, atkMax: 15, durMax: 114, minFloor: 1, rarity: 9, grade: 'D', weaponType: 'dagger', element: 'thunder' },
+  { key: 'w_dagger_ice', name: '氷晶シラユキ', atkMin: 6, atkMax: 14, durMax: 126, minFloor: 1, rarity: 9, grade: 'D', weaponType: 'dagger', element: 'ice' },
+
+  { key: 'w_longsword_fire', name: '獄炎剣ヴォルガ', atkMin: 9, atkMax: 19, durMax: 180, minFloor: 3, rarity: 8, grade: 'C', weaponType: 'longsword', element: 'fire' },
+  { key: 'w_longsword_water', name: '海淵剣ネレイス', atkMin: 9, atkMax: 18, durMax: 192, minFloor: 3, rarity: 8, grade: 'C', weaponType: 'longsword', element: 'water' },
+  { key: 'w_longsword_thunder', name: '迅雷剣ヴァジュラ', atkMin: 11, atkMax: 22, durMax: 168, minFloor: 8, rarity: 6, grade: 'B', weaponType: 'longsword', element: 'thunder' },
+  { key: 'w_longsword_ice', name: '凍界剣グレイシア', atkMin: 10, atkMax: 21, durMax: 186, minFloor: 8, rarity: 6, grade: 'B', weaponType: 'longsword', element: 'ice' },
+
+  { key: 'w_bow_fire', name: '炎翼弓フェニクス', atkMin: 11, atkMax: 23, durMax: 126, minFloor: 13, rarity: 4, grade: 'A', weaponType: 'bow', element: 'fire' },
+  { key: 'w_bow_water', name: '蒼流弓アクエリア', atkMin: 10, atkMax: 22, durMax: 138, minFloor: 13, rarity: 4, grade: 'A', weaponType: 'bow', element: 'water' },
+  { key: 'w_bow_thunder', name: '雷鳴弓テンペスト', atkMin: 12, atkMax: 24, durMax: 120, minFloor: 13, rarity: 3, grade: 'A', weaponType: 'bow', element: 'thunder' },
+  { key: 'w_bow_ice', name: '氷月弓ルナフロスト', atkMin: 11, atkMax: 23, durMax: 132, minFloor: 13, rarity: 3, grade: 'A', weaponType: 'bow', element: 'ice' },
+
+  { key: 'w_dual_sword_fire', name: '双炎刃イグニス', atkMin: 8, atkMax: 16, durMax: 144, minFloor: 21, rarity: 2, grade: 'S', weaponType: 'dual_sword', element: 'fire', dual: true, ss: true },
+  { key: 'w_dual_sword_water', name: '双潮刃リヴァイア', atkMin: 8, atkMax: 15, durMax: 156, minFloor: 21, rarity: 2, grade: 'S', weaponType: 'dual_sword', element: 'water', dual: true, ss: true },
+  { key: 'w_dual_sword_thunder', name: '双雷刃ライキリ', atkMin: 9, atkMax: 17, durMax: 138, minFloor: 21, rarity: 1, grade: 'S', weaponType: 'dual_sword', element: 'thunder', dual: true, ss: true },
+  { key: 'w_dual_sword_ice', name: '双氷刃フロストバイト', atkMin: 8, atkMax: 16, durMax: 150, minFloor: 21, rarity: 1, grade: 'S', weaponType: 'dual_sword', element: 'ice', dual: true, ss: true },
+
+  // ハンドガンは2マス先を狙える中距離武器。全系統に固有効果「早撃ち」を持たせる。
+  {
+    key: 'w_handgun_fire', name: '焔銃イグナイト', atkMin: 9, atkMax: 19, durMax: 108, minFloor: 4, rarity: 7, grade: 'C', weaponType: 'handgun', element: 'fire',
+    passive: { key: 'quickdraw', name: '早撃ち', description: '2マス先へ射撃・会心率+8%' }
+  },
+  {
+    key: 'w_handgun_water', name: '蒼銃アクアリウム', atkMin: 8, atkMax: 19, durMax: 114, minFloor: 4, rarity: 7, grade: 'C', weaponType: 'handgun', element: 'water',
+    passive: { key: 'quickdraw', name: '早撃ち', description: '2マス先へ射撃・会心率+8%' }
+  },
+  {
+    key: 'w_handgun_thunder', name: '雷銃ヴォルト', atkMin: 11, atkMax: 22, durMax: 102, minFloor: 8, rarity: 5, grade: 'B', weaponType: 'handgun', element: 'thunder',
+    passive: { key: 'quickdraw', name: '早撃ち', description: '2マス先へ射撃・会心率+8%' }
+  },
+  {
+    key: 'w_handgun_ice', name: '氷銃フロストロック', atkMin: 10, atkMax: 21, durMax: 111, minFloor: 8, rarity: 5, grade: 'B', weaponType: 'handgun', element: 'ice',
+    passive: { key: 'quickdraw', name: '早撃ち', description: '2マス先へ射撃・会心率+8%' }
+  },
+
+  // 無属性武器。属性相性に左右されず、各ランクで安定して扱える。
+  { key: 'w_iron_dagger', name: '黒鉄の短剣', atkMin: 5, atkMax: 12, durMax: 150, minFloor: 1, rarity: 14, grade: 'D', weaponType: 'dagger' },
+  { key: 'w_shadow_stiletto', name: '影縫いのスティレット', atkMin: 7, atkMax: 15, durMax: 132, minFloor: 3, rarity: 10, grade: 'C', weaponType: 'dagger' },
+  { key: 'w_sawtooth_dirk', name: '鋸刃のダーク', atkMin: 9, atkMax: 18, durMax: 138, minFloor: 8, rarity: 6, grade: 'B', weaponType: 'dagger' },
+  { key: 'w_moon_fang', name: '月牙の短剣', atkMin: 11, atkMax: 22, durMax: 144, minFloor: 13, rarity: 3, grade: 'A', weaponType: 'dagger' },
+  { key: 'w_assassin_requiem', name: '暗殺刃レクイエム', atkMin: 13, atkMax: 25, durMax: 156, minFloor: 21, rarity: 1, grade: 'S', weaponType: 'dagger' },
+
+  { key: 'w_soldier_blade', name: '兵士の直剣', atkMin: 6, atkMax: 14, durMax: 180, minFloor: 1, rarity: 14, grade: 'D', weaponType: 'longsword' },
+  { key: 'w_knight_sword', name: '騎士剣アルディオン', atkMin: 8, atkMax: 17, durMax: 210, minFloor: 3, rarity: 11, grade: 'C', weaponType: 'longsword' },
+  { key: 'w_rune_saber', name: 'ルーン鋼剣', atkMin: 10, atkMax: 21, durMax: 198, minFloor: 8, rarity: 6, grade: 'B', weaponType: 'longsword' },
+  { key: 'w_paladin_edge', name: '聖騎士剣ルミナス', atkMin: 12, atkMax: 25, durMax: 216, minFloor: 13, rarity: 3, grade: 'A', weaponType: 'longsword' },
+  { key: 'w_black_oath', name: '黒誓剣モルドレッド', atkMin: 15, atkMax: 29, durMax: 228, minFloor: 21, rarity: 1, grade: 'S', weaponType: 'longsword' },
+
+  { key: 'w_iron_pike', name: '鉄兵のパイク', atkMin: 6, atkMax: 15, durMax: 160, minFloor: 1, rarity: 13, grade: 'D', weaponType: 'lance' },
+  { key: 'w_royal_spear', name: '王衛槍レオニス', atkMin: 8, atkMax: 18, durMax: 174, minFloor: 3, rarity: 9, grade: 'C', weaponType: 'lance' },
+  { key: 'w_bone_lance', name: '白骨槍グレイヴ', atkMin: 10, atkMax: 20, durMax: 174, minFloor: 8, rarity: 7, grade: 'B', weaponType: 'lance' },
+  { key: 'w_drill_lance', name: '穿城槍ドリルギア', atkMin: 12, atkMax: 26, durMax: 186, minFloor: 13, rarity: 3, grade: 'A', weaponType: 'lance' },
+  { key: 'w_dragon_lance', name: '竜穿槍バハムート', atkMin: 15, atkMax: 30, durMax: 204, minFloor: 21, rarity: 1, grade: 'S', weaponType: 'lance' },
+
+  { key: 'w_hunter_bow', name: '狩人の長弓', atkMin: 5, atkMax: 13, durMax: 126, minFloor: 1, rarity: 13, grade: 'D', weaponType: 'bow' },
+  { key: 'w_composite_bow', name: '複合弓ファルコン', atkMin: 8, atkMax: 17, durMax: 138, minFloor: 3, rarity: 9, grade: 'C', weaponType: 'bow' },
+  { key: 'w_blackwood_bow', name: '黒檀弓ナイトレイ', atkMin: 10, atkMax: 21, durMax: 144, minFloor: 8, rarity: 6, grade: 'B', weaponType: 'bow' },
+  { key: 'w_royal_bow', name: '王弓レガリア', atkMin: 11, atkMax: 24, durMax: 150, minFloor: 13, rarity: 4, grade: 'A', weaponType: 'bow' },
+  { key: 'w_siege_arbalest', name: '攻城弩バリスタ', atkMin: 14, atkMax: 29, durMax: 168, minFloor: 21, rarity: 1, grade: 'S', weaponType: 'bow' },
+
+  {
+    key: 'w_blackpowder_handgun', name: '黒鉄のハンドガン', atkMin: 7, atkMax: 16, durMax: 126, minFloor: 1, rarity: 12, grade: 'D', weaponType: 'handgun',
+    passive: { key: 'quickdraw', name: '早撃ち', description: '2マス先へ射撃・会心率+8%' }
+  },
+
+  { key: 'w_rusted_greatsword', name: '錆びた大剣', atkMin: 7, atkMax: 16, durMax: 195, minFloor: 1, rarity: 12, grade: 'D', weaponType: 'greatsword' },
+  { key: 'w_executioner_blade', name: '断罪の処刑剣', atkMin: 10, atkMax: 21, durMax: 210, minFloor: 3, rarity: 8, grade: 'C', weaponType: 'greatsword' },
+  { key: 'w_titan_cleaver', name: '巨人断ちタイタンクリーバー', atkMin: 12, atkMax: 25, durMax: 225, minFloor: 8, rarity: 5, grade: 'B', weaponType: 'greatsword' },
+  { key: 'w_holy_greatsword', name: '聖堂大剣カテドラル', atkMin: 14, atkMax: 28, durMax: 240, minFloor: 13, rarity: 2, grade: 'A', weaponType: 'greatsword' },
+  {
+    key: 'w_grand_breaker', name: '破城大剣グランバスター', atkMin: 14, atkMax: 29, durMax: 225,
+    minFloor: 21, rarity: 1, grade: 'S', weaponType: 'greatsword',
+    passive: { key: 'knockback', name: '三撃破砕', description: '3回目の攻撃ごとに敵を1マス押し戻す' }
+  },
+  ...HALLOWEEN_WEAPONS
+];
+
+export const ELEMENT_INFO: Record<MonsterElement, { name: string; color: number; weakTo?: Element }> = {
+  fire: { name: '火', color: 0xff5a36, weakTo: 'water' },
+  thunder: { name: '雷', color: 0xffe348, weakTo: 'ice' },
+  water: { name: '水', color: 0x3fa9ff, weakTo: 'thunder' },
+  ice: { name: '氷', color: 0x82e9ff, weakTo: 'fire' },
+  dark: { name: '闇', color: 0x9867db }
+};
+
+export function randomElement(): Element {
+  const values: Element[] = ['fire', 'thunder', 'water', 'ice'];
+  return values[Math.floor(runRandom() * values.length)];
+}
+
+export function elementMultiplier(attack: MonsterElement | undefined, defend: MonsterElement | undefined): number {
+  if (!attack || !defend) return 1;
+  return ELEMENT_INFO[defend].weakTo === attack ? 1.5 : attack === defend ? 0.75 : 1;
+}
+
+export function monsterElement(def: MonsterDef): MonsterElement | undefined {
+  if (def.element === null) return undefined;
+  if (def.element) return def.element;
+  const values: Element[] = ['fire', 'thunder', 'water', 'ice'];
+  let seed = 0;
+  for (let i = 0; i < def.key.length; i++) seed += def.key.charCodeAt(i);
+  return values[seed % values.length];
+}
+
+// ===== 盾定義 =====
+export interface ShieldDef {
+  key: string;
+  name: string;
+  defBonus: number;
+  durMax: number;
+  minFloor: number;
+  rarity: number;
+  grade: EquipmentGrade;
+  element?: Element;
+  passive: ShieldPassive;
+  initialPlus?: number;
+  exclusiveLoot?: boolean;
+}
+
+export const SHIELD_DEFS: ShieldDef[] = [
+  // 通常盾は無属性15種（各グレード3種）＋属性8種（各属性2種）。
+  {
+    key: 's_iron_round', name: '黒鉄の円盾', defBonus: 2, durMax: 65, minFloor: 1, rarity: 14, grade: 'D',
+    passive: { key: 'brace', name: '踏ん張り', description: '10以上の攻撃ダメージを20%軽減' }
+  },
+  {
+    key: 's_mirror_silver', name: '鏡銀の盾', defBonus: 3, durMax: 55, minFloor: 3, rarity: 10, grade: 'C',
+    passive: { key: 'mirror', name: '鏡避け', description: '15%の確率で攻撃を完全に無効化' }
+  },
+  {
+    key: 's_thorn_guard', name: '反撃盾ヴァイン', defBonus: 4, durMax: 70, minFloor: 8, rarity: 6, grade: 'B',
+    passive: { key: 'thorns', name: '反射棘', description: '受けた攻撃ダメージの10%を敵へ返す' }
+  },
+  {
+    key: 's_chrono_guard', name: '時守りの盾クロノス', defBonus: 5, durMax: 75, minFloor: 14, rarity: 3, grade: 'A',
+    passive: { key: 'perfect_guard', name: '時止め防御', description: '5回に1回、敵の攻撃を完全に無効化' }
+  },
+  {
+    key: 's_seraph_guard', name: '聖域盾セラフィム', defBonus: 6, durMax: 90, minFloor: 21, rarity: 1, grade: 'S',
+    passive: { key: 'recovery', name: '聖域再生', description: '4回攻撃を受けるごとにHPを6回復' }
+  },
+
+  // 属性盾4種：色替えではなく、属性ごとに専用の形・名前・原画を持つ。
+  {
+    key: 's_flame_aegis', name: '炎獄盾イグナード', defBonus: 3, durMax: 60, minFloor: 4, rarity: 8, grade: 'C', element: 'fire',
+    passive: { key: 'element_guard', name: '火炎障壁', description: '火属性の攻撃に強い' }
+  },
+  {
+    key: 's_tidal_aegis', name: '海淵盾ネレイア', defBonus: 3, durMax: 64, minFloor: 4, rarity: 8, grade: 'C', element: 'water',
+    passive: { key: 'element_guard', name: '水流障壁', description: '水属性の攻撃に強い' }
+  },
+  {
+    key: 's_storm_aegis', name: '雷皇盾ヴォルテクス', defBonus: 4, durMax: 62, minFloor: 8, rarity: 6, grade: 'B', element: 'thunder',
+    passive: { key: 'element_guard', name: '雷電障壁', description: '雷属性の攻撃に強い' }
+  },
+  {
+    key: 's_frost_aegis', name: '氷城盾グレイシア', defBonus: 4, durMax: 70, minFloor: 8, rarity: 6, grade: 'B', element: 'ice',
+    passive: { key: 'element_guard', name: '氷雪障壁', description: '氷属性の攻撃に強い' }
+  },
+  { key: 's_oak_guard', name: '樫の護盾', defBonus: 2, durMax: 85, minFloor: 1, rarity: 14, grade: 'D',
+    passive: { key: 'oak_guard', name: '小傷払い', description: '8以下の攻撃ダメージを2軽減（最低1）' } },
+  { key: 's_scout_guard', name: '斥候の軽盾', defBonus: 2, durMax: 55, minFloor: 1, rarity: 14, grade: 'D',
+    passive: { key: 'scout_guard', name: '身かわしの拍子', description: '4回目ごとの攻撃ダメージを50%軽減' } },
+  { key: 's_steel_bastion', name: '鋼壁盾バスティオン', defBonus: 4, durMax: 95, minFloor: 3, rarity: 10, grade: 'C',
+    passive: { key: 'flat_guard', name: '鋼板装甲', description: '攻撃ダメージを常に2軽減（最低1）' } },
+  { key: 's_pilgrim_guard', name: '巡礼盾グレイス', defBonus: 4, durMax: 70, minFloor: 3, rarity: 10, grade: 'C',
+    passive: { key: 'pilgrim_heal', name: '巡礼の祈り', description: '4回攻撃を受けるごとにHPを3回復' } },
+  { key: 's_duelist_guard', name: '決闘盾リポスト', defBonus: 6, durMax: 85, minFloor: 8, rarity: 6, grade: 'B',
+    passive: { key: 'duelist_parry', name: '受け流し', description: '3回目ごとの攻撃ダメージを50%軽減' } },
+  { key: 's_watchman_guard', name: '番人盾ウォーデン', defBonus: 6, durMax: 100, minFloor: 8, rarity: 6, grade: 'B',
+    passive: { key: 'neutral_guard', name: '無色の守り', description: '無属性の敵からの攻撃ダメージを20%軽減' } },
+  { key: 's_sun_guard', name: '陽光盾ソレイユ', defBonus: 8, durMax: 110, minFloor: 14, rarity: 3, grade: 'A',
+    passive: { key: 'sun_guard', name: '健勝の障壁', description: 'HPが70%以上のとき攻撃ダメージを25%軽減' } },
+  { key: 's_moon_guard', name: '月影盾ルナヴェール', defBonus: 8, durMax: 100, minFloor: 14, rarity: 3, grade: 'A',
+    passive: { key: 'moon_guard', name: '窮地の月光', description: 'HPが40%以下のとき攻撃ダメージを35%軽減' } },
+  { key: 's_requiem_guard', name: '鎮魂盾レクイエム', defBonus: 10, durMax: 125, minFloor: 21, rarity: 1, grade: 'S',
+    passive: { key: 'requiem_guard', name: '魂の応報', description: '攻撃ダメージを15%軽減し、軽減後の10%を反射' } },
+  { key: 's_prism_guard', name: '万華盾プリズマ', defBonus: 10, durMax: 130, minFloor: 21, rarity: 1, grade: 'S',
+    passive: { key: 'prism_guard', name: '万色の結界', description: '属性を持つ敵からの攻撃ダメージを25%軽減' } },
+  { key: 's_ember_guard', name: '鳳炎盾フェニクス', defBonus: 8, durMax: 110, minFloor: 14, rarity: 3, grade: 'A', element: 'fire',
+    passive: { key: 'ember_retort', name: '鳳凰の返火', description: '火属性に強い。受けた攻撃ダメージの15%を反射' } },
+  { key: 's_pearl_guard', name: '真珠盾マリステラ', defBonus: 8, durMax: 115, minFloor: 14, rarity: 3, grade: 'A', element: 'water',
+    passive: { key: 'pearl_mend', name: '癒やしの潮', description: '水属性に強い。3回攻撃を受けるごとにHPを4回復' } },
+  { key: 's_thunder_crown', name: '雷冠盾インドラ', defBonus: 10, durMax: 125, minFloor: 21, rarity: 1, grade: 'S', element: 'thunder',
+    passive: { key: 'thunder_parry', name: '雷閃防御', description: '雷属性に強い。4回目ごとの攻撃を完全に無効化' } },
+  { key: 's_glacier_guard', name: '氷皇盾アイスベルク', defBonus: 10, durMax: 145, minFloor: 21, rarity: 1, grade: 'S', element: 'ice',
+    passive: { key: 'glacier_guard', name: '氷壁の重層', description: '氷属性に強い。12以上の攻撃ダメージを20%軽減' } },
+  { key: 's_arcadia_guard', name: '漆黒の盾ルファルゼント', defBonus: 16, durMax: 300, minFloor: 1, rarity: 1, grade: 'SSS', initialPlus: 10, exclusiveLoot: true,
+    passive: { key: 'arcadia_guard', name: '堕天の裁き', description: '受けた攻撃ダメージの20%を反射。3回目ごとの攻撃を完全に無効化' } },
+  ...HALLOWEEN_SHIELDS
+];
+
+// ===== マジック定義 =====
+const MAGIC_LABELS: Record<MagicCode, (lv: number) => string> = {
+  B: (lv) => `B${lv}`,
+  A: (lv) => `A${lv}`,
+  H: (lv) => `H${lv}`,
+  R: () => 'R',
+  F: () => 'F',
+  D: () => 'D',
+  DK: () => 'DK',
+  C: () => 'C',
+  P: () => 'P',
+  I: () => 'I',
+  K: () => 'K'
+};
+
+export const MAGIC_DESC: Record<MagicCode, string> = {
+  B: '攻撃力の最大値アップ',
+  A: '攻撃力の全体アップ',
+  H: '武器耐久力アップ',
+  R: 'リペア：壊れても1回復活',
+  F: 'ファイア：炎の追加ダメージ',
+  D: 'ドレイン：ダメージの一部をHP吸収',
+  DK: '深層・機械系モンスターに大ダメージ',
+  C: 'クリティカル率アップ',
+  P: '毒付与',
+  I: '氷結：低確率で敵を1ターン停止',
+  K: '廃止済み'
+};
+
+export function magicLabel(code: MagicCode, level: number): string {
+  return MAGIC_LABELS[code](level);
+}
+
+// ===== アイテム定義 =====
+export const ITEM_DEFS: Record<ItemKind, Omit<Item, 'kind'>> = {
+  skill_drink: { name: 'スキルドリンク', desc: 'スキルを即時チャージし、待ち歩数を0にする。通常MOBから3%でドロップ。', textureKey: 'i_skill_drink' },
+  potion:  { name: '回復ポーション', desc: 'HPを40回復する', textureKey: 'i_potion' },
+  torch:   { name: '松明', desc: '10ターンの間、壁の向こうまで明るくする', textureKey: 'i_torch' },
+  mystery_bread: { name: 'ふしぎパン', desc: 'HP全回復。装備中の武器・盾を全修復し+1強化。さらに予備からランダムで武器最大2本・盾最大2個を全修復し、それぞれ+1強化（重複なし）。', textureKey: 'i_mystery_bread' },
+  dynamite: { name: 'ダイナマイト', desc: '周囲の通常敵を爆風で一撃撃破。ボスには残りHPの10%の固定ダメージ。自分は無傷。', textureKey: 'i_dynamite' },
+  warp:    { name: 'リコールベル', desc: '今いる階のスタート位置へ戻る', textureKey: 'i_warp' },
+  revive:  { name: '復活のタネ', desc: '倒れた時に一度だけ復活', textureKey: 'i_revive' },
+  candykey: { name: 'お菓子のカギ', desc: '収穫城の金扉を開ける。敵から1%で入手。1回で1個消費', textureKey: 'i_candykey' },
+  floorkey:{ name: 'フロアキー', desc: '豪華な宝物庫の金扉を開ける。1回で1個消費' , textureKey: 'i_floorkey' },
+  seal:    { name: '封印の魔導書', desc: '周囲の敵を数ターン止める', textureKey: 'i_seal' },
+  stone:   { name: '武器強化スクロール', desc: '武器を最大+15まで強化。成功率90%から2ポイントずつ低下（最低60%）。失敗しても装備・強化値は残り、巻物だけ消費', textureKey: 'i_stone' },
+  shieldstone: { name: '防具強化スクロール', desc: '盾を最大+15まで強化。成功率90%から2ポイントずつ低下（最低60%）。失敗しても装備・強化値は残り、巻物だけ消費', textureKey: 'i_shieldstone' },
+  slime_scroll: { name: 'スライム変身スクロール', desc: '30ターンの間スライムへ変身。装備効果を引き継ぎ、攻撃力+5%・防御力+1', textureKey: 'i_slime_scroll' },
+  boss5_scroll: { name: '封印王アウレリウス変身スクロール', desc: '30ターンの間「封印王アウレリウス」へ変身。装備効果を引き継ぎ、攻撃力+10%・防御力+3', textureKey: 'i_boss5_scroll' },
+  invis:   { name: '透明ポーション', desc: '20ターンの間、敵から完全に見えなくなる', textureKey: 'i_invis' },
+  repair:  { name: '装備修復石', desc: '選んだ武器か盾1つの耐久を50回復（最大耐久まで）', textureKey: 'i_repair' }
+};
+
+// レアアイテム（所持欄で赤枠になる）
+const RARE_ITEMS = new Set<ItemKind>(['revive', 'slime_scroll', 'boss5_scroll', 'dynamite', 'mystery_bread', 'floorkey', 'candykey']);
+export function isRareItem(kind: ItemKind): boolean {
+  return RARE_ITEMS.has(kind);
+}
+
+// ===== 武器強化(+N)の色 =====
+// +1:黄 / +2:紫 / +3:青 / +4以降:赤
+export function plusColor(plus: number): number {
+  if (plus <= 0) return 0xdfe7f0;
+  if (plus === 1) return 0xf5c542;
+  if (plus === 2) return 0xa06bff;
+  if (plus === 3) return 0x4fb0ff;
+  return 0xff5a5a;
+}
+
+export function plusColorHex(plus: number): string {
+  return '#' + plusColor(plus).toString(16).padStart(6, '0');
+}
+
+export function gradeColor(grade: EquipmentGrade): number {
+  return { D: 0x9ba8b4, C: 0x61c78d, B: 0x56a8ff, A: 0xb57aff, S: 0xffc857, SS: 0xffa465, SSS: 0xff83d9 }[grade];
+}
+
+export function gradeColorHex(grade: EquipmentGrade): string {
+  return '#' + gradeColor(grade).toString(16).padStart(6, '0');
+}
+
+export function makeItem(kind: ItemKind): Item {
+  return { kind, ...ITEM_DEFS[kind] };
+}
+
+// ===== モンスター定義 =====
+const MONSTER_ELEMENTS: Record<string, Element> = {
+  m_mush: 'fire', m_mole: 'thunder', m_jelly: 'water', m_ghost: 'ice',
+  m_gear: 'thunder', m_vine: 'water', m_mud: 'water', m_moss: 'water',
+  m_bat: 'ice', m_imp: 'thunder', m_snake: 'water', m_skel: 'ice', m_archer: 'thunder',
+  m_ember_drake: 'fire', m_frost_wyrm: 'ice', m_storm_wyvern: 'thunder',
+  m_brass_dragon: 'fire', m_void_drake: 'thunder', m_bone_dragon: 'ice',
+  m_horn_demon: 'fire', m_chain_demon: 'thunder', m_flame_gargoyle: 'fire',
+  m_abyss_hound: 'ice', m_mask_fiend: 'thunder', m_archdemon: 'fire',
+  m_bone_hound: 'thunder', m_skeleton_mage: 'ice', m_death_knight: 'thunder',
+  m_lich: 'ice', m_bone_colossus: 'fire', m_grave_crawler: 'water',
+  m_cerberus: 'fire', m_hydra: 'water', m_crystal_crab: 'ice', m_blood_moth: 'fire',
+  m_clockwork_chimera: 'thunder', m_slime: 'thunder', m_beetle: 'thunder',
+  m_wisp: 'fire', m_spider: 'water', m_golem: 'thunder', m_eye: 'thunder',
+  m_wraith: 'ice', m_reaper: 'fire', m_dark_ninja: 'thunder',
+  m_obsidian_shogun: 'fire', m_storm_minotaur: 'thunder', m_star_griffin: 'ice',
+  m_lucky_rabbit: 'fire', m_guard: 'ice', m_watcher: 'thunder'
+};
+
+const MONSTER_GIMMICKS: Record<string, { kind: NonNullable<MonsterDef['gimmick']>; text: string }> = {
+  m_mush: { kind: 'lantern', text: '撃破すると5ターンの間、壁の向こうまで明るくなる。' },
+  m_mole: { kind: 'burrow', text: '3回目の行動で地中へ潜り、次の行動で近くへ奇襲する。' },
+  m_jelly: { kind: 'split', text: '最初の撃破時に小型ゼリー2体へ分裂する。' },
+  m_ghost: { kind: 'phase', text: '普段は被ダメージを軽減し、攻撃直後だけ実体化する。' },
+  m_gear: { kind: 'shell_guard', text: '正面からのダメージを半減し、攻撃後だけ甲羅が開く。' },
+  m_vine: { kind: 'vine_trail', text: '3歩ごとに踏むと足止めされるツタを残す。' },
+  m_mud: { kind: 'mud_bind', text: '攻撃を受けると足を取られ、次の移動が止まる。' },
+  m_moss: { kind: 'regen', text: 'ダメージを受けていない間、3ターンごとにHPを回復する。' },
+  m_bat: { kind: 'shatter', text: '撃破時に隣接していると氷片のダメージを受ける。' },
+  m_imp: { kind: 'stance', text: '攻撃重視と防御重視の姿勢を毎ターン切り替える。' },
+  m_snake: { kind: 'key_drop', text: '他の通常MOBと同じく、撃破時に0.5%でフロアキーを落とす。' },
+  m_skel: { kind: 'freeze_shot', text: '氷弾が低確率で足止めを与える。' },
+  m_archer: { kind: 'sidestep', text: '射撃後に横へ移動して射線を変える。' },
+  m_ember_drake: { kind: 'fire_breath', text: '3回に1回、通常攻撃が強い火炎ブレスになる。' },
+  m_frost_wyrm: { kind: 'ice_trail', text: '3歩ごとに滑る氷床を残す。' },
+  m_storm_wyvern: { kind: 'storm_trail', text: '3歩ごとに雷床を残し、踏んだ相手へダメージを与える。' },
+  m_brass_dragon: { kind: 'heat', text: '行動するたび加熱し、3回目の攻撃が強化される。' },
+  m_void_drake: { kind: 'warp', text: '4ターンごとにプレイヤーの近くへ転移する。' },
+  m_bone_dragon: { kind: 'revive', text: '一度だけHP25%で復活するが、防御が大きく低下する。' },
+  m_giant_bull: { kind: 'enrage', text: 'HP半分以下で攻撃力が上昇する。' },
+  m_horn_demon: { kind: 'enrage', text: 'HP半分以下で攻撃力が上昇する。' },
+  m_chain_demon: { kind: 'pull', text: '同じ縦横の近距離にいる相手を1マス引き寄せる。' },
+  m_flame_gargoyle: { kind: 'statue', text: '離れている間は石像化して被ダメージを軽減する。' },
+  m_abyss_hound: { kind: 'rush', text: '直線上の相手へ2マス突進する。' },
+  m_mask_fiend: { kind: 'item_seal', text: '攻撃時にアイテムを2ターン封印することがある。' },
+  m_archdemon: { kind: 'summon', text: 'HP半分で双角デーモンを1体召喚する。' },
+  m_bone_hound: { kind: 'shell_guard', text: '正面攻撃を軽減し、直進中はさらに硬くなる。' },
+  m_skeleton_mage: { kind: 'root', text: '近距離の相手へ根を伸ばし、移動を封じる。' },
+  m_death_knight: { kind: 'knight_guard', text: '正面攻撃を半減し、攻撃後だけ隙ができる。' },
+  m_lich: { kind: 'necromancy', text: 'HP半分で墓這いを最大2体召喚する。' },
+  m_bone_colossus: { kind: 'heat_aura', text: '隣接している相手へ毎ターン熱ダメージを与える。' },
+  m_grave_crawler: { kind: 'ambush', text: '普段は地中に隠れ、接近すると姿を現す。' },
+  m_cerberus: { kind: 'multi_bite', text: '3回に1回、三つ首による強力な連続攻撃を行う。' },
+  m_hydra: { kind: 'hydra_regen', text: '毎ターンHPを回復する。火属性で攻撃されると3ターン停止する。' },
+  m_crystal_crab: { kind: 'rear_weak', text: '正面は硬いが、背後から受けるダメージが増える。' },
+  m_blood_moth: { kind: 'vampire', text: '与えたダメージの一部を吸収して回復する。' },
+  m_clockwork_chimera: { kind: 'element_cycle', text: '攻撃属性を火・氷・雷の順に切り替える。' },
+  m_slime: { kind: 'mimic', text: '宝箱に擬態し、近づくまで動かず姿も暗い。' },
+  m_beetle: { kind: 'charge', text: '1ターン溜めてから直線を最大3マス突進する。' },
+  m_wisp: { kind: 'death_burst', text: '撃破時に隣接していると炎の爆発ダメージを受ける。' },
+  m_spider: { kind: 'web_trail', text: '3歩ごとに踏むと足止めされる糸を設置する。' },
+  m_golem: { kind: 'golem_guard', text: '正面攻撃を半減し、攻撃後は一時的に防御が崩れる。' },
+  m_eye: { kind: 'laser_lock', text: '照準を表示してから次のターンに直線レーザーを放つ。' },
+  m_wraith: { kind: 'wraith_phase', text: '普段は攻撃をほぼ無効化し、攻撃直後だけ実体化する。' },
+  m_reaper: { kind: 'execute', text: '相手のHPが30%以下になると攻撃力が上昇する。' },
+  m_dark_ninja: { kind: 'stealth', text: 'ほぼ透明で3歩ごとに姿を見せ、露出中は受けるダメージが増える。' },
+  m_obsidian_shogun: { kind: 'parry', text: '3回に1回、正面攻撃を受け流して反撃する。' },
+  m_storm_minotaur: { kind: 'bull_charge', text: '直線上の相手へ突進し、壁際で止まると隙ができる。' },
+  m_star_griffin: { kind: 'starfall', text: '3回に1回、凍てつく星弾を降らせる。' },
+  m_lucky_rabbit: { kind: 'treasure_flee', text: '攻撃せず逃走し、撃破で1000Gと属性付きSS武器を落とす。' },
+  m_guard: { kind: 'guardian', text: '正面攻撃を半減し、通路を塞いで追跡する。' },
+  m_watcher: { kind: 'core_laser', text: '照準後に四方向へ回転レーザーを放つ。' }
+};
+
+const MONSTER_DEFS_RAW: MonsterDef[] = [
+  {
+    key: 'm_giant_bull', name: '巨角の猛牛',
+    description: '黒い毛並みと巨大な角を持つ遺跡の猛牛。一直線の突進を横へ避け、壁に激突した隙に反撃しよう。',
+    hp: 25, atkMin: 5, atkMax: 11, def: 3, exp: 6, gold: 7,
+    minFloor: 10, maxFloor: 10, behavior: 'chase', isBoss: true, color: 0xc98b52
+  },
+  {
+    key: 'm_mush', name: 'ランタンマッシュ', hp: 18, atkMin: 3, atkMax: 7, def: 1,
+    exp: 4, gold: 3,  minFloor: 1, maxFloor: 10, behavior: 'chase', color: 0x8a6bff
+  },
+  {
+    key: 'm_mole', name: '時計モグラ', hp: 26, atkMin: 5, atkMax: 10, def: 6,
+    exp: 6, gold: 5,  minFloor: 2, maxFloor: 14, behavior: 'slow', color: 0x9c7a4a
+  },
+  {
+    key: 'm_jelly', name: 'ゼリークラウン', hp: 22, atkMin: 4, atkMax: 8, def: 2,
+    exp: 5, gold: 20,  minFloor: 1, maxFloor: 12, behavior: 'chase', color: 0x4fd0e0
+  },
+  {
+    key: 'm_ghost', name: 'ループゴースト', hp: 20, atkMin: 5, atkMax: 9, def: 3,
+    exp: 6, gold: 6,  minFloor: 3, maxFloor: 16, behavior: 'loop', wallPass: true, color: 0x6b4a8a
+  },
+  {
+    key: 'm_gear', name: '歯車ガメ', hp: 34, atkMin: 6, atkMax: 11, def: 9,
+    exp: 8, gold: 8,  minFloor: 4, maxFloor: 20, behavior: 'slow', color: 0x6a7a5a
+  },
+  {
+    key: 'm_vine', name: 'ツタホイール', hp: 28, atkMin: 6, atkMax: 12, def: 4,
+    exp: 7, gold: 6,  minFloor: 5, maxFloor: 20, behavior: 'line', color: 0x5a8a4a
+  },
+  {
+    key: 'm_mud', name: 'ドロぐち', hp: 30, atkMin: 7, atkMax: 13, def: 3,
+    exp: 8, gold: 10,  minFloor: 6, maxFloor: 22, behavior: 'chase', color: 0x7a5a3a
+  },
+  {
+    key: 'm_moss', name: 'モスナイト', hp: 40, atkMin: 8, atkMax: 14, def: 10,
+    exp: 10, gold: 12,  minFloor: 8, maxFloor: 24, behavior: 'chase', color: 0x4a7a4a
+  },
+  {
+    key: 'm_bat', name: 'クリスタルコウモリ', hp: 24, atkMin: 6, atkMax: 12, def: 3,
+    exp: 8, gold: 8,  minFloor: 10, maxFloor: 26, behavior: 'random', ranged: true, color: 0x4fb0ff
+  },
+  {
+    key: 'm_imp', name: 'スイッチインプ', hp: 26, atkMin: 6, atkMax: 11, def: 4,
+    exp: 8, gold: 9,  minFloor: 11, maxFloor: 26, behavior: 'chase', color: 0x5a4a8a
+  },
+  {
+    key: 'm_snake', name: 'カギヘビ', hp: 30, atkMin: 7, atkMax: 13, def: 5,
+    exp: 9, gold: 14,  minFloor: 9, maxFloor: 24, behavior: 'chase', color: 0x3a9a6a
+  },
+  {
+    key: 'm_skel', name: '蒼灯フクロウ', description: '青い灯火を吊るし、上空から氷弾を放つ機械フクロウ。',
+    hp: 32, atkMin: 8, atkMax: 15, def: 5, exp: 10, gold: 10,
+    minFloor: 12, maxFloor: 28, behavior: 'ranged', ranged: true, wallPass: true, color: 0x4fd0ff
+  },
+  {
+    key: 'm_archer', name: 'ギアホーネット', description: '小型の弩を抱え、雷を帯びた針で遠距離を射抜く機巧蜂。',
+    hp: 26, atkMin: 7, atkMax: 14, def: 4, exp: 9, gold: 10,
+    minFloor: 5, maxFloor: 26, behavior: 'ranged', ranged: true, wallPass: true, color: 0xd0a13d
+  },
+  // ===== 深層獣群アップデート（新規23種） =====
+  {
+    key: 'm_ember_drake', name: '火鱗の幼竜', hp: 28, atkMin: 5, atkMax: 10, def: 4,
+    exp: 7, gold: 8,  minFloor: 4, maxFloor: 13, behavior: 'chase', isDragonType: true, color: 0xd84a2a
+  },
+  {
+    key: 'm_frost_wyrm', name: '氷晶ワーム', hp: 34, atkMin: 7, atkMax: 13, def: 5,
+    exp: 9, gold: 10,  minFloor: 8, maxFloor: 18, behavior: 'loop', ranged: true, isDragonType: true, color: 0x62c8ff
+  },
+  {
+    key: 'm_storm_wyvern', name: '雷翼ワイバーン', hp: 40, atkMin: 9, atkMax: 16, def: 6,
+    exp: 12, gold: 13,  minFloor: 12, maxFloor: 23, behavior: 'line', ranged: true, isDragonType: true, color: 0x378dff
+  },
+  {
+    key: 'm_brass_dragon', name: '真鍮竜ギアドラス', hp: 58, atkMin: 11, atkMax: 19, def: 13,
+    exp: 17, gold: 20,  minFloor: 15, maxFloor: 26, behavior: 'slow', isDragonType: true, color: 0xc78a32
+  },
+  {
+    key: 'm_void_drake', name: '虚空ドレイク', hp: 60, atkMin: 14, atkMax: 23, def: 9,
+    exp: 20, gold: 24,  minFloor: 20, maxFloor: 29, behavior: 'loop', ranged: true,
+    wallPass: true, isDragonType: true, color: 0x7a3bd1
+  },
+  {
+    key: 'm_bone_dragon', name: '骨竜スカルヴァーン', hp: 74, atkMin: 16, atkMax: 26, def: 12,
+    exp: 25, gold: 28,  minFloor: 23, maxFloor: 29, behavior: 'chase',
+    isElite: true, isDragonType: true, color: 0xd8c7a3
+  },
+  {
+    key: 'm_horn_demon', name: '双角デーモン', hp: 25, atkMin: 5, atkMax: 11, def: 3,
+    exp: 6, gold: 7,  minFloor: 3, maxFloor: 13, behavior: 'chase', color: 0xc63838
+  },
+  {
+    key: 'm_chain_demon', name: '鎖獄の悪魔', hp: 36, atkMin: 7, atkMax: 14, def: 6,
+    exp: 10, gold: 11,  minFloor: 7, maxFloor: 19, behavior: 'line', color: 0x7d344f
+  },
+  {
+    key: 'm_flame_gargoyle', name: '焔ガーゴイル', hp: 46, atkMin: 9, atkMax: 17, def: 12,
+    exp: 13, gold: 14,  minFloor: 11, maxFloor: 22, behavior: 'slow', color: 0x5d5a58
+  },
+  {
+    key: 'm_abyss_hound', name: '奈落の魔犬', hp: 35, atkMin: 10, atkMax: 18, def: 5,
+    exp: 13, gold: 15,  minFloor: 14, maxFloor: 25, behavior: 'chase', color: 0x31356e
+  },
+  {
+    key: 'm_mask_fiend', name: '仮面の魔人', hp: 42, atkMin: 12, atkMax: 20, def: 6,
+    exp: 16, gold: 18,  minFloor: 17, maxFloor: 28, behavior: 'ranged',
+    ranged: true, wallPass: true, color: 0x7245a8
+  },
+  {
+    key: 'm_archdemon', name: '大悪魔アスモル', hp: 82, atkMin: 17, atkMax: 28, def: 14,
+    exp: 29, gold: 34,  minFloor: 24, maxFloor: 29, behavior: 'chase', isElite: true, color: 0xb6292d
+  },
+  {
+    key: 'm_bone_hound', name: '鉄殻アルマジロ', description: '分厚い鉄殻を丸め、雷をまとって一直線に突進する装甲獣。',
+    hp: 34, atkMin: 7, atkMax: 13, def: 9, exp: 9, gold: 9,
+    minFloor: 5, maxFloor: 15, behavior: 'line', color: 0x4f6670
+  },
+  {
+    key: 'm_skeleton_mage', name: 'ルーンマンドラゴラ', description: '浮遊するルーン石を操り、根を張ったまま氷の術を放つ魔草。',
+    hp: 30, atkMin: 7, atkMax: 15, def: 4, exp: 10, gold: 12,
+    minFloor: 9, maxFloor: 20, behavior: 'ranged', ranged: true, color: 0x8a58bd
+  },
+  {
+    key: 'm_death_knight', name: '死霊騎士', hp: 52, atkMin: 12, atkMax: 21, def: 13,
+    exp: 18, gold: 20,  minFloor: 15, maxFloor: 26, behavior: 'chase', color: 0x34394c
+  },
+  {
+    key: 'm_lich', name: 'リッチロード', hp: 66, atkMin: 15, atkMax: 25, def: 10,
+    exp: 24, gold: 30,  minFloor: 22, maxFloor: 29, behavior: 'ranged',
+    ranged: true, wallPass: true, isElite: true, color: 0x633e9e
+  },
+  {
+    key: 'm_bone_colossus', name: '溶鉱炉タイタン', description: '炉心の炎で巨体を動かし、灼熱の鉄拳を振り下ろす機械巨人。',
+    hp: 86, atkMin: 15, atkMax: 25, def: 17, exp: 27, gold: 30,
+    minFloor: 20, maxFloor: 29, behavior: 'slow', isElite: true, color: 0xc96b32
+  },
+  {
+    key: 'm_grave_crawler', name: '墓這い', hp: 16, atkMin: 4, atkMax: 9, def: 1,
+    exp: 4, gold: 4,  minFloor: 2, maxFloor: 12, behavior: 'line', color: 0x8b806f
+  },
+  {
+    key: 'm_cerberus', name: '三首獄犬', hp: 68, atkMin: 14, atkMax: 24, def: 10,
+    exp: 22, gold: 25,  minFloor: 18, maxFloor: 29, behavior: 'chase', isElite: true, color: 0x9e2f28
+  },
+  {
+    key: 'm_hydra', name: '深淵ヒュドラ', hp: 76, atkMin: 15, atkMax: 26, def: 13,
+    exp: 25, gold: 28,  minFloor: 21, maxFloor: 29, behavior: 'ranged',
+    ranged: true, isDragonType: true, color: 0x363f9d
+  },
+  {
+    key: 'm_crystal_crab', name: '晶甲クラブ', hp: 44, atkMin: 6, atkMax: 12, def: 15,
+    exp: 11, gold: 16,  minFloor: 7, maxFloor: 18, behavior: 'slow', color: 0x2367a8
+  },
+  {
+    key: 'm_blood_moth', name: '血月モス', hp: 28, atkMin: 8, atkMax: 15, def: 4,
+    exp: 11, gold: 13,  minFloor: 10, maxFloor: 23, behavior: 'random',
+    ranged: true, wallPass: true, color: 0x9a2f4e
+  },
+  {
+    key: 'm_clockwork_chimera', name: '機巧キマイラ', hp: 78, atkMin: 16, atkMax: 27, def: 15,
+    exp: 27, gold: 32,  minFloor: 23, maxFloor: 29, behavior: 'line', isElite: true, color: 0xb07b30
+  },
+  // ===== 追加モンスター（種類を増やす）=====
+  {
+    key: 'm_slime', name: 'ミミックチェスト', description: '宝箱に擬態し、近づいた冒険者へ雷を帯びた長い舌で襲いかかる。',
+    hp: 20, atkMin: 4, atkMax: 9, def: 3, exp: 5, gold: 10,
+    minFloor: 1, maxFloor: 8, behavior: 'chase', color: 0x7b4a38
+  },
+  {
+    key: 'm_beetle', name: 'ゼンマイ甲虫', hp: 24, atkMin: 5, atkMax: 9, def: 7,
+    exp: 6, gold: 6,  minFloor: 3, maxFloor: 16, behavior: 'line', color: 0xc08a3a
+  },
+  {
+    key: 'm_wisp', name: '迷い火ウィスプ', hp: 16, atkMin: 5, atkMax: 10, def: 2,
+    exp: 7, gold: 7,  minFloor: 4, maxFloor: 18, behavior: 'loop', wallPass: true, color: 0xff9f40
+  },
+  {
+    key: 'm_spider', name: 'カラクリ蜘蛛', hp: 30, atkMin: 7, atkMax: 12, def: 5,
+    exp: 9, gold: 9,  minFloor: 7, maxFloor: 22, behavior: 'chase', color: 0x8a5a7a
+  },
+  {
+    key: 'm_golem', name: '鉄塊ゴーレム', hp: 55, atkMin: 10, atkMax: 18, def: 13,
+    exp: 14, gold: 16,  minFloor: 12, maxFloor: 26, behavior: 'slow', color: 0x7a7a8a
+  },
+  {
+    key: 'm_eye', name: '監視の眼', hp: 30, atkMin: 9, atkMax: 16, def: 4,
+    exp: 11, gold: 12,  minFloor: 13, maxFloor: 28, behavior: 'ranged', ranged: true, color: 0xd04fa0
+  },
+  {
+    key: 'm_wraith', name: '虚無のレイス', hp: 38, atkMin: 11, atkMax: 19, def: 6,
+    exp: 14, gold: 14,  minFloor: 18, maxFloor: 29, behavior: 'loop', wallPass: true, color: 0x6b50d0
+  },
+  {
+    key: 'm_reaper', name: '深淵の刈手', hp: 52, atkMin: 14, atkMax: 24, def: 10,
+    exp: 20, gold: 22,  minFloor: 22, maxFloor: 29, behavior: 'chase', isDragonType: true, color: 0xc03060
+  },
+  {
+    key: 'm_dark_ninja', name: '闇忍者', description: '紫の闇へ溶け込み、3歩ごとに一瞬だけ姿を現す双刃の忍者。',
+    hp: 44, atkMin: 13, atkMax: 22, def: 8, exp: 18, gold: 20,
+    minFloor: 16, maxFloor: 29, behavior: 'chase', isDarkNinja: true, color: 0x7428b8
+  },
+  {
+    key: 'm_obsidian_shogun', name: '黒曜武者', description: '溶岩の亀裂が走る黒曜鎧と大太刀をまとう深層の剣豪。',
+    hp: 82, atkMin: 17, atkMax: 29, def: 15, exp: 30, gold: 36,
+    minFloor: 22, maxFloor: 29, behavior: 'chase', isElite: true, isDragonType: true, color: 0xb53024
+  },
+  {
+    key: 'm_storm_minotaur', name: '紫電ミノタウロス', description: '雷を巻いた巨角と戦槌で一直線に押し潰す怪力の魔獣。',
+    hp: 76, atkMin: 16, atkMax: 27, def: 13, exp: 27, gold: 32,
+    minFloor: 18, maxFloor: 29, behavior: 'line', isElite: true, isDragonType: true, color: 0x416ee8
+  },
+  {
+    key: 'm_star_griffin', name: '星喰らいグリフォン', description: '星光を宿す翼で宙を舞い、凍てつく光弾を降らせる天獣。',
+    hp: 64, atkMin: 15, atkMax: 26, def: 10, exp: 25, gold: 30,
+    minFloor: 20, maxFloor: 29, behavior: 'ranged', ranged: true, wallPass: true,
+    isElite: true, isDragonType: true, color: 0x326ee8
+  },
+  {
+    key: 'm_lucky_rabbit', name: '福袋うさぎ', description: '宝を満載した光る袋を背負い、戦わず逃げ回る幻の福兎。',
+    hp: 36, atkMin: 0, atkMax: 0, def: 3, exp: 100, gold: 1000,
+    minFloor: 3, maxFloor: 29, behavior: 'random', isTreasureRabbit: true, color: 0xffd84d
+  },
+  {
+    key: 'm_guard', name: '深層の守衛', hp: 60, atkMin: 12, atkMax: 22, def: 14,
+    exp: 20, gold: 25,  minFloor: 21, maxFloor: 30, behavior: 'chase', isElite: true, isDragonType: true, color: 0x3a3a5a
+  },
+  {
+    key: 'm_watcher', name: 'コアウォッチャー', hp: 160, atkMin: 18, atkMax: 30, def: 16,
+    exp: 80, gold: 100,  minFloor: 30, maxFloor: 30, behavior: 'ranged', ranged: true,
+    isBoss: true, isDragonType: true, color: 0x2a2a4a
+  },
+  {
+    key: 'm_giant_bull', name: '巨角の猛牛',
+    description: '黒い毛並みと巨大な角を持つ遺跡の猛牛。一直線の突進を横へ避け、壁に激突した隙に反撃しよう。',
+    hp: 25, atkMin: 5, atkMax: 11, def: 3, exp: 6, gold: 7,
+    minFloor: 10, maxFloor: 10, behavior: 'chase', isBoss: true, color: 0xc98b52
+  }
+];
+
+export const NORMAL_MONSTER_DEFS: MonsterDef[] = MONSTER_DEFS_RAW.map((monster) => ({
+  ...monster,
+  element: MONSTER_ELEMENTS[monster.key],
+  gimmick: MONSTER_GIMMICKS[monster.key]?.kind,
+  gimmickText: MONSTER_GIMMICKS[monster.key]?.text,
+  description: [monster.description, MONSTER_GIMMICKS[monster.key]?.text ? `【特性】${MONSTER_GIMMICKS[monster.key].text}` : '']
+    .filter(Boolean).join(' ')
+}));
+export const MONSTER_DEFS: MonsterDef[] = [...NORMAL_MONSTER_DEFS, ...HALLOWEEN_MONSTERS];
+
+// ===== 階層テーマ（2フロアごとに名前・見た目が変わる）=====
+export interface FloorTheme {
+  name: string;
+  era: 1 | 2 | 3 | 4;   // タイル素材の系統（1:遺跡 2:機械 3:深層 4:最深部）
+  accent: number;
+  tileTint: number;     // タイルに掛ける色（2階帯ごとに雰囲気を変える）
+}
+
+// 2フロア=1バンド。1〜10F=遺跡, 11〜20F=機械, 21〜29F=深層, 30F=最深部
+// tileTint は大胆に色を変えて、フロアごとの雰囲気をガラッと変える
+const THEME_BANDS: { name: string; era: 1 | 2 | 3 | 4; accent: number; tileTint: number }[] = [
+  // 遺跡系（1-10F）
+  { name: '苔むす回廊',   era: 1, accent: 0x3fe0d0, tileTint: 0xffffff },  // 自然な苔色
+  { name: '忘却の広間',   era: 1, accent: 0x6fe0a0, tileTint: 0x6fe69a },  // 強い緑
+  { name: '水没遺構',     era: 1, accent: 0x4fb0ff, tileTint: 0x66a0ff },  // 深い青
+  { name: '蒼き祭壇',     era: 1, accent: 0x5fd0e0, tileTint: 0x5fe0e6 },  // シアン
+  { name: '崩れた聖堂',   era: 1, accent: 0xd0c060, tileTint: 0xe6d666 },  // 黄金色の夕暮れ
+  // 機械系（11-20F）
+  { name: '歯車坑道',     era: 2, accent: 0xd0a040, tileTint: 0xe6b066 },  // 琥珀
+  { name: '蒸気回廊',     era: 2, accent: 0x8fd0d0, tileTint: 0x7fd0d8 },  // 蒸気の青緑
+  { name: '断裂回路',     era: 2, accent: 0xff8030, tileTint: 0xff9955 },  // 警告オレンジ
+  { name: '魔導機関室',   era: 2, accent: 0xa06bff, tileTint: 0x9f80ff },  // 魔力の紫
+  { name: '監視区画',     era: 2, accent: 0xff5050, tileTint: 0xff7f7f },  // 危険な赤
+  // 深層系（21-29F）
+  { name: '紫晶洞',       era: 3, accent: 0xa06bff, tileTint: 0xffffff },  // 自然な紫
+  { name: '虚無の淵',     era: 3, accent: 0x6050ff, tileTint: 0x7066ff },  // 深い藍
+  { name: '囁く回廊',     era: 3, accent: 0xe060ff, tileTint: 0xe07fff },  // 毒々しいピンク紫
+  { name: '結晶墓所',     era: 3, accent: 0x60c0ff, tileTint: 0x7fc8ff },  // 氷の青
+  { name: '深淵核域',     era: 3, accent: 0xff4070, tileTint: 0xff668f },  // 血の赤
+];
+
+const FINAL_THEME = { name: '最深部・コアゲート', era: 4 as const, accent: 0xf5c542, tileTint: 0xffd166 };
+
+export function getTheme(floor: number): FloorTheme {
+  if (floor <= 5) return { name: '古代石造区', era: 1, accent: 0x3fe0d0, tileTint: 0xffffff };
+  if (floor <= 10) return { name: '苔むす水路区', era: 1, accent: 0x63d7a0, tileTint: 0xffffff };
+  if (floor <= 15) return { name: '氷晶牢獄区', era: 2, accent: 0x8eeaff, tileTint: 0xffffff };
+  if (floor <= 20) return { name: '灼熱鍛冶区', era: 2, accent: 0xff7738, tileTint: 0xffffff };
+  if (floor <= 25) return { name: '雷鳴機関区', era: 3, accent: 0x63bfff, tileTint: 0xffffff };
+  return { name: '虚無王城区', era: 4, accent: 0xa76bff, tileTint: 0xffffff };
+}
+
+// タイル素材の系統サフィックス（_1/_11/_21/_30）
+export function eraSuffix(era: number): string {
+  return era === 1 ? '_1' : era === 2 ? '_11' : era === 3 ? '_21' : '_30';
+}

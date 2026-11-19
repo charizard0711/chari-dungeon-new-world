@@ -1,0 +1,144 @@
+import { runRandom } from './ranking/random';
+import { weaponWearReduction } from './enhancement';
+import type { Weapon, Shield, MonsterDef, MonsterElement } from './types';
+import { Player } from './player';
+import { elementMultiplier, monsterElement, ELEMENT_INFO } from './data';
+
+export interface AttackResult {
+  damage: number;
+  hits: number;   // 攻撃回数（二刀流=2）
+  crit: boolean;
+  fire: number;
+  drain: number;
+  poison: boolean;
+  freeze: boolean;
+  weaponBroke: boolean;
+  weaponRevived: boolean;
+}
+
+function irand(min: number, max: number): number {
+  return Math.floor(runRandom() * (max - min + 1)) + min;
+}
+
+// プレイヤー→敵 の攻撃計算
+export function computePlayerAttack(p: Player, def: MonsterDef, backstab = false,
+  options: { hits?: number; multiplier?: number; defenseIgnore?: number; consumeDurability?: boolean } = {}): AttackResult {
+  const w = p.weapon;
+  // 二刀流は2回斬る（1振りごとにダメージを算出して合算）
+  const hits = options.hits ?? (w?.dual ? 2 : 1);
+  let dmg = 0;
+  for (let i = 0; i < hits; i++) {
+    const armorPierce = Math.max(options.defenseIgnore ?? 0, w?.passive?.key === 'pierce' ? 0.08 : 0);
+    let hitDamage = Math.max(1, irand(p.atkMin, p.atkMax) - Math.floor(def.def * (1 - armorPierce) * 0.6));
+    if (i === 1 && w?.passive?.key === 'twin_edge') hitDamage = Math.floor(hitDamage * 1.08);
+    dmg += hitDamage;
+  }
+
+  dmg = Math.max(1, Math.floor(dmg * elementMultiplier(w?.element, monsterElement(def))));
+  if (w?.passive?.key === 'heavy_strike') dmg = Math.max(1, Math.floor(dmg * 1.06));
+
+  let crit = false;
+  const cMagic = p.hasMagic('C');
+  const innateCrit = w?.weaponType === 'lance' ? 0.08 : 0;
+  const passiveCrit = w?.passive?.key === 'eagle_eye' ? 0.04 : w?.passive?.key === 'quickdraw' ? 0.08 : 0;
+  const daggerBackstab = w?.weaponType === 'dagger' && backstab;
+  const critChance = 0.05 + innateCrit + passiveCrit + (cMagic ? 0.15 : 0);
+  if (daggerBackstab || runRandom() < critChance) {
+    crit = true;
+    dmg = Math.floor(dmg * (w?.passive?.key === 'backstab' ? 1.9 : 1.8));
+  }
+
+  // ファイア
+  let fire = 0;
+  if (p.hasMagic('F')) { fire = irand(4, 10); dmg += fire; }
+
+  // DK（深層・機械系特効）
+  if (p.hasMagic('DK') && (def.isDragonType || def.isElite || def.isBoss)) {
+    dmg = Math.floor(dmg * 1.8);
+  }
+  dmg = Math.max(1, Math.floor(dmg * (options.multiplier ?? 1)));
+
+  // ドレイン
+  let drain = w?.passive?.key === 'hero_heal' ? 10 : 0;
+  if (p.hasMagic('D')) { drain += Math.floor(dmg * 0.3); }
+  if (w?.passive?.key === 'blood_edge') drain += Math.max(1, Math.floor(dmg * 0.03));
+
+  const poison = !!p.hasMagic('P') && runRandom() < 0.5;
+  const freeze = !!p.hasMagic('I') && runRandom() < 0.15;
+
+  // 武器耐久（敵の防御が高いほど壊れやすい。消耗は2倍でどんどん壊れる）
+  let weaponBroke = false;
+  let weaponRevived = false;
+  if (w && options.consumeDurability !== false) {
+    ({ weaponBroke, weaponRevived } = consumeWeaponDurability(w, def.def));
+  }
+
+
+  return { damage: dmg, hits, crit, fire, drain, poison, freeze, weaponBroke, weaponRevived };
+}
+
+/** Skills spend durability once per activation, even when hitting multiple targets. */
+export function consumeWeaponDurability(w: Weapon, defense: number) {
+    let weaponBroke = false, weaponRevived = false;
+    w.dur -= w.plus >= 15 ? 1 : Math.max(1, (1 + Math.floor(defense / 4)) * 2 - weaponWearReduction(w.plus));
+    if (w.dur <= 0) {
+      const rMagic = w.magics.find((m) => m.code === 'R');
+      if (rMagic && !w.repairUsed) {
+        w.repairUsed = true;
+        w.dur = Math.floor(w.durMax * 0.5);
+        weaponRevived = true;
+      } else {
+        w.dur = 0;
+        weaponBroke = true;
+      }
+    }
+    return { weaponBroke, weaponRevived };
+}
+
+// 敵→プレイヤー の攻撃計算
+export interface DefendResult {
+  damage: number;
+  shieldBroke: boolean;
+  steps: string[];
+}
+
+export function computeEnemyAttack(p: Player, def: MonsterDef, attackElement?: MonsterElement): DefendResult {
+  let dmg = irand(def.atkMin, def.atkMax);
+  const steps = [`攻撃力 ${def.atkMin}〜${def.atkMax} → 今回の抽選値 ${dmg}`];
+  const beforeDefense = dmg, reduction = Math.floor(p.def * 0.7);
+  dmg = Math.max(1, dmg - reduction);
+  steps.push(`防御 ${p.def} × 0.7 → 切り捨て ${reduction}／${beforeDefense} − ${reduction} → ${dmg}（最低1）`);
+  const incomingElement = attackElement ?? monsterElement(def);
+  const multiplier = elementMultiplier(incomingElement, p.shield?.element);
+  const beforeElement = dmg;
+  dmg = Math.max(1, Math.floor(dmg * multiplier));
+  steps.push(`属性：${incomingElement ? ELEMENT_INFO[incomingElement].name : '無'} → 盾${p.shield?.element ? ELEMENT_INFO[p.shield.element].name : '無'}／${beforeElement} × ${multiplier} → ${dmg}（切り捨て・最低1）`);
+  if (p.weapon?.passive?.key === 'sturdy') {
+    const before = dmg;
+    dmg = Math.max(1, Math.floor(dmg * 0.95));
+    steps.push(`武器の${p.weapon.passive.name}／${before} × 0.95 → ${dmg}（切り捨て・最低1）`);
+  }
+
+  let shieldBroke = false;
+  const s = p.shield;
+  if (s && s.dur > 0) {
+    // 敵の攻撃力が高いほど盾が壊れやすい
+    const avgAtk = (def.atkMin + def.atkMax) / 2;
+    const wear = 1 + Math.floor(avgAtk / 6);
+    s.dur -= wear;
+    if (s.dur <= 0) { s.dur = 0; shieldBroke = true; }
+    steps.push(`盾の耐久 −${wear} → ${s.dur}${shieldBroke ? '／この攻撃で破損' : ''}`);
+  }
+  return { damage: dmg, shieldBroke, steps };
+}
+
+// 破損リスク表示（低/中/高/危険）
+export function durabilityRisk(cur: number, max: number): { label: string; color: string } {
+  if (max <= 0) return { label: '—', color: '#8a97ab' };
+  const ratio = cur / max;
+  if (cur <= 0) return { label: '破損', color: '#ff4040' };
+  if (ratio > 0.6) return { label: '低', color: '#5fd07a' };
+  if (ratio > 0.35) return { label: '中', color: '#f5c542' };
+  if (ratio > 0.15) return { label: '高', color: '#ff9040' };
+  return { label: '危険', color: '#ff4040' };
+}

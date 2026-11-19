@@ -1,0 +1,465 @@
+import { captureBootAssets } from '../assetStreaming';
+import { VERIFIER } from '../buildFlags';
+import { WEAPON_DEFS } from '../data';
+import { configureLazyEquipmentArt } from '../lazyEquipmentArt';
+import { ART_REFRESH } from '../artRefresh';
+import { REFRESHED_EFFECT_ART } from '../effectRefresh';
+import { updateLoading } from '../loadingScreen';
+import { VOLCANO_FLOORS, VOLCANO_PARTS, volcanoTerrainKey } from '../volcanoTerrain';
+import { WATER_FLOORS, WATER_PARTS, waterTerrainKey } from '../waterTerrain';
+import { THUNDER_FLOORS, THUNDER_PARTS, thunderTerrainKey } from '../thunderTerrain';
+import { FINAL_DEPTH_FLOORS, finalDepthParts, finalDepthTerrainKey } from '../finalDepthTerrain';
+import Phaser from 'phaser';
+import { buildAllTextures } from '../textures';
+import { applyRealAssets } from '../assetLoader';
+import { FILE_SE_NAMES, SE_DEFS, AudioDef } from '../audio/config';
+import { Audio } from '../audio/manager';
+import { PLAYER_FRAME_SIZE, PLAYER_SHEETS } from '../playerAppearance';
+import { MONSTER_ANIMATIONS } from '../monsterAnimation';
+import { DIRECTIONAL_MONSTERS } from '../monsterDirections';
+import { HELD_EQUIPMENT, HELD_FRAME_SIZE } from '../equipmentAppearance';
+import { RUIN_TERRAIN_FLOORS, RUIN_TERRAIN_PARTS, RUIN_FLOOR_FRAME_SIZE, ruinTerrainKey, ruinFloorKey } from '../ruinTerrain';
+import { GAME_W, GAME_H } from '../layout';
+import { SKILL_ICON_ART } from '../skillArt';
+import { ADVENTURE_ART } from '../adventureArt';
+import { DURABILITY_WARNING_ART } from '../durabilityWarnings';
+import { HALLOWEEN_ART } from '../halloweenContent';
+
+const EXPANSION_MONSTER_KEYS = [
+  'm_deep_kraken', 'm_valzeon', 'm_selene', 'm_abyss_lord', 'm_astravein',
+  'm_black_mage', 'm_rival_male', 'm_rival_female',
+  'm_silver_seraph', 'm_abyss_dragon', 'm_ice_knight', 'm_thunder_sovereign',
+  'm_voltyrex', 'm_spark_beetle', 'm_galvan', 'm_amatsuchi', 'm_raiga',
+  'm_valgrado', 'm_fallen_angel', 'm_phoenix', 'm_unicorn', 'm_bone_reaper', 'm_ice_behemoth',
+  'm_mush', 'm_mole', 'm_golem', 'm_spider', 'm_beetle', 'm_eye', 'm_wraith', 'm_reaper',
+  'm_dark_ninja', 'm_obsidian_shogun', 'm_storm_minotaur', 'm_star_griffin', 'm_lucky_rabbit',
+  'm_skel', 'm_archer', 'm_slime',
+  'm_ember_drake', 'm_frost_wyrm', 'm_storm_wyvern', 'm_brass_dragon', 'm_void_drake', 'm_bone_dragon',
+  'm_giant_bull', 'm_horn_demon', 'm_chain_demon', 'm_flame_gargoyle', 'm_abyss_hound', 'm_mask_fiend', 'm_archdemon',
+  'm_bone_hound', 'm_skeleton_mage', 'm_death_knight', 'm_lich', 'm_bone_colossus', 'm_grave_crawler',
+  'm_cerberus', 'm_hydra', 'm_crystal_crab', 'm_blood_moth', 'm_clockwork_chimera'
+] as const;
+
+const WEAPON_ART = {
+  w_hero_sword: 'assets/weapons/hero-sword-v1.png',
+  w_dagger_fire: 'assets/weapons/affinities/dagger_fire.png',
+  w_dagger_water: 'assets/weapons/affinities/dagger_water.png',
+  w_dagger_thunder: 'assets/weapons/affinities/dagger_thunder.png',
+  w_dagger_ice: 'assets/weapons/affinities/dagger_ice.png',
+  w_longsword_fire: 'assets/weapons/affinities/longsword_fire.png',
+  w_longsword_water: 'assets/weapons/affinities/longsword_water.png',
+  w_longsword_thunder: 'assets/weapons/affinities/longsword_thunder.png',
+  w_longsword_ice: 'assets/weapons/affinities/longsword_ice.png',
+  w_bow_fire: 'assets/weapons/affinities/bow_fire.png',
+  w_bow_water: 'assets/weapons/affinities/bow_water.png',
+  w_bow_thunder: 'assets/weapons/affinities/bow_thunder.png',
+  w_bow_ice: 'assets/weapons/affinities/bow_ice.png',
+  w_handgun_fire: 'assets/weapons/affinities/handgun_fire.png',
+  w_handgun_water: 'assets/weapons/affinities/handgun_water.png',
+  w_handgun_thunder: 'assets/weapons/affinities/handgun_thunder.png',
+  w_handgun_ice: 'assets/weapons/affinities/handgun_ice.png',
+  w_dual_sword_fire: 'assets/weapons/affinities/dual_sword_fire.png',
+  w_dual_sword_water: 'assets/weapons/affinities/dual_sword_water.png',
+  w_dual_sword_thunder: 'assets/weapons/affinities/dual_sword_thunder.png',
+  w_dual_sword_ice: 'assets/weapons/affinities/dual_sword_ice.png',
+  w_iron_dagger: 'assets/weapons/neutral/iron_dagger.png',
+  w_shadow_stiletto: 'assets/weapons/neutral/shadow_stiletto.png',
+  w_sawtooth_dirk: 'assets/weapons/neutral/sawtooth_dirk.png',
+  w_moon_fang: 'assets/weapons/neutral/moon_fang.png',
+  w_assassin_requiem: 'assets/weapons/neutral/assassin_requiem.png',
+  w_soldier_blade: 'assets/weapons/neutral/soldier_blade.png',
+  w_knight_sword: 'assets/weapons/neutral/knight_sword.png',
+  w_rune_saber: 'assets/weapons/neutral/rune_saber.png',
+  w_paladin_edge: 'assets/weapons/neutral/paladin_edge.png',
+  w_black_oath: 'assets/weapons/neutral/black_oath.png',
+  w_iron_pike: 'assets/weapons/neutral/iron_pike.png',
+  w_royal_spear: 'assets/weapons/neutral/royal_spear.png',
+  w_bone_lance: 'assets/weapons/neutral/bone_lance.png',
+  w_drill_lance: 'assets/weapons/neutral/drill_lance.png',
+  w_dragon_lance: 'assets/weapons/neutral/dragon_lance.png',
+  w_hunter_bow: 'assets/weapons/neutral/hunter_bow.png',
+  w_composite_bow: 'assets/weapons/neutral/composite_bow.png',
+  w_blackwood_bow: 'assets/weapons/neutral/blackwood_bow.png',
+  w_royal_bow: 'assets/weapons/neutral/royal_bow.png',
+  w_siege_arbalest: 'assets/weapons/neutral/siege_arbalest.png',
+  w_blackpowder_handgun: 'assets/weapons/neutral/blackpowder_handgun.png',
+  w_rusted_greatsword: 'assets/weapons/neutral/rusted_greatsword.png',
+  w_executioner_blade: 'assets/weapons/neutral/executioner_blade.png',
+  w_titan_cleaver: 'assets/weapons/neutral/titan_cleaver.png',
+  w_holy_greatsword: 'assets/weapons/neutral/holy_greatsword.png',
+  w_grand_breaker: 'assets/weapons/neutral/grand_breaker.png'
+} as const;
+
+const SHIELD_ART = {
+  ...Object.fromEntries([
+    's_oak_guard', 's_scout_guard', 's_steel_bastion', 's_pilgrim_guard', 's_duelist_guard',
+    's_watchman_guard', 's_sun_guard', 's_moon_guard', 's_requiem_guard', 's_prism_guard',
+    's_ember_guard', 's_pearl_guard', 's_thunder_crown', 's_glacier_guard', 's_arcadia_guard'
+  ].map(key => [key, `assets/shields/expansion-v1/${key}.png`])),
+  s_iron_round: 'assets/shields/neutral/iron_round.png',
+  s_mirror_silver: 'assets/shields/neutral/mirror_silver.png',
+  s_thorn_guard: 'assets/shields/neutral/thorn_guard.png',
+  s_chrono_guard: 'assets/shields/neutral/chrono_guard.png',
+  s_seraph_guard: 'assets/shields/neutral/seraph_guard.png',
+  s_flame_aegis: 'assets/shields/elemental/flame_aegis.png',
+  s_tidal_aegis: 'assets/shields/elemental/tidal_aegis.png',
+  s_storm_aegis: 'assets/shields/elemental/storm_aegis.png',
+  s_frost_aegis: 'assets/shields/elemental/frost_aegis.png'
+} as const;
+
+const UI_ART = {
+  armor_dawn: 'assets/armor-icons-v3/armor_dawn.webp',
+  armor_aqua: 'assets/armor-icons-v3/armor_aqua.webp',
+  armor_crimson: 'assets/armor-icons-v3/armor_crimson.webp',
+  ui_nav_damage_log: 'assets/ui/journal-v1/nav-damage-log.webp',
+  ui_damage_journal_panel: 'assets/ui/journal-v1/modal.webp',
+  ui_nav_explore: 'assets/ui/generated/nav-explore.png',
+  ui_nav_inventory: 'assets/ui/generated/nav-inventory.png',
+  ui_nav_shop: 'assets/ui/generated/nav-shop.png',
+  ui_nav_gacha: 'assets/ui/generated/nav-gacha.png',
+  ui_nav_codex: 'assets/ui/generated/nav-codex.png',
+  ui_nav_equipment_codex: 'assets/ui/generated/nav-equipment-codex.png',
+  ui_nav_settings: 'assets/ui/generated/nav-settings.png',
+  armor_leather: 'assets/ui/generated/armor-leather.png',
+  armor_chain: 'assets/ui/generated/armor-chain.png',
+  armor_plate: 'assets/ui/generated/armor-plate.png',
+  armor_arcane: 'assets/ui/generated/armor-arcane.png',
+  armor_dragon: 'assets/ui/generated/armor-dragon.png',
+  armor_pumpkin_male: 'assets/characters/halloween-v1/armor_pumpkin_male.png',
+  armor_pumpkin_female: 'assets/characters/halloween-v1/armor_pumpkin_female.png'
+} as const;
+
+const ORIGINAL_ITEM_ART = {
+  i_potion: 'assets/items/healing-potion.png',
+  i_torch: 'assets/items/torch.png',
+  i_warp: 'assets/items/warp-bell.png',
+  i_revive: 'assets/items/revival-seed.png',
+  coin: 'assets/items/coin-pile.png',
+  chest_common: 'assets/items/chests-centered/treasure-chest-common.png',
+  chest_common_open: 'assets/items/chests-centered/treasure-chest-common-open.png',
+  chest_rare: 'assets/items/chests-centered/treasure-chest-rare.png',
+  chest_rare_open: 'assets/items/chests-centered/treasure-chest-rare-open.png',
+  chest_diamond: 'assets/treasury/diamond-chest.png',
+  chest_diamond_open: 'assets/treasury/diamond-chest-open.png',
+  terrain_treasury_door: 'assets/treasury/golden-door.png',
+  terrain_treasury_floor: 'assets/treasury/marble-floor.png',
+  terrain_treasury_wall: 'assets/treasury/gilded-wall.png',
+  i_stone: 'assets/items/weapon-enhancement-scroll.png',
+  i_shieldstone: 'assets/items/armor-enhancement-scroll.png',
+  i_slime_scroll: 'assets/items/slime-transformation-scroll.png',
+  i_boss5_scroll: 'assets/items/aurelius-transformation-scroll.png',
+  i_invis: 'assets/items/invisibility-potion.png',
+  i_dynamite: 'assets/items/dynamite-v1.png',
+  i_skill_drink: 'assets/items/skill-drink-v1.png',
+  enhancement_aura_blue: 'assets/effects/enhancement-aura-blue.png',
+  enhancement_aura_gold: 'assets/effects/enhancement-aura-gold.png',
+  enhancement_aura_red: 'assets/effects/enhancement-aura-red.png',
+  i_mystery_bread: 'assets/items/mystery-bread-v1.webp',
+  i_repair: 'assets/items/equipment-repair-stone.png'
+} as const;
+
+const TERRAIN_PROP_ART = {
+  terrain_boss_entry_north: 'assets/terrain/boss-entrances/north.png',
+  terrain_boss_entry_east: 'assets/terrain/boss-entrances/east.png',
+  terrain_boss_entry_south: 'assets/terrain/boss-entrances/south.png',
+  terrain_boss_entry_west: 'assets/terrain/boss-entrances/west.png',
+  terrain_boss_descent: 'assets/terrain/boss-entrances/boss-descent.png',
+  terrain_boss_gate: 'assets/terrain/boss-gate-v2.png',
+  terrain_boss_gate_side: 'assets/terrain/boss-gate-side.png',
+  terrain_boss_chain_gate: 'assets/terrain/objects/boss-chain-gate.png',
+  terrain_stairs: 'assets/terrain/stairs.png',
+  terrain_boss_brazier: 'assets/terrain/boss-brazier.png',
+  terrain_rune_lamp: 'assets/terrain/rune-lamp.png',
+  terrain_healing_fountain: 'assets/terrain/objects/healing-fountain-pixel.png',
+  terrain_gold_fountain: 'assets/terrain/objects/gold-fountain-pixel.png',
+  terrain_silver_fountain: 'assets/terrain/objects/silver-fountain-pixel.png',
+  terrain_teleport_pad: 'assets/terrain/objects/teleport-pad.png',
+  terrain_midboss_floor_7x7: 'assets/terrain/objects/midboss-floor-7x7.png',
+  terrain_hazard_poison: 'assets/terrain/hazards/toxic-sludge-v2.png',
+  terrain_hazard_ice: 'assets/terrain/hazards/ice-slide-v2.png',
+  terrain_hazard_cracked: 'assets/terrain/hazards/collapsing-crack.png',
+  terrain_hazard_lava: 'assets/terrain/hazards/lava-fissure.png',
+  terrain_hazard_lightning: 'assets/terrain/hazards/lightning-floor.png',
+  terrain_hazard_void: 'assets/terrain/hazards/void-rift.png',
+  terrain_detail_floor_wear: 'assets/terrain/details/floor-wear.png',
+  terrain_detail_floor_repair: 'assets/terrain/details/floor-repair.png',
+  terrain_detail_floor_trim: 'assets/terrain/details/floor-trim.png',
+  terrain_detail_wall_buttress: 'assets/terrain/details/wall-buttress.png',
+  terrain_prop_barrel: 'assets/terrain/objects/room-props/barrel.png',
+  terrain_prop_jar: 'assets/terrain/objects/room-props/jar.png',
+  terrain_prop_crates: 'assets/terrain/objects/room-props/crates.png',
+  terrain_prop_weapon_rack: 'assets/terrain/objects/room-props/weapon-rack.png',
+  terrain_prop_map_table: 'assets/terrain/objects/room-props/map-table.png',
+  terrain_prop_cooking_pot: 'assets/terrain/objects/room-props/cooking-pot.png',
+  terrain_prop_minecart: 'assets/terrain/objects/room-props/minecart.png',
+  terrain_prop_bone_pile: 'assets/terrain/objects/room-props/bone-pile.png',
+  terrain_glacial_floor: 'assets/terrain/glacial/floor.png',
+  terrain_glacial_wall: 'assets/terrain/glacial/wall.png',
+  terrain_glacial_crystal: 'assets/terrain/glacial/crystal.png',
+  terrain_glacial_obelisk: 'assets/terrain/glacial/obelisk.png',
+  terrain_glacial_boulder: 'assets/terrain/glacial/boulder.png',
+  terrain_glacial_altar: 'assets/terrain/glacial/altar.png'
+} as const;
+
+export class BootScene extends Phaser.Scene {
+  private loadingText?: Phaser.GameObjects.Text;
+  private loadingStage = '画像';
+  constructor() {
+    super('BootScene');
+  }
+
+  preload() {
+    const finishCapture = captureBootAssets(this);
+    for (const [key, path] of Object.entries(HALLOWEEN_ART)) {
+      if (key.startsWith('hw_floor_')) this.load.spritesheet(key, path, { frameWidth: 32, frameHeight: 32 });
+      else this.load.image(key, path);
+    }
+    this.loadingStage = '画像';
+    this.load.image('title-menu-frame', 'assets/ui/title-menu-v1/frame.png');
+    this.load.image('title_citadel_v1', 'assets/new-world/title-world-v1.webp');
+    this.load.image('title_map_background', 'assets/ui/map-title-v1/background.webp');
+    this.load.image('title_golden_crossed_swords', 'assets/new-world/logo-v1.png');
+    this.load.image('defeat_male', 'assets/ui/defeat-v1/male.webp');
+    this.load.image('defeat_female', 'assets/ui/defeat-v1/female.webp');
+    this.load.image('ui_obsidian_panel', 'assets/ui/obsidian-v1/panel.webp');
+    this.load.image('ui_difficulty_hard', 'assets/ui/difficulty-v1/hard.png');
+    this.load.image('ui_difficulty_master', 'assets/ui/difficulty-v1/master.png');
+    this.load.image('ui_obsidian_castle', 'assets/ui/obsidian-v1/loading.webp');
+    this.load.image('gacha_shrine_v2', 'assets/ui/gacha-v2/shrine.webp');
+    this.load.spritesheet('gacha_ritual_v2', 'assets/ui/gacha-v2/ritual-atlas.webp', { frameWidth: 627, frameHeight: 627 });
+    this.add.text(GAME_W / 2, GAME_H / 2 - 35, 'ちゃりだんじょん', {
+      fontFamily: '"Yu Gothic UI", "Meiryo", sans-serif', fontSize: '24px', color: '#ffe1a0'
+    }).setOrigin(.5);
+    this.loadingText = this.add.text(GAME_W / 2, GAME_H / 2 + 20, '画像を読み込み中… 0%', {
+      fontFamily: '"Yu Gothic UI", "Meiryo", sans-serif', fontSize: '16px', color: '#c8e4e0'
+    }).setOrigin(.5);
+    this.load.on('progress', (progress: number) => {
+      this.loadingText?.setText(`${this.loadingStage}を読み込み中… ${Math.round(progress * 100)}%`);
+      updateLoading(this.loadingStage === '画像' ? progress * .65 : .68 + progress * .07,
+        this.loadingStage === '画像' ? '冒険の舞台を準備中…' : '冒険の音を準備中…');
+    });
+    for (const weapon of WEAPON_DEFS.filter(w => w.weaponType === 'bow')) this.load.image(`arrow_${weapon.key}`, `assets/bow-arrows-v1/arrow_${weapon.key}.webp`);
+    for (const weapon of WEAPON_DEFS.filter(w => w.weaponType === 'katana')) {
+      for (const prefix of ['']) this.load.image(`sheath_${prefix}${weapon.key}`, `assets/katana-sheaths-v1/sheath_${prefix}${weapon.key}.webp`);
+    }
+    this.load.spritesheet('fx_katana_tornado_v2', 'assets/katana-v2/fx_katana_tornado.png', {frameWidth:256,frameHeight:256});
+    this.load.spritesheet('fx_arcadia', 'assets/effects/arcadia-slash-v1.png', {frameWidth:256,frameHeight:256});
+    for (const art of HELD_EQUIPMENT) {
+      this.load.spritesheet(art.textureKey, art.path, {frameWidth:HELD_FRAME_SIZE,frameHeight:HELD_FRAME_SIZE});
+    }
+    for (const floor of RUIN_TERRAIN_FLOORS) {
+      this.load.spritesheet(ruinFloorKey(floor), `assets/terrain/ruins-floor-v1/${floor}.png`, {
+        frameWidth: RUIN_FLOOR_FRAME_SIZE, frameHeight: RUIN_FLOOR_FRAME_SIZE
+      });
+    }
+    for (const floor of RUIN_TERRAIN_FLOORS) for (const part of RUIN_TERRAIN_PARTS) {
+      this.load.image(ruinTerrainKey(floor, part), `assets/terrain/ruins-low-v1/${floor}/${part}.png`);
+    }
+    // アセットシート（public/assets/）を読み込む
+    this.load.image('sheet_characters', 'assets/characters.png');
+    this.load.image('sheet_monsters', 'assets/monsters.png');
+    this.load.image('sheet_items', 'assets/items.png');
+    this.load.image('sheet_tiles', 'assets/tiles.png');
+    this.load.image('dungeon_chamber', 'assets/dungeon-chamber.png');
+    for (const sheet of PLAYER_SHEETS) {
+      this.load.spritesheet(sheet.key, sheet.path, { frameWidth: PLAYER_FRAME_SIZE, frameHeight: PLAYER_FRAME_SIZE });
+    }
+    for (const [key, path] of Object.entries(ORIGINAL_ITEM_ART)) {
+      this.load.image(key, path);
+    }
+    for (const weapon of WEAPON_DEFS.filter(weapon => weapon.weaponType === 'katana')) {
+      this.load.image(weapon.key, `assets/katana-v1/${weapon.key}.webp`);
+    }
+    for (const [key, path] of Object.entries(WEAPON_ART)) {
+      this.load.image(key, path);
+    }
+    for (const [key, path] of Object.entries({ ...SHIELD_ART, ...SKILL_ICON_ART, ...ADVENTURE_ART, ...REFRESHED_EFFECT_ART })) {
+      this.load.image(key, path);
+    }
+    for (const [key, path] of Object.entries({ ...UI_ART, ...DURABILITY_WARNING_ART, ...ART_REFRESH })) {
+      this.load.image(key, path);
+    }
+    for (const key of EXPANSION_MONSTER_KEYS) {
+      this.load.image(key, `assets/monsters/${key}.png`);
+    }
+    this.load.image('terrain_volcano_wall_block', 'assets/terrain/volcano-v2/wall-block.png');
+    for (const floor of VOLCANO_FLOORS) {
+      const root = `assets/terrain/volcano-v1/${floor}`;
+      this.load.spritesheet(volcanoTerrainKey(floor, 'floor'), `${root}/floor.png`, { frameWidth: 64, frameHeight: 64 });
+      for (const part of VOLCANO_PARTS) {
+        if (!part.startsWith('wall-')) this.load.image(volcanoTerrainKey(floor, part), `${root}/${part}.png`);
+      }
+    }
+    this.load.image('terrain_volcano_lava', 'assets/terrain/volcano-v1/lava.png');
+    for (const floor of WATER_FLOORS) {
+      const root = `assets/terrain/water-v1/${floor}`;
+      this.load.spritesheet(waterTerrainKey(floor, 'floor'), `${root}/floor.png`, { frameWidth: 64, frameHeight: 64 });
+      for (const part of WATER_PARTS) this.load.image(waterTerrainKey(floor, part), `${root}/${part}.png`);
+    }
+    this.load.image('terrain_water_surface', 'assets/terrain/water-v1/water.png');
+    for (const floor of THUNDER_FLOORS) {
+      const root = `assets/terrain/thunder-v1/${floor}`;
+      this.load.spritesheet(thunderTerrainKey(floor, 'floor'), `${root}/floor.png`, { frameWidth: 64, frameHeight: 64 });
+      for (const part of THUNDER_PARTS) this.load.image(thunderTerrainKey(floor, part), `${root}/${part}.png`);
+    }
+    for (const floor of FINAL_DEPTH_FLOORS) {
+      const root = `assets/terrain/final-depths-v1/${floor}`;
+      this.load.spritesheet(finalDepthTerrainKey(floor, 'floor'), `${root}/floor.png`, { frameWidth: 64, frameHeight: 64 });
+      for (const part of finalDepthParts(floor)) this.load.image(finalDepthTerrainKey(floor, part), `${root}/${part}.png`);
+    }
+    this.load.image('terrain_thunder_clouds', 'assets/terrain/thunder-v1/storm-clouds.png');
+    for (const art of DIRECTIONAL_MONSTERS) {
+      this.load.spritesheet(art.textureKey, art.path, { frameWidth: art.frameSize, frameHeight: art.frameSize });
+    }
+    for (const animation of MONSTER_ANIMATIONS) {
+      for (const [key, path] of [
+        [animation.motionKey, animation.motionPath],
+        [animation.attackKey, animation.attackPath]
+      ]) {
+        this.load.spritesheet(key, path, {
+          frameWidth: animation.frameSize, frameHeight: animation.frameSize
+        });
+      }
+    }
+    for (let era = 1; era <= 4; era++) {
+      this.load.spritesheet(`terrain_floor_${era}`, `assets/terrain/floor-era${era}.png`, {
+        frameWidth: 64,
+        frameHeight: 64
+      });
+      this.load.spritesheet(`terrain_wall_${era}`, `assets/terrain/wall-era${era}.png`, {
+        frameWidth: 64,
+        frameHeight: 64
+      });
+      this.load.spritesheet(`terrain_wall_facade_${era}`, `assets/terrain/wall-facade-era${era}.png`, {
+        frameWidth: 64,
+        frameHeight: 64
+      });
+      this.load.image(`terrain_boss_floor_${era}`, `assets/terrain/boss-floor-era${era}.png`);
+    }
+    for (const biome of ['ruins', 'aqueduct', 'frost', 'magma', 'storm', 'void']) {
+      this.load.image(`terrain_biome_floor_${biome}`, `assets/terrain/biomes/${biome}-floor.png`);
+      this.load.image(`terrain_biome_wall_${biome}`, `assets/terrain/biomes/${biome}-wall.png`);
+      this.load.image(`terrain_biome_hazard_${biome}`, `assets/terrain/biomes/${biome}-hazard.png`);
+    }
+    for (const [key, path] of Object.entries(TERRAIN_PROP_ART)) {
+      this.load.image(key, path);
+    }
+
+    finishCapture();
+    this.load.on('loaderror', (file: Phaser.Loader.File) => {
+      console.warn('アセット読み込み失敗:', file.key);
+    });
+  }
+
+  private assetsPrepared = false;
+
+  prepareGameTextures() {
+    // One cached texture per low wall/background combination, with no per-frame compositing.
+    for (const floor of THUNDER_FLOORS) for (const part of ['wall-a', 'wall-b'] as const) {
+      const key = thunderTerrainKey(floor, part);
+      if (!this.textures.exists(key) || !this.textures.exists(thunderTerrainKey(floor, 'floor'))) continue;
+      for (const ground of ['ground', 'clouds'] as const) {
+        if (this.textures.exists(`${key}_${ground}`)) continue;
+        const texture = this.textures.createCanvas(`${key}_${ground}`, 64, 64);
+        if (!texture) continue;
+        const context = texture.context;
+        context.imageSmoothingEnabled = false;
+        const base = this.textures.get(ground === 'clouds' ? 'terrain_thunder_clouds' : thunderTerrainKey(floor, 'floor')).getSourceImage() as HTMLImageElement;
+        context.drawImage(base, 0, 0, 64, 64, 0, 0, 64, 64);
+        context.drawImage(this.textures.get(key).getSourceImage() as HTMLImageElement, 0, 0);
+        texture.refresh();
+      }
+    }
+    // Precompose the transparent low walls once; no extra sprites or animation per cell.
+    for (const floor of WATER_FLOORS) for (const part of ['wall-a', 'wall-b'] as const) {
+      const key = waterTerrainKey(floor, part);
+      if (!this.textures.exists(key) || !this.textures.exists(waterTerrainKey(floor, 'floor'))) continue;
+      for (const ground of ['ground', 'water'] as const) {
+        const texture = this.textures.createCanvas(`${key}_${ground}`, 64, 64);
+        if (!texture) continue;
+        const context = texture.context;
+        context.imageSmoothingEnabled = false;
+        const base = this.textures.get(ground === 'water' ? 'terrain_water_surface' : waterTerrainKey(floor, 'floor')).getSourceImage() as HTMLImageElement;
+        context.drawImage(base, 0, 0, 64, 64, 0, 0, 64, 64);
+        context.drawImage(this.textures.get(key).getSourceImage() as HTMLImageElement, 0, 0);
+        texture.refresh();
+      }
+    }
+    // Full-height square basalt blocks use the same tile footprint as the ice walls.
+    // Compose the transparent edges with each floor's ground; mirror one variant for variety.
+    for (const floor of VOLCANO_FLOORS) for (const part of ['wall-a', 'wall-b'] as const) {
+      const key = volcanoTerrainKey(floor, part);
+      if (!this.textures.exists(volcanoTerrainKey(floor, 'floor')) || !this.textures.exists('terrain_volcano_wall_block')) continue;
+      for (const ground of ['ground', 'lava'] as const) {
+        const texture = this.textures.createCanvas(`${key}_${ground}`, 64, 64);
+        if (!texture) continue;
+        const context = texture.context;
+        context.imageSmoothingEnabled = false;
+        const base = this.textures.get(ground === 'lava' ? 'terrain_volcano_lava' : volcanoTerrainKey(floor, 'floor')).getSourceImage() as HTMLImageElement;
+        context.drawImage(base, 0, 0, 64, 64, 0, 0, 64, 64);
+        context.save();
+        if (part === 'wall-b') { context.translate(64, 0); context.scale(-1, 1); }
+        context.drawImage(this.textures.get('terrain_volcano_wall_block').getSourceImage() as HTMLImageElement, 0, 0, 64, 64);
+        context.restore();
+        texture.refresh();
+      }
+    }
+    if (!this.assetsPrepared) { applyRealAssets(this); this.assetsPrepared = true; }
+  }
+
+  async create() {
+    buildAllTextures(this);
+    if (VERIFIER) {
+      // Audio and painted artwork are presentation only; the same game rules run below.
+      this.scene.start('TitleScene');
+      return;
+    }
+    // 3) 実在する音源ファイルだけを読み込む
+    //    （Viteは存在しないパスにindex.htmlを返すため、content-typeで実在判定する。
+    //     実ファイルが無い音は manager 側で仮チップチューンが合成される）
+    // 探索・ボスBGMはAudioManagerが後から取得し、タイトル表示を待たせない。
+    this.loadingStage = '効果音';
+    updateLoading(.68, '冒険の音を準備中…');
+    this.loadingText?.setText('効果音を準備中…');
+    const allAudio: AudioDef[] = FILE_SE_NAMES.map(name => SE_DEFS[name]);
+    const existing = await this.filterExistingAudio(allAudio);
+    if (existing.length > 0) {
+      await this.loadAudioFiles(existing);
+      console.log(`音源ファイル読み込み: ${existing.length}個（残りは合成音で代替）`);
+    } else {
+      console.log('音源ファイルは未配置。内蔵のチップチューンで再生します。');
+    }
+
+    // 4) オーディオ初期化（効果音は先に合成してキャッシュ）
+    Audio.init(this.game);
+    Audio.preloadSynthSe();
+
+    configureLazyEquipmentArt(this.game);
+    this.scene.start('TitleScene');
+  }
+
+  // content-typeが音声のものだけ返す
+  private async filterExistingAudio(defs: AudioDef[]): Promise<AudioDef[]> {
+    const results = await Promise.all(defs.map(async (def) => {
+      try {
+        // 大きなBGMを存在確認だけで二重ダウンロードしない。
+        const res = await fetch(def.path, { method: 'HEAD' });
+        const ct = res.headers.get('content-type') || '';
+        if (res.ok && ct.startsWith('audio')) return def;
+      } catch {
+        /* ネットワークエラー等は「無い」扱い */
+      }
+      return null;
+    }));
+    return results.filter((d): d is AudioDef => d !== null);
+  }
+
+  // 実在音源をPhaserローダーで読み込む（完了を待つ）
+  private loadAudioFiles(defs: AudioDef[]): Promise<void> {
+    return new Promise((resolve) => {
+      for (const def of defs) this.load.audio(def.key, def.path);
+      this.load.once(Phaser.Loader.Events.COMPLETE, () => resolve());
+      this.load.start();
+    });
+  }
+}

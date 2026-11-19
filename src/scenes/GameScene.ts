@@ -1,0 +1,9048 @@
+import { localQaEnabled } from '../buildFlags';
+import { seedRun, runRandom, runShuffle, randomState, restoreRandom, usesLegacyLoot, usesLegacyBread } from '../ranking/random';
+import { installRecorder, invalidateRun, isReplay, replayCommand } from '../ranking/recorder';
+import { enqueueSubmission } from '../ranking/outbox';
+import { type RankedRun, type Standing, type Command } from '../ranking/model';
+import { ensureSceneAssets } from '../assetStreaming';
+import { ensureCombatEffectTextures } from '../combatEffectArt';
+import { weaponAccessoryKey, katanaSlashColor } from '../equipmentAccessories';
+import { isTwoHanded } from '../equipmentRules';
+import { weaponChargeSteps, isRemovedItem, MAX_ENHANCEMENT } from '../enhancement';
+import { SKILL_DRINK_DROP_RATE } from '../balance';
+import { equipmentKeys, readEquipmentCodexSave, writeEquipmentCodexSave, readCodexSave, writeCodexSave } from '../codexSave';
+import { ITEM_CATALOG, ITEM_CATALOG_CODE, type CatalogClaimResult } from '../itemCatalog';
+import { hasVolcanoTerrain, volcanoTerrainKey, volcanoFloorFrame, VOLCANO_PROP_KINDS, type VolcanoPropKind, type VolcanoPart } from '../volcanoTerrain';
+import { hasWaterTerrain, waterTerrainKey, waterFloorFrame, WATER_PROP_KINDS, type WaterPropKind, type WaterPart } from '../waterTerrain';
+import { FINAL_DEPTH_BOSSES, FINAL_ELEMENTS, FINAL_ELEMENT_LABEL, finalDepthMobCount, finalAttackPlan, bossBodyRadius, bodyContains, bodyCells, bodyDistance } from '../finalDepthBosses';
+import { hasFinalDepthTerrain, finalDepthTerrainKey, finalDepthFloorFrame, finalDepthPropKinds, FINAL_DEPTH_COLORS, type FinalDepthPropKind, type FinalDepthPart } from '../finalDepthTerrain';
+import { hasThunderTerrain, thunderTerrainKey, thunderFloorFrame, THUNDER_PROP_KINDS, type ThunderPropKind, type ThunderPart } from '../thunderTerrain';
+import Phaser from 'phaser';
+import { equipmentIconTexture, REFRESHED_MONSTER_KEYS } from '../artRefresh';
+import { effectWorldSize } from '../effectRefresh';
+import { presentGame } from '../menuPresentation';
+import { GOLDEN_KING, GOLDEN_SHIELD, HALLOWEEN_BOSSES, HALLOWEEN_MOBS, HALLOWEEN_RETAINERS, HALLOWEEN_WEAPONS, HALLOWEEN_SHIELDS, HALLOWEEN_FLOORS, HALLOWEEN_COLORS } from '../halloweenContent';
+import { generateHalloweenDungeon, halloweenDecorations } from '../halloweenDungeon';
+import { DIFFICULTY_RULES, difficultyOf, difficultyGold, difficultyEnemy, difficultyFromCode, isDifficultyUnlocked, readDifficultyProgress, recordDifficultyClear, type Difficulty } from '../difficulty';
+import { awaitTween } from '../awaitTween';
+import { planDifficultyChallenge } from '../difficultyChallenge';
+import { EquipmentRenderer } from '../equipmentRenderer';
+import { PlayerAnimation } from '../playerAnimation';
+import { TILE } from '../textures';
+import { hasRuinTerrain, ruinTerrainKey, ruinFloorKey, ruinFloorFrame } from '../ruinTerrain';
+import { generateDungeon, generateBossArena, DungeonData, randomFloor, isWalkable, addDiamondTreasury, removeLegacyRoomDoors } from '../dungeon';
+import { rollTreasuryReward } from '../treasury';
+import { normalizeQuests, mergeQuests, recordQuestKill, claimQuest, completedQuestCount, readQuestJournal, writeQuestJournal, SECRET_QUESTS, type SecretQuestProgress } from '../secretQuests';
+import { playPaintedSkill, paintedImpact, paintedVanish, paintedStun, skillImpactTime } from '../skillEffects';
+import { resolveShieldHit } from '../shieldEffects';
+import type { BossRoomZone, OptionalRoom, OptionalRoomKind, Room } from '../dungeon';
+import { getTheme, eraSuffix, MONSTER_DEFS, NORMAL_MONSTER_DEFS, WEAPON_DEFS, makeItem, gradeColor, ITEM_DEFS, ELEMENT_INFO, monsterElement } from '../data';
+import type { Armor, Dir, Element, MonsterElement, EquipmentGrade, ItemKind, MonsterDef, Shield, TileType, Vec2, Weapon } from '../types';
+import {
+  Player, rollWeapon, rollWeaponByGrade, rollGlacialBossWeapon, rollVolcanicBossWeapon, rollShield, rollShieldByGrade,
+  weaponFullName, weaponRarity, shieldFullName, makeWeapon, makeShield, refreshLegendaryEquipment
+} from '../player';
+import { Enemy } from '../enemy';
+import { customFloorBoss } from '../customFloorBosses';
+import { strengthenLateBoss } from '../bossBalance';
+import { bossApproach } from '../bossNavigation';
+import { getMonsterAnimation, monsterAnimationFrame } from '../monsterAnimation';
+import type { MonsterAction } from '../monsterAnimation';
+import { AURELIUS_DIRECTIONS, DIRECTIONAL_MONSTERS, MONSTER_DIRECTION_FRAME, monsterDirectionPose } from '../monsterDirections';
+import { computePlayerAttack, computeEnemyAttack, consumeWeaponDurability } from '../combat';
+import { ordinaryMobAttackBonus, ordinaryMobAttackDefinition } from '../ordinaryMobBalance';
+import { appendJournal, type DamageEntry, type AdventureEntry } from '../damageJournal';
+import { planSkill, weaponSkill, directionVector, timeStopDestination } from '../weaponSkills';
+import { Audio } from '../audio/manager';
+import { clearRunSave, pickFields, readRunSave, writeRunSave, type RunSnapshot } from '../runSave';
+import { type BgmName, bgmForFloor, elementAttackSe, weaponAttackSe } from '../audio/config';
+import { ARCADIA_GACHA_RATE, ARCADIA_BOSS_DROP_RATE, enhancementChance, EQUIPMENT_LIMIT, FLOOR_KEY_DROP_RATE, DYNAMITE_DROP_RATE, DYNAMITE_RADIUS, MYSTERY_BREAD_DROP_RATE, ITEM_SELL_PRICES, SCROLL_DROP_RATE, SHOP_PRICES, type ShopItemKind } from '../balance';
+import { getFloorLayoutProfile } from '../floorLayout';
+import {
+  armorForGrade,
+  armorFullName,
+  armorTextureKey,
+  DEFAULT_PLAYER_ARMOR,
+  getSelectedGender,
+  isPlayerArmor,
+  isPlayerGender,
+  PLAYER_ARMOR_DEFS,
+  PLAYER_ARMORS,
+  PLAYER_WORLD_SCALE,
+  makePlayerArmor,
+  playerFrameIndex,
+  playerSheetKey,
+  PlayerArmor,
+  PlayerGender,
+  PlayerVisualFrame,
+  setSelectedGender
+} from '../playerAppearance';
+
+// マップ表示ビューポート（画面上の座標。スマホ縦持ちでは縦型レイアウト）
+import { MAP_X, MAP_Y, MAP_W, MAP_H } from '../layout';
+import { playRevivalPresentation } from '../revivalPresentation';
+import { armorTraitDescription, armorTraitValue, rollStarWeapon, starWeaponKey } from '../equipmentTraits';
+
+const ANIM = 116;
+const RUN_STATE_KEYS = [
+  'emeraldGuardReadyTurn', 'emeraldGuardUntil', 'emeraldGuardArmed', 'eventMode', 'eventStartingWeapon', 'difficulty', 'revivesUsed', 'difficultyClearEligible',
+  'floor', 'turn', 'floorTurn', 'floorArrivalTurns', 'floorStartHp', 'floorDamaged', 'floorBossDefeated',
+  'inBossRoom', 'bossRewardClaimed', 'bossEntranceClosed', 'weaponWonThisFloor', 'reviveSeedSeen',
+  'floorPotionDrops', 'shopPurchases', 'enhancementScrollDrops', 'enhancementScrollClaimedBlocks', 'reservedBossScroll', 'pendingEquipment',
+  'secretDualUnlocked', 'itemCatalogUnlocked', 'playerRootTurns', 'itemSealTurns', 'playerGender',
+  'playerArmor', 'lightRadius', 'torchTurns', 'lanternTurns', 'invisTurns',
+  'transformation', 'penaltyFlags', 'skillChargeSteps', 'timeStopTurns', 'lanceSkillTurns', 'secretQuests'
+] as const;
+const ENEMY_STATE_KEYS = [
+  'def', 'hp', 'hpMax', 'x', 'y', 'baseScale', 'midBossVisualMultiplier', 'slowToggle', 'freezeTurns', 'sealTurns', 'poisonTurns',
+  'loopDir', 'lineDir', 'facing', 'moveSteps', 'stealthRevealed', 'gimmickCounter', 'gimmickPhase',
+  'emedralStunUntil', 'emedralAffected', 'emedralWeakUntil', 'vulnerableTurns', 'guardOpenTurns', 'stunnedTurns', 'skillAttackDownUntil', 'skillDefenseDownUntil', 'awakened', 'revived', 'regenBlockedTurns',
+  'summoned', 'cloneDepth', 'charging', 'chargeDir', 'plannedMove', 'challengeTurn', 'challengeWaves'
+] as const;
+// 探索画面のズーム倍率（大きいほど拡大。1.0=等倍）
+const MAP_ZOOM = 1.95;
+// アンチエイリアスとカメラ拡大で生じる細い隙間を隠すため、地形同士を少し重ねる。
+const TERRAIN_RENDER_SIZE = TILE + 2;
+const BOSS_GROUND_ORIGIN_Y = 0.84;
+const WALL_VISIBLE_TINT = 0xffffff;
+const BOSS_ROOM_FLOOR_TINT = 0xd6a85c;
+const WORLD_DEPTH_BASE = 10;
+const WORLD_DEPTH_Y_SCALE = 0.01;
+const WALL_FACADE_HEIGHT = 36;
+const HOLD_FIRST_REPEAT_MS = 145;
+const HOLD_BOOST_MS = 300;
+const HOLD_MAX_BOOST_MS = 820;
+const MOVE_KEY_DIRS: Record<string, Dir> = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
+
+// ボスはHPを倍にしつつ、攻撃と防御は控えめに上げる。
+// 全能力を2倍にすると体感難度が約4倍になるため、総合的に約2倍の強さへ寄せる。
+const BOSS_HP_MULTIPLIER = 2;
+const BOSS_ATTACK_MULTIPLIER = 1.35;
+const BOSS_DEFENSE_MULTIPLIER = 1.15;
+// 追加ギミック込みで、中ボス以上の戦闘圧が従来比およそ1.5倍になるよう配分する。
+const FLOOR_BOSS_HP_BOOST = 1.5;
+const FLOOR_BOSS_ATTACK_BOOST = 1.15;
+const FLOOR_BOSS_DEFENSE_BOOST = 1.08;
+
+const MID_DRAGONS: { key: string; name: string; tint: number }[] = [
+  { key: 'm_ember_drake', name: 'エンバードラゴン', tint: 0xff6a35 },
+  { key: 'm_frost_wyrm', name: 'フロストワイバーン', tint: 0x9ee8ff },
+  { key: 'm_storm_wyvern', name: 'ストームドラゴン', tint: 0x66a5ff },
+  { key: 'm_brass_dragon', name: 'ブラスドレイク', tint: 0xe7b85e },
+  { key: 'm_void_drake', name: 'ヴォイドドラゴン', tint: 0xa06bff },
+  { key: 'm_bone_dragon', name: 'ボーンワイバーン', tint: 0xe0d2b8 },
+  { key: 'm_hydra', name: 'ジェイドヒュドラ', tint: 0x65d58b },
+  { key: 'm_ember_drake', name: 'クリムゾンドレイク', tint: 0xff4055 },
+  { key: 'm_frost_wyrm', name: 'ムーンドラゴン', tint: 0xc6d5ff },
+  { key: 'm_storm_wyvern', name: 'サンダーワイバーン', tint: 0xffdf66 },
+  { key: 'm_brass_dragon', name: 'ゴールドドラゴン', tint: 0xffc857 },
+  { key: 'm_void_drake', name: 'アビスドラゴン', tint: 0x735cff },
+  { key: 'm_bone_dragon', name: 'カースドドラゴン', tint: 0xd19aff },
+  { key: 'm_hydra', name: 'ブラッドヒュドラ', tint: 0xff5f72 },
+  { key: 'm_storm_wyvern', name: 'セレスティアルドラゴン', tint: 0x88eaff }
+];
+
+const MILESTONE_BOSSES: Record<number, { key: string; name: string; tint: number; scale: number; hp: number; atkMin: number; atkMax: number; def: number }> = {
+  5: { key: 'm_archdemon', name: '封印王アウレリウス', tint: 0xffc96b, scale: 1.72, hp: 96, atkMin: 6, atkMax: 11, def: 4 },
+  10: { key: 'm_giant_bull', name: '巨角の猛牛', tint: 0xc98b52, scale: 1.82, hp: 150, atkMin: 9, atkMax: 16, def: 7 },
+  15: { key: 'm_ice_behemoth', name: '氷晶王ベヒーモス', tint: 0x8adfff, scale: 1.85, hp: 220, atkMin: 11, atkMax: 19, def: 10 },
+  20: { key: 'm_valgrado', name: '熔獄竜ヴァルグラド', tint: 0xff783d, scale: 2.7, hp: 310, atkMin: 14, atkMax: 23, def: 12 },
+  25: { key: 'm_raiga', name: '轟雷王ライガ', tint: 0xa7d7ff, scale: 2.35, hp: 410, atkMin: 17, atkMax: 28, def: 15 },
+  30: { key: 'm_astravein', name: '万象竜皇アストラヴェイン', tint: 0xdfc68e, scale: 8, hp: 580, atkMin: 20, atkMax: 34, def: 18 }
+};
+
+export interface GachaResult {
+  color: number;
+  name: string;
+  texKey: string;
+  hasEffect: boolean;
+  elementColor?: number;
+  tintIcon: boolean;
+  category: '武器' | '服' | '盾';
+  grade: EquipmentGrade | 'SS';
+  elementName?: string;
+  feature?: string;
+}
+
+export type GachaPool = 'weapon' | 'armor';
+
+interface Chest {
+  x: number;
+  y: number;
+  opened: boolean;
+  rare: boolean;   // 赤い宝箱=レア（レアアイテム・大量ゴールド）
+  diamond?: boolean;
+  sprite: Phaser.GameObjects.Image;
+  glow?: Phaser.GameObjects.Image;
+  phase: number;
+  baseScale: number;
+}
+
+interface GroundItem {
+  x: number;
+  y: number;
+  kind: ItemKind | 'coin' | 'weapon' | 'shield' | 'armor';
+  sprite: Phaser.GameObjects.Image;
+  glow?: Phaser.GameObjects.Image;
+  phase: number;
+  value?: number;
+  weapon?: Weapon;
+  shield?: Shield;
+  armor?: Armor;
+}
+
+type EnhancementScrollKind = 'stone' | 'shieldstone';
+type TransformationKind = 'slime' | 'boss5';
+
+interface PlayerTransformation {
+  kind: TransformationKind;
+  turns: number;
+  name: string;
+  textureKey: string;
+  displaySize: number;
+  attackRate: number;
+  defenseBonus: number;
+}
+
+type PendingEquipment =
+  | { kind: 'weapon'; item: Weapon; source: string }
+  | { kind: 'shield'; item: Shield; source: string }
+  | { kind: 'armor'; item: Armor; source: string };
+
+interface AmbientMote {
+  x: number;
+  y: number;
+  baseY: number;
+  phase: number;
+  sprite: Phaser.GameObjects.Arc;
+}
+
+interface WallFacade {
+  x: number;
+  y: number;
+  sprite: Phaser.GameObjects.Image;
+}
+
+interface TerrainDetailVisual {
+  x: number;
+  y: number;
+  wall: boolean;
+  underlay?: boolean;
+  alpha: number;
+  sprite: Phaser.GameObjects.Image;
+}
+
+type HealingDungeonObjectKind = 'fountain';
+type RoomPropKind = 'hw_pumpkins' | 'hw_grave' | 'hw_lantern' | 'hw_cauldron' | 'hw_books' | 'hw_armor' | 'hw_coffin' | 'hw_throne' | 'hw_tree' | 'hw_barrel' | 'barrel' | 'jar' | 'crates' | 'weaponRack' | 'mapTable' | 'cookingPot' | 'minecart' | 'bonePile'
+  | 'iceCrystal' | 'iceObelisk' | 'snowBoulder' | 'iceAltar' | 'ruinRelic' | 'ruinRubble' | VolcanoPropKind | WaterPropKind | ThunderPropKind | FinalDepthPropKind;
+type DungeonObjectKind = HealingDungeonObjectKind | RoomPropKind;
+
+interface DungeonObject {
+  kind: DungeonObjectKind;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  sprite: Phaser.GameObjects.Image;
+  waterFx?: Phaser.GameObjects.Container;
+  waterDrops?: { sprite: Phaser.GameObjects.Rectangle; x: number; phase: number }[];
+  waterRipples?: { sprite: Phaser.GameObjects.Rectangle; phase: number }[];
+  used: boolean;
+  silverFountain?: boolean;
+  goldFountain?: boolean;
+  breakable: boolean;
+}
+
+interface TeleportPadVisual {
+  x: number;
+  y: number;
+  sprite: Phaser.GameObjects.Image;
+  phase: number;
+  baseScale: number;
+}
+
+interface BossCompassVisual {
+  x: number;
+  y: number;
+  base: Phaser.GameObjects.Arc;
+  glow: Phaser.GameObjects.Arc;
+  arrow: Phaser.GameObjects.Graphics;
+}
+
+interface TerrainVisual {
+  key: string;
+  frame?: number;
+  size?: number;
+  depth?: number;
+  flipX?: boolean;
+  angle?: number;
+}
+
+type BossGimmickKind =
+  | 'mid_hw_pumpkin' | 'mid_hw_ghost' | 'mid_hw_witch' | 'mid_hw_knight' | 'hw_king'
+  | 'mid_fire' | 'mid_frost' | 'mid_storm' | 'mid_void' | 'mid_bone' | 'mid_poison'
+  | 'mid_magic' | 'mid_rival' | 'mid_ember_shift' | 'mid_magma_lance' | 'mid_ember_bone' | 'magma_breath'
+  | 'mid_thunder_jaw' | 'mid_thunder_shell' | 'mid_thunder_engine' | 'mid_thunder_ring' | 'thunder_king' | 'thunder_charge'
+  | 'mid_final_depth' | 'astral_dragon'
+  | 'bull_charge' | 'furnace_titan' | 'glacial_slam' | 'ancient_fire' | 'tri_head';
+
+type BossHazardKind = 'fire' | 'ice' | 'poison' | 'slow' | 'web' | 'lightning';
+type BossStrikeChannel = 'primary' | 'secondary' | 'tertiary';
+type BossImpactKind = 'water' | 'fire' | 'ice' | 'lightning' | 'void' | 'bone' | 'poison' | 'impact' | 'magic';
+
+interface BossWarningMarker {
+  x: number;
+  y: number;
+  turns: number;
+  channel: BossStrikeChannel;
+  element?: MonsterElement;
+  plate: Phaser.GameObjects.Rectangle;
+  label: Phaser.GameObjects.Text;
+}
+
+interface BossIntent {
+  kind: BossGimmickKind;
+  tiles: Vec2[];
+  secondary: Vec2[];
+  tertiary: Vec2[];
+  destination?: Vec2;
+  markers: BossWarningMarker[];
+  triggered: boolean;
+  recovery?: number;
+}
+
+interface BossRuntime {
+  kind: BossGimmickKind;
+  cooldown: number;
+  phase: number;
+  stunned: number;
+  phaseTwo: boolean;
+  halloweenStarted?: boolean;
+  halloweenTurn?: number;
+  castDamage?: number;
+  goldenSafe?: Vec2[];
+  goldenRitual?: boolean;
+  intent?: BossIntent;
+  coreLabel?: Phaser.GameObjects.Text;
+}
+
+interface BossHazard {
+  x: number;
+  y: number;
+  kind: BossHazardKind;
+  turns: number;
+  sprite: Phaser.GameObjects.Rectangle;
+}
+
+interface BossObstacle {
+  x: number;
+  y: number;
+  turns: number;
+  kind: 'bone' | 'iron';
+  sprite: Phaser.GameObjects.Image;
+}
+
+export class GameScene extends Phaser.Scene {
+  difficulty: Difficulty = 'normal';
+  difficultyClearEligible = true;
+  revivesUsed = 0;
+  reviving = false;
+  revivalPromise?: Promise<void>;
+  player!: Player;
+  dungeon!: DungeonData;
+  eventMode: 'halloween' | null = null;
+  emeraldGuardFx?: Phaser.GameObjects.Container;
+  emeraldGuardReadyTurn = 0;
+  emeraldGuardUntil = 0;
+  emeraldGuardArmed = true;
+  eventStartingWeapon = 'w_iron_dagger';
+  floor = 1;
+  turn = 0;
+  floorTurn = 0;
+  floorPotionDrops = 0;
+  floorArrivalTurns = 0;
+  private turnCharged = false;
+  private chargeTurn() { if (!this.turnCharged) { this.turn++; this.turnCharged = true; } }
+  rankedRun?: RankedRun;
+  finalStanding?: Standing;
+  rankingSaveError = false;
+  replayCommand(command: Command) { return replayCommand(this, command); }
+  standing(cleared = false): Standing {
+    return { cleared, floor: this.floor, bossRoom: this.inBossRoom, arrivalTurns: this.floorArrivalTurns, turns: this.turn };
+  }
+  floorStartHp = 100;
+  floorDamaged = false;
+  busy = false;
+  gameEnded = false;
+  floorBossDefeated = false;
+  inBossRoom = false;
+  bossRewardClaimed = false;
+  bossEntranceClosed = false;
+  openedOptionalRooms = new Set<OptionalRoom>();
+  weaponWonThisFloor = false;
+  reviveSeedSeen = false;
+  shopPurchases: Record<ShopItemKind, number> = { potion: 0, repair: 0, slime_scroll: 0, boss5_scroll: 0 };
+  enhancementScrollDrops: Record<EnhancementScrollKind, boolean> = { stone: false, shieldstone: false };
+  enhancementScrollClaimedBlocks: number[] = [];
+  reservedBossScroll: EnhancementScrollKind | null = null;
+  clickPathToken = 0;
+  clickPathActive = false;
+  clickPathQuick = false;
+  clickDestinationRing?: Phaser.GameObjects.Graphics;
+  lastMapClickAt = 0;
+  qaBossMode = false;
+  qaBossRoomZone?: BossRoomZone;
+
+  tileSprites: Phaser.GameObjects.Image[][] = [];
+  wallFacades: WallFacade[] = [];
+  terrainDetails: TerrainDetailVisual[] = [];
+  explored: boolean[][] = [];
+  visibleTiles: boolean[][] = [];
+  enemies: Enemy[] = [];
+  chests: Chest[] = [];
+  ground: GroundItem[] = [];
+  ambientMotes: AmbientMote[] = [];
+  bossStates = new Map<Enemy, BossRuntime>();
+  difficultyWarnings = new Map<Enemy, BossWarningMarker[]>();
+  bossHazards: BossHazard[] = [];
+  bossObstacles: BossObstacle[] = [];
+  bossFloorDecor?: Phaser.GameObjects.Graphics;
+  bossRoomBackdrop?: Phaser.GameObjects.Image;
+  bossRoomDecorSprites: Phaser.GameObjects.Image[] = [];
+  dungeonObjects: DungeonObject[] = [];
+  teleportPadVisuals: TeleportPadVisual[] = [];
+  bossCompassVisual?: BossCompassVisual;
+  discovered: Set<string> = new Set();
+  discoveredEquipment: Set<string> = new Set();
+  pendingEquipment: PendingEquipment | null = null;
+  secretDualUnlocked = false;
+  itemCatalogUnlocked = false;
+  playerRootTurns = 0;
+  itemSealTurns = 0;
+  skillChargeSteps = 100;
+  timeStopTurns = 0;
+  lanceSkillTurns = 0;
+  private timeStopColor?: Phaser.FX.ColorMatrix;
+  private timeStopClock?: Phaser.Time.TimerEvent;
+  secretQuests: SecretQuestProgress = normalizeQuests();
+  private skillRangePreview?: Phaser.GameObjects.Graphics;
+  private skillRangePreviewKey = '';
+  private dynamiteRangePreview?: Phaser.GameObjects.Graphics;
+  private dynamiteRangePreviewKey = '';
+  private hoveredEnemy?: Enemy;
+  private fountainHoverInfoKey = '';
+  private cursorTile?: Phaser.GameObjects.Rectangle;
+  private enemyHoverInfoKey = '';
+
+  playerSprite!: Phaser.GameObjects.Image;
+  playerShadow?: Phaser.GameObjects.Image; // 足元の影（接地感）
+  playerAura?: Phaser.GameObjects.Image;
+  enhancementAura?: Phaser.GameObjects.Container; // 武器と盾の強化値に応じた体の煙オーラ
+  weaponSprite?: Phaser.GameObjects.Image; // キャラが手に持つ武器（装備で変化）
+  equipmentRenderer?: EquipmentRenderer;
+  playerVisualFrame: PlayerVisualFrame = 'idle';
+  playerAnimation = new PlayerAnimation();
+  playerVisualSince = 0;
+  stepToggle = false; // 歩行アニメの左右足切り替え
+  playerAttacking = false;
+  playerGender: PlayerGender = getSelectedGender();
+  playerArmor: PlayerArmor | null = null;
+  playerAnimToken = 0;
+  stairsHint!: Phaser.GameObjects.Text;
+  lightRadius = 3;
+
+  torchTurns = 0;
+  lanternTurns = 0;
+  themeTileTint = 0xffffff; // 現在フロアのタイル色合い（2階ごとに変わる）
+  invisTurns = 0; // 透明ポーション：残りターン（敵から完全に見えない）
+  transformation: PlayerTransformation | null = null;
+  transformationSprite?: Phaser.GameObjects.Image;
+  transformationBaseScale = 1;
+
+  // 長居ペナルティフラグ
+  penaltyFlags = { p100: false, p150: false, p200: false, p250: false };
+
+  keys!: {
+    up: Phaser.Input.Keyboard.Key;
+    down: Phaser.Input.Keyboard.Key;
+    left: Phaser.Input.Keyboard.Key;
+    right: Phaser.Input.Keyboard.Key;
+    enter: Phaser.Input.Keyboard.Key;
+  };
+
+  // 長押し移動：押しっぱなしで歩き続ける
+  heldDir: Dir | null = null;
+  queuedMove: Dir | null = null;
+  holdRepeatAt = 0; // この時刻を過ぎたらリピート開始（初回の誤連打防止）
+  holdStartedAt = 0;
+  holdBoostTier = 0; // 0=通常 / 1=BOOST / 2=MAX BOOST
+  touchDir: Dir | null = null; // スマホ用十字ボタンの押しっぱなし方向（UISceneが設定）
+  private savePending = false;
+  private saveWarningShown = false;
+  private restoringRun = false;
+  boostBadge?: Phaser.GameObjects.Text;
+
+  constructor() {
+    super('GameScene');
+  }
+
+  private assetsLoading = false;
+
+  async create(data?: { resume?: boolean; difficulty?: Difficulty; eventMode?: 'halloween'; startingWeapon?: string; startingArmor?: PlayerArmor; rankedRun?: RankedRun }) {
+    this.assetsLoading = true;
+    const assetResume = data?.resume ? readRunSave(data?.eventMode === 'halloween')?.snapshot : undefined;
+    const assetFloor = assetResume?.state.floor ?? (localQaEnabled() ? Number(new URLSearchParams(location.search).get('qa-floor')) || 1 : 1);
+    await ensureSceneAssets(this, assetFloor, data?.eventMode === 'halloween');
+    this.assetsLoading = false;
+    presentGame(this);
+    this.eventMode = data?.eventMode === 'halloween' ? 'halloween' : null;
+    this.emeraldGuardFx = undefined;
+    this.emeraldGuardReadyTurn = 0;
+    this.emeraldGuardUntil = 0; this.emeraldGuardArmed = true;
+    this.eventStartingWeapon = data?.startingWeapon ?? 'w_iron_dagger';
+    const resume = data?.resume ? readRunSave(this.eventMode === 'halloween')?.snapshot : undefined;
+    this.rankedRun = resume?.ranking?.run ?? data?.rankedRun;
+    this.finalStanding = undefined;
+    this.rankingSaveError = false;
+    if (this.rankedRun?.ticket) seedRun(this.rankedRun.ticket.seed); else restoreRandom(undefined);
+    if (resume && !resume.ranking) this.rankedRun = { ticket: null, name: '', commands: [], eligible: false, reason: 'ランキング導入前の冒険です。' };
+    const progress = readDifficultyProgress();
+    const requested = difficultyOf(resume?.state.difficulty ?? data?.difficulty ?? progress.selected);
+    const qaDifficulty = localQaEnabled() && new URLSearchParams(location.search).has('qa-game')
+      ? new URLSearchParams(location.search).get('qa-difficulty') : null;
+    this.difficulty = qaDifficulty ? difficultyOf(qaDifficulty)
+      : (this.rankedRun?.ticket || resume || isDifficultyUnlocked(requested, progress)) ? requested : 'normal';
+    this.revivesUsed = 0;
+    document.body.dataset.difficulty = this.difficulty;
+    this.difficultyClearEligible = true;
+    this.restoringRun = true;
+    this.savePending = false;
+    this.saveWarningShown = false;
+    // 状態初期化
+    this.player = new Player();
+    if (this.eventMode) {
+      const owned = readEquipmentCodexSave(); owned.add('w_iron_dagger');
+      const key = owned.has(this.eventStartingWeapon) && WEAPON_DEFS.some(w => w.key === this.eventStartingWeapon) ? this.eventStartingWeapon : 'w_iron_dagger';
+      this.eventStartingWeapon = key;
+      this.player.weapon = makeWeapon(key, []);
+      this.player.weapons = [this.player.weapon];
+      this.player.inventory.push(makeItem('repair'));
+      this.player.inventory.push(makeItem('torch'));
+    }
+    this.secretQuests = this.runSaveEnabled() && !this.eventMode && !this.rankedRun?.ticket ? readQuestJournal() : normalizeQuests();
+    if (localQaEnabled() && new URLSearchParams(location.search).has('qa-quest-ready')) {
+      this.secretQuests = normalizeQuests({ fragments: 5, kills: Object.fromEntries(SECRET_QUESTS.map(q => [q.id, q.count])) });
+    }
+    const qaParams = new URLSearchParams(location.search);
+    const qaGender = qaParams.get('qa-gender');
+    this.playerGender = localQaEnabled() && isPlayerGender(qaGender)
+      ? qaGender
+      : getSelectedGender();
+    if (!(localQaEnabled() && isPlayerGender(qaGender))) setSelectedGender(this.playerGender);
+    const qaArmor = qaParams.get('qa-armor');
+    this.playerArmor = localQaEnabled() && isPlayerArmor(qaArmor)
+      ? qaArmor
+      : this.eventMode && isPlayerArmor(data?.startingArmor)
+        && (data.startingArmor === DEFAULT_PLAYER_ARMOR || readEquipmentCodexSave().has(armorTextureKey(data.startingArmor)))
+        && (!PLAYER_ARMOR_DEFS[data.startingArmor].gender || PLAYER_ARMOR_DEFS[data.startingArmor].gender === this.playerGender)
+        ? data.startingArmor : DEFAULT_PLAYER_ARMOR;
+    const startingArmor = makePlayerArmor(this.playerArmor);
+    this.player.armors = [startingArmor];
+    this.player.armor = startingArmor;
+    const qaFloor = localQaEnabled() ? Number(qaParams.get('qa-floor')) : 1;
+    const startFloor = Number.isInteger(qaFloor) && qaFloor >= 1 && qaFloor <= (this.eventMode ? 5 : 30) ? qaFloor : 1;
+    this.qaBossMode = localQaEnabled() && qaParams.has('qa-boss');
+    const qaZone = qaParams.get('qa-boss-zone') as BossRoomZone | null;
+    this.qaBossRoomZone = localQaEnabled() && qaZone && ['north', 'south', 'east', 'west', 'center'].includes(qaZone)
+      ? qaZone
+      : undefined;
+    if (localQaEnabled() && qaParams.has('qa-gacha')) this.player.gold = 1500;
+    if (localQaEnabled() && qaParams.has('qa-equipment')) {
+      const weaponKeys = [
+        'w_iron_dagger', 'w_shadow_stiletto', 'w_sawtooth_dirk', 'w_moon_fang', 'w_assassin_requiem',
+        'w_soldier_blade', 'w_knight_sword', 'w_rune_saber', 'w_paladin_edge', 'w_black_oath',
+        'w_iron_pike', 'w_royal_spear', 'w_bone_lance', 'w_drill_lance', 'w_dragon_lance',
+        'w_hunter_bow', 'w_composite_bow', 'w_blackwood_bow', 'w_royal_bow', 'w_siege_arbalest',
+        'w_blackpowder_handgun', 'w_handgun_fire', 'w_handgun_water', 'w_handgun_thunder', 'w_handgun_ice',
+        'w_rusted_greatsword', 'w_executioner_blade', 'w_titan_cleaver', 'w_holy_greatsword', 'w_grand_breaker'
+      ];
+      const shieldKeys = [
+        's_iron_round', 's_mirror_silver', 's_thorn_guard', 's_chrono_guard', 's_seraph_guard',
+        's_flame_aegis', 's_tidal_aegis', 's_storm_aegis', 's_frost_aegis'
+      ];
+      this.player.weapons = weaponKeys.map((key) => makeWeapon(key, []));
+      this.player.weapon = this.player.weapons[this.player.weapons.length - 1];
+      this.player.shields = shieldKeys.map((key) => makeShield(key));
+      this.player.shield = this.player.shields[3];
+      this.player.armors = PLAYER_ARMORS.map((key) => makePlayerArmor(key));
+      this.player.armor = this.player.armors.find((armor) => armor.key === this.playerArmor) ?? this.player.armors[0];
+    }
+    if (this.qaBossMode) { this.player.hpMax = 999; this.player.hp = 999; }
+    this.floor = 1;
+    this.turn = 0;
+    this.turnCharged = false;
+    this.floorArrivalTurns = 0;
+    this.busy = false;
+    this.gameEnded = false;
+    this.floorBossDefeated = false;
+    this.inBossRoom = false;
+    this.bossRewardClaimed = false;
+    this.bossEntranceClosed = false;
+    this.openedOptionalRooms = new Set();
+    this.weaponWonThisFloor = false;
+    this.reviveSeedSeen = false;
+    this.floorPotionDrops = 0;
+    this.shopPurchases = { potion: 0, repair: 0, slime_scroll: 0, boss5_scroll: 0 };
+    this.enhancementScrollDrops = { stone: false, shieldstone: false };
+    this.reservedBossScroll = null;
+    this.enhancementScrollClaimedBlocks = [];
+    this.clickPathToken = 0;
+    this.clickPathActive = false;
+    this.lastMapClickAt = 0;
+    this.discovered = localQaEnabled() && qaParams.has('qa-codex')
+      ? new Set(MONSTER_DEFS.map((monster) => monster.key))
+      : readCodexSave();
+    if (this.runSaveEnabled()) writeCodexSave(this.discovered);
+    this.discoveredEquipment = readEquipmentCodexSave();
+    this.recordOwnedEquipment();
+    if (this.runSaveEnabled()) writeEquipmentCodexSave(this.discoveredEquipment);
+    this.pendingEquipment = null;
+    this.secretDualUnlocked = false;
+    this.itemCatalogUnlocked = false;
+    this.skillChargeSteps = 100;
+    this.timeStopTurns = 0;
+    this.lanceSkillTurns = 0;
+    this.playerAnimation = new PlayerAnimation();
+    this.playerAttacking = false;
+    this.playerAnimToken = 0;
+    this.transformation = null;
+    this.transformationBaseScale = 1;
+
+    // シーン再起動時、Phaserはインスタンスを再利用するため
+    // 前回の（破棄済み）オブジェクト参照をリセットする
+    this.logHistory = [];
+    this.damageHistory = [];
+    this.adventureHistory = [];
+    this.playerSprite = undefined as any;
+    this.playerShadow = undefined;
+    this.playerAura = undefined;
+    this.weaponSprite = undefined;
+    this.equipmentRenderer = undefined;
+    this.playerVisualFrame = 'idle';
+    this.playerVisualSince = 0;
+    this.transformationSprite = undefined;
+    this.tileSprites = [];
+    this.enemies = [];
+    this.chests = [];
+    this.ground = [];
+    this.ambientMotes = [];
+    this.bossStates = new Map();
+    this.difficultyWarnings = new Map();
+    this.bossHazards = [];
+    this.bossObstacles = [];
+    this.dungeonObjects = [];
+    this.teleportPadVisuals = [];
+    this.bossCompassVisual = undefined;
+    this.explored = [];
+    this.visibleTiles = [];
+
+    this.cameras.main.setViewport(MAP_X, MAP_Y, MAP_W, MAP_H);
+    this.cameras.main.setBackgroundColor('#05070a');
+
+    if (this.textures.exists('dungeon_chamber')) {
+      this.add.image(MAP_W / 2, MAP_H / 2, 'dungeon_chamber')
+        .setScrollFactor(0)
+        .setDisplaySize(MAP_W, MAP_H)
+        .setTint(0x6d9996)
+        .setAlpha(.18)
+        .setDepth(-20);
+    }
+    this.boostBadge = this.add.text(14, MAP_H - 38, '⚡ 加速', {
+      fontFamily: '"Yu Gothic UI"', fontSize: '11px', color: '#061012', fontStyle: 'bold',
+      backgroundColor: '#58d9d1', padding: { x: 9, y: 5 }
+    }).setScrollFactor(0).setDepth(50).setVisible(false);
+
+    // 入力
+    const kb = this.input.keyboard!;
+    this.keys = {
+      up: kb.addKey('UP'),
+      down: kb.addKey('DOWN'),
+      left: kb.addKey('LEFT'),
+      right: kb.addKey('RIGHT'),
+      enter: kb.addKey('ENTER')
+    };
+    // 短押しはイベントで保持し、長押しリピートだけをupdateで処理する。
+    kb.on('keydown', this.handleMoveKeyDown, this);
+    kb.on('keyup', this.handleMoveKeyUp, this);
+    const descendKey = (event: KeyboardEvent) => { event.preventDefault(); this.tryDescend(); };
+    kb.on('keydown-ENTER', descendKey);
+    const skillKey = (event: KeyboardEvent) => {
+      event.preventDefault();
+      if (!event.repeat) void this.useWeaponSkill();
+    };
+    kb.on('keydown-Q', skillKey);
+    this.game.events.on(Phaser.Core.Events.BLUR, this.clearMoveInput, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      kb.off('keydown', this.handleMoveKeyDown, this);
+      kb.off('keyup', this.handleMoveKeyUp, this);
+      kb.off('keydown-ENTER', descendKey);
+      kb.off('keydown-Q', skillKey);
+      this.game.events.off(Phaser.Core.Events.BLUR, this.clearMoveInput, this);
+      this.clearEnemyHover();
+      this.queuedMove = null;
+    });
+    this.input.off('pointerdown', this.handleMapClick, this);
+    this.input.on('pointerdown', this.handleMapClick, this);
+    // Enemies can disappear or move while the mouse stays still.
+    this.input.setPollAlways();
+    this.heldDir = null;
+    this.queuedMove = null;
+    this.holdRepeatAt = 0;
+    this.holdStartedAt = 0;
+    this.holdBoostTier = 0;
+    this.touchDir = null;
+
+    // UIシーン起動（重ねて表示）
+    this.scene.launch('UIScene');
+
+    this.stairsHint = this.add.text(0, 0, '', {
+      fontFamily: '"Yu Gothic UI"', fontSize: '13px', color: '#f5c542',
+      backgroundColor: '#000000aa', padding: { x: 4, y: 2 }
+    }).setDepth(30).setVisible(false);
+
+    await this.buildFloor(resume?.state.floor ?? startFloor, resume?.state.inBossRoom ?? this.qaBossMode, resume);
+    if (resume?.ranking) restoreRandom(resume.ranking.random);
+    installRecorder(this);
+    if (isReplay()) {
+      this.time.timeScale = 30;
+      this.tweens.timeScale = 30;
+      window.__RANKING_REPLAY__!.ready = true;
+    }
+    this.refreshTimeStopEffect();
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.clearTimeStopEffect());
+    this.restoringRun = false;
+    const saveOnLeave = () => this.saveRun();
+    const saveOnHidden = () => { if (document.visibilityState === 'hidden') this.saveRun(); };
+    window.addEventListener('pagehide', saveOnLeave);
+    document.addEventListener('visibilitychange', saveOnHidden);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      window.removeEventListener('pagehide', saveOnLeave);
+      document.removeEventListener('visibilitychange', saveOnHidden);
+    });
+    this.saveRun();
+    if (!resume && localQaEnabled() && qaParams.has('qa-skill-v2')) {
+      const type = qaParams.get('qa-skill-v2');
+      const weapon = WEAPON_DEFS.find(def => def.weaponType === type);
+      if (weapon) this.player.weapon = makeWeapon(weapon.key, []);
+      this.player.hpMax = 300; this.player.hp = 180;
+      this.dungeonObjects = []; this.chests = []; this.bossObstacles = [];
+      for (const e of this.enemies) { e.sprite.destroy(); e.shadow?.destroy(); e.hpBar?.destroy(); e.aura?.destroy(); }
+      this.enemies = []; this.bossStates.clear();
+      this.player.x = Math.floor(this.dungeon.w / 2); this.player.y = Math.floor(this.dungeon.h / 2); this.player.dir = 'right';
+      for (let y = this.player.y - 4; y <= this.player.y + 4; y++) for (let x = this.player.x - 4; x <= this.player.x + 8; x++) {
+        if (this.dungeon.tiles[y]?.[x]) {
+          this.dungeon.tiles[y][x] = 'floor';
+          this.applyTileVisual(this.tileSprites[y][x], 'floor', getTheme(this.floor).era, x, y);
+        }
+      }
+      this.placeSprite(this.playerSprite, this.player.x, this.player.y);
+      for (const [dx, dy] of [[1,0],[2,0],[0,2],[-2,0],[0,-2]]) {
+        this.addEnemy({ ...NORMAL_MONSTER_DEFS[0], hp: 5000, atkMin: 0, atkMax: 0, gimmick: undefined }, this.player.x + dx, this.player.y + dy, 1);
+      }
+      this.updateVisibility(); this.emitRefresh();
+    }
+    if (resume) {
+      this.log('保存した冒険の続きから再開しました。', 'sys');
+      this.time.delayedCall(50, () => this.emitRefresh());
+      return;
+    }
+    if (localQaEnabled() && qaParams.has('qa-torch')) {
+      this.player.inventory.push(makeItem('torch'));
+    }
+    if (localQaEnabled() && qaParams.has('qa-revive')) {
+      this.player.inventory.push(makeItem('revive'));
+    }
+    if (localQaEnabled() && qaParams.has('qa-use-torch')) {
+      this.torchTurns = 10;
+      this.updateVisibility();
+    }
+    if (localQaEnabled() && qaParams.has('qa-use-lantern')) {
+      this.lanternTurns = 5;
+      this.updateVisibility();
+    }
+    if (localQaEnabled() && qaParams.has('qa-optional-door') && this.dungeon.optionalRooms[0]) {
+      const optional = this.dungeon.optionalRooms[0];
+      const door = optional.door;
+      const candidates = [
+        { x: door.x + 1, y: door.y }, { x: door.x - 1, y: door.y },
+        { x: door.x, y: door.y + 1 }, { x: door.x, y: door.y - 1 }
+      ];
+      const qaPos = candidates.find((position) => {
+        const tile = this.dungeon.tiles[position.y]?.[position.x];
+        const inside = position.x >= optional.room.x && position.x < optional.room.x + optional.room.w
+          && position.y >= optional.room.y && position.y < optional.room.y + optional.room.h;
+        return !!tile && isWalkable(tile) && !inside;
+      });
+      if (qaPos) {
+        this.player.x = qaPos.x;
+        this.player.y = qaPos.y;
+        this.placeSprite(this.playerSprite, qaPos.x, qaPos.y);
+        this.updateVisibility();
+      }
+    }
+    if (localQaEnabled() && qaParams.has('qa-mimic')) {
+      const mimicDef = MONSTER_DEFS.find((monster) => monster.gimmick === 'mimic');
+      const qaPos = [
+        { x: this.player.x + 1, y: this.player.y }, { x: this.player.x - 1, y: this.player.y },
+        { x: this.player.x, y: this.player.y + 1 }, { x: this.player.x, y: this.player.y - 1 }
+      ].find((position) => {
+        const tile = this.dungeon.tiles[position.y]?.[position.x];
+        return !!tile && isWalkable(tile) && !this.enemyAt(position.x, position.y) && !this.chestAt(position.x, position.y);
+      });
+      if (mimicDef && qaPos) {
+        // QA表示では変身直後に一撃で倒れないよう耐久だけ上げる。
+        this.addEnemy(mimicDef, qaPos.x, qaPos.y, 5);
+        this.updateVisibility();
+      }
+    }
+    if (localQaEnabled() && qaParams.has('qa-variety-room')) {
+      const room = this.dungeon.rooms.find((candidate) => candidate.w === 3 && candidate.h === 3);
+      const qaPos = room && [
+        { x: room.cx, y: room.cy },
+        { x: room.cx - 1, y: room.cy }, { x: room.cx + 1, y: room.cy },
+        { x: room.cx, y: room.cy - 1 }, { x: room.cx, y: room.cy + 1 }
+      ].find((position) => !this.enemyAt(position.x, position.y) && !this.chestAt(position.x, position.y));
+      if (qaPos) {
+        this.player.x = qaPos.x;
+        this.player.y = qaPos.y;
+        this.placeSprite(this.playerSprite, qaPos.x, qaPos.y);
+        this.updateVisibility();
+      }
+    }
+    if (localQaEnabled() && qaParams.has('qa-dungeon-object') && this.dungeonObjects[0]) {
+      const object = this.dungeonObjects[0];
+      const halfW = Math.floor(object.w / 2), halfH = Math.floor(object.h / 2);
+      const qaPos = [
+        { x: object.x, y: object.y + halfH + 1 }, { x: object.x, y: object.y - halfH - 1 },
+        { x: object.x + halfW + 1, y: object.y }, { x: object.x - halfW - 1, y: object.y }
+      ].find((position) => isWalkable(this.dungeon.tiles[position.y]?.[position.x] ?? 'wall'));
+      if (qaPos) {
+        this.player.x = qaPos.x;
+        this.player.y = qaPos.y;
+        this.placeSprite(this.playerSprite, qaPos.x, qaPos.y);
+        this.updateVisibility();
+      }
+    }
+    if (localQaEnabled() && qaParams.has('qa-room-props')) {
+      const prop = this.dungeonObjects.find((object) => qaParams.get('qa-room-props') === 'ice'
+        ? object.kind === 'iceCrystal' : object.kind === 'barrel' || object.kind === 'jar');
+      if (prop) {
+        const containingRoom = this.optionalRoomContaining(prop.x, prop.y);
+        if (containingRoom && !containingRoom.opened) this.openOptionalRoom(containingRoom);
+        const qaPos = [
+          { x: prop.x, y: prop.y + 1 }, { x: prop.x, y: prop.y - 1 },
+          { x: prop.x + 1, y: prop.y }, { x: prop.x - 1, y: prop.y }
+        ].find((position) => {
+          const tile = this.dungeon.tiles[position.y]?.[position.x];
+          return !!tile && isWalkable(tile) && !this.dungeonObjectAt(position.x, position.y)
+            && !this.enemyAt(position.x, position.y) && !this.chestAt(position.x, position.y);
+        });
+        if (qaPos) {
+          this.player.x = qaPos.x;
+          this.player.y = qaPos.y;
+          this.placeSprite(this.playerSprite, qaPos.x, qaPos.y);
+          this.updateVisibility();
+        }
+      }
+    }
+    if (localQaEnabled() && qaParams.has('qa-chest-size')) {
+      const positions = [
+        { x: this.player.x - 1, y: this.player.y - 2, rare: false },
+        { x: this.player.x + 1, y: this.player.y - 2, rare: true }
+      ];
+      for (const position of positions) {
+        const tile = this.dungeon.tiles[position.y]?.[position.x];
+        if (tile && isWalkable(tile) && !this.dungeonObjectAt(position.x, position.y)) {
+          this.spawnChestAt(position.x, position.y, position.rare);
+        }
+      }
+      this.updateVisibility();
+    }
+    if (localQaEnabled() && qaParams.has('qa-field-door')
+      && this.dungeon.bossEntry && this.dungeon.bossEntrance) {
+      const entry = this.dungeon.bossEntry;
+      const approach = this.dungeon.bossEntrance;
+      const qaPos = { x: approach.x + approach.x - entry.x, y: approach.y + approach.y - entry.y };
+      this.player.x = qaPos.x;
+      this.player.y = qaPos.y;
+      this.placeSprite(this.playerSprite, qaPos.x, qaPos.y);
+      this.updateVisibility();
+    }
+    if (localQaEnabled() && qaParams.has('qa-field-arena') && this.dungeon.bossRoom) {
+      const boss = this.enemies.find((enemy) => enemy.def.isFloorBoss);
+      const room = this.dungeon.bossRoom;
+      const centerCandidates = [
+        ...(hasFinalDepthTerrain(this.floor) && boss ? [{ x: boss.x, y: boss.y + 3 }, { x: boss.x + 2, y: boss.y + 2 }] : []),
+        { x: room.cx - 1, y: room.cy }, { x: room.cx + 1, y: room.cy },
+        { x: room.cx, y: room.cy - 1 }, { x: room.cx, y: room.cy + 1 }
+      ];
+      // Dedicated boss arenas are much wider; show the actual boss rather than the room center.
+      const candidates = this.inBossRoom && boss ? [
+        ...(bossBodyRadius(boss.def) ? [{ x: boss.x, y: boss.y + 5 }] : []),
+        { x: boss.x - 2, y: boss.y }, { x: boss.x + 2, y: boss.y },
+        { x: boss.x, y: boss.y + 2 }, { x: boss.x, y: boss.y - 2 },
+        { x: boss.x - 1, y: boss.y }, { x: boss.x + 1, y: boss.y }, ...centerCandidates
+      ] : centerCandidates;
+      const qaPos = candidates.find((pos) => {
+        const tile = this.dungeon.tiles[pos.y]?.[pos.x];
+        return !!tile && isWalkable(tile) && this.isInsideBossCombatFrame(pos.x, pos.y)
+          && !this.enemyAt(pos.x, pos.y) && !this.chestAt(pos.x, pos.y) && !this.dungeonObjectAt(pos.x, pos.y);
+      });
+      if (boss && qaPos) {
+        this.player.x = qaPos.x;
+        this.player.y = qaPos.y;
+        this.placeSprite(this.playerSprite, qaPos.x, qaPos.y);
+        this.setBossEntranceClosed(true, false);
+        this.updateVisibility();
+      }
+    }
+    if (localQaEnabled() && qaParams.has('qa-hurt')) {
+      this.time.delayedCall(260, () => this.damagePlayer(8, 'QA被弾テスト'));
+    }
+    if (localQaEnabled() && qaParams.has('qa-journal')) {
+      this.time.delayedCall(260, () => {
+        const enemy = this.enemies.find(e => e.alive);
+        if (!enemy) return;
+        for (let i = 0; i < 13; i++) {
+          this.player.hp = this.player.hpMax;
+          const result = this.computeIncomingAttack(enemy);
+          this.damagePlayer(result.damage, `${enemy.def.name}の攻撃！`, enemy, result.steps);
+        }
+        this.player.hp = this.player.hpMax;
+      });
+    }
+    if (localQaEnabled() && qaParams.has('qa-death')) {
+      this.player.hp = 1;
+      this.time.delayedCall(260, () => this.damagePlayer(8, 'QA死亡テスト'));
+    }
+    if (localQaEnabled() && qaParams.has('qa-knockback')) {
+      const target = [
+        { x: this.player.x + 1, y: this.player.y },
+        { x: this.player.x, y: this.player.y + 1 },
+        { x: this.player.x - 1, y: this.player.y },
+        { x: this.player.x, y: this.player.y - 1 }
+      ].find((pos) => {
+        const tile = this.dungeon.tiles[pos.y]?.[pos.x];
+        return !!tile && isWalkable(tile) && !this.enemyAt(pos.x, pos.y) && !this.chestAt(pos.x, pos.y);
+      });
+      if (target) {
+        const dummyDef: MonsterDef = {
+          ...MONSTER_DEFS[0], key: 'qa_knockback_dummy', name: 'ノックバック試験体', hp: 999,
+          atkMin: 0, atkMax: 0, def: 0, exp: 0, gold: 0
+        };
+        this.addEnemy(dummyDef, target.x, target.y, 1);
+      }
+    }
+    if (localQaEnabled() && qaParams.has('qa-one-hit-boss')) {
+      for (const enemy of this.enemies) {
+        if (enemy.def.isFloorBoss) {
+          enemy.hp = 1;
+          this.drawEnemyHp(enemy);
+        }
+      }
+    }
+    if (localQaEnabled() && qaParams.has('qa-defeat-boss')) {
+      const boss = this.enemies.find((enemy) => enemy.def.isFloorBoss);
+      if (boss) this.time.delayedCall(300, () => this.killEnemy(boss));
+    }
+
+    // 少し遅らせてUIに初期表示させる
+    this.time.delayedCall(50, () => this.emitRefresh());
+  }
+
+  // ============ フロア生成 ============
+  async buildFloor(floor: number, bossRoom = false, snapshot?: RunSnapshot) {
+    this.assetsLoading = true;
+    await ensureSceneAssets(this, floor, !!this.eventMode, false, floor > this.floor ? 'stairs' : 'entry');
+    this.assetsLoading = false;
+    this.clearMoveInput();
+    if (this.player.fountainBlessingFloor !== floor) this.player.fountainBlessingFloor = null;
+    if (!snapshot && (this.floor !== floor || this.inBossRoom !== bossRoom)) this.floorArrivalTurns = this.turn;
+    this.floor = floor;
+    this.inBossRoom = bossRoom;
+    this.enhancementScrollDrops = { stone: false, shieldstone: false };
+    const mapHasBoss = !!this.eventMode || bossRoom || (floor !== 5 && floor !== 30);
+    this.reservedBossScroll = mapHasBoss ? (runRandom() < 0.5 ? 'stone' : 'shieldstone') : null;
+    if (!bossRoom) {
+      this.floorTurn = 0;
+      this.floorStartHp = this.player.hp;
+      this.floorDamaged = false;
+      this.penaltyFlags = { p100: false, p150: false, p200: false, p250: false };
+
+      this.torchTurns = 0;
+      this.lanternTurns = 0;
+      this.invisTurns = 0;
+      this.playerRootTurns = 0;
+      this.itemSealTurns = 0;
+      this.bossRewardClaimed = false;
+      this.weaponWonThisFloor = false;
+      this.floorPotionDrops = 0;
+    this.shopPurchases = { potion: 0, repair: 0, slime_scroll: 0, boss5_scroll: 0 };
+    } else {
+      // フィールド中ボスの任意報酬と、強ボス部屋の必須報酬は別扱い。
+      this.bossRewardClaimed = false;
+    }
+    this.floorBossDefeated = floor === 30 && !bossRoom;
+    this.bossEntranceClosed = false;
+    this.clickPathToken++;
+    this.clickPathActive = false;
+    this.setBoostTier(0);
+    this.playerSprite?.setAlpha(1);
+    this.weaponSprite?.setAlpha(1);
+
+    // 既存オブジェクト破棄
+    this.clearBossMechanics();
+    this.bossFloorDecor?.destroy();
+    this.bossFloorDecor = undefined;
+    this.bossRoomBackdrop?.destroy();
+    this.bossRoomBackdrop = undefined;
+    for (const sprite of this.bossRoomDecorSprites) sprite.destroy();
+    this.bossRoomDecorSprites = [];
+    for (const object of this.dungeonObjects) {
+      object.waterFx?.destroy(true);
+      object.sprite.destroy();
+    }
+    this.dungeonObjects = [];
+    for (const pad of this.teleportPadVisuals) pad.sprite.destroy();
+    this.teleportPadVisuals = [];
+    this.destroyBossCompass();
+    for (const row of this.tileSprites) for (const s of row) {
+      this.tweens.killTweensOf(s);
+      s.destroy();
+    }
+    this.tileSprites = [];
+    for (const facade of this.wallFacades) facade.sprite.destroy();
+    this.wallFacades = [];
+    for (const detail of this.terrainDetails) detail.sprite.destroy();
+    this.terrainDetails = [];
+    for (const e of this.enemies) {
+      this.destroyEnemyFreezeFx(e);
+      if (e.aura) { this.tweens.killTweensOf(e.aura); e.aura.destroy(); }
+      e.sprite.destroy();
+      e.hpBar?.destroy();
+      e.shadow?.destroy();
+    }
+    this.enemies = [];
+    for (const c of this.chests) { c.sprite.destroy(); c.glow?.destroy(); }
+    this.chests = [];
+    for (const gi of this.ground) { gi.sprite.destroy(); gi.glow?.destroy(); }
+    this.ground = [];
+    for (const m of this.ambientMotes) m.sprite.destroy();
+    this.ambientMotes = [];
+
+    if (snapshot) this.restoreRunState(snapshot);
+    this.dungeon = snapshot?.dungeon ?? (this.eventMode ? generateHalloweenDungeon(floor) : bossRoom ? generateBossArena(floor) : generateDungeon(floor, this.qaBossRoomZone));
+    if (this.eventMode && !this.dungeon.bossCompass) {
+      const start = this.dungeon.start;
+      const pos = {x:start.x, y:start.y-2};
+      if (this.dungeon.tiles[pos.y]?.[pos.x] === 'floor') this.dungeon.bossCompass = pos;
+    }
+    const d = this.dungeon;
+    if (!snapshot && !bossRoom && localQaEnabled()
+      && new URLSearchParams(location.search).has('qa-treasury')) addDiamondTreasury(d, () => 0);
+    const newlyOpenedSideRooms = removeLegacyRoomDoors(d);
+
+    // explored初期化
+    this.explored = [];
+    this.visibleTiles = [];
+    for (let y = 0; y < d.h; y++) {
+      this.explored[y] = [];
+      for (let x = 0; x < d.w; x++) this.explored[y][x] = false;
+    }
+    if (snapshot) this.explored = snapshot.explored;
+    this.openedOptionalRooms = snapshot
+      ? new Set(snapshot.openedRooms.map(index => d.optionalRooms[index])) : new Set();
+
+    // タイル描画（系統サフィックスは4種、色合いは2階ごとに変える）
+    const theme = getTheme(floor);
+    this.themeTileTint = this.softenTerrainTint(theme.tileTint);
+    for (let y = 0; y < d.h; y++) {
+      this.tileSprites[y] = [];
+      for (let x = 0; x < d.w; x++) {
+        const t = d.tiles[y][x];
+        const visual = this.tileVisual(t, theme.era, x, y);
+        if (this.eventMode && (t === 'stairs' || t === 'door')) {
+          const sprite = this.add.image(x * TILE + TILE / 2, y * TILE + TILE / 2, `hw_floor_${floor}`, (x % 4) + (y % 4) * 4)
+            .setDisplaySize(TERRAIN_RENDER_SIZE, TERRAIN_RENDER_SIZE).setDepth(-.1).setVisible(false);
+          this.terrainDetails.push({x, y, wall:false, underlay:true, alpha:1, sprite});
+        }
+        if ((hasRuinTerrain(floor) || hasVolcanoTerrain(floor) || hasWaterTerrain(floor) || hasThunderTerrain(floor) || hasFinalDepthTerrain(floor)) && (t === 'stairs' || t === 'door' || t === 'roomDoor'
+          || visual.key.startsWith('terrain_boss_gate') || visual.key.startsWith('terrain_boss_entry'))) {
+          const base = hasFinalDepthTerrain(floor) ? this.finalDepthFloorVisual(x, y) : hasThunderTerrain(floor) ? this.thunderFloorVisual(x, y) : hasWaterTerrain(floor) ? this.waterFloorVisual(x, y) : hasVolcanoTerrain(floor) ? this.volcanoFloorVisual(x, y) : this.ruinFloorVisual(x, y);
+          const sprite = this.add.image(x * TILE + TILE / 2, y * TILE + TILE / 2, base.key, base.frame)
+            .setDisplaySize(TERRAIN_RENDER_SIZE, TERRAIN_RENDER_SIZE).setDepth(-0.1).setVisible(false);
+          this.terrainDetails.push({ x, y, wall: false, underlay: true, alpha: 1, sprite });
+        }
+        const spr = this.add.image(x * TILE + TILE / 2, y * TILE + TILE / 2, visual.key, visual.frame)
+          .setFlipX(visual.flipX ?? false)
+          .setAngle(visual.angle ?? 0)
+          .setDepth(visual.depth ?? 0)
+          .setDisplaySize(visual.size ?? TERRAIN_RENDER_SIZE, visual.size ?? TERRAIN_RENDER_SIZE);
+        this.tileSprites[y][x] = spr;
+      }
+    }
+    this.createWallFacades(theme.era);
+    this.createTerrainDetails(floor);
+    if (!this.eventMode) this.createBossRoomVisuals(theme.era, theme.accent);
+    this.spawnAmbientMotes(floor);
+    this.spawnTeleportPads();
+    this.spawnBossCompass();
+
+    // 小さなフロアもビューポート中央に配置し、左右に大きな空白を作らない
+    const worldW = d.w * TILE, worldH = d.h * TILE;
+    const padX = Math.max(0, (MAP_W - worldW) / 2);
+    const padY = Math.max(0, (MAP_H - worldH) / 2);
+    this.cameras.main.setBounds(-padX, -padY, Math.max(MAP_W, worldW), Math.max(MAP_H, worldH));
+
+    // プレイヤー配置
+    if (!snapshot) {
+      this.player.x = d.start.x;
+      this.player.y = d.start.y;
+      this.player.dir = 'down';
+    }
+    if (!this.playerSprite) {
+      // 足元の影
+      this.playerShadow = this.add.image(0, 0, 'shadow').setDepth(10.5).setAlpha(0.7);
+      // 強化オーラ（プレイヤーの足元。tintで強化色に光る）
+      this.playerAura = this.add.image(0, 0, 'glow').setDepth(11).setVisible(false);
+      const playerSheet = playerSheetKey(this.playerGender, this.playerArmor ?? DEFAULT_PLAYER_ARMOR);
+      this.playerSprite = this.add.image(0, 0, playerSheet, playerFrameIndex('down', 'idle'))
+        .setDepth(12).setScale(PLAYER_WORLD_SCALE).setOrigin(0.5, 0.6);
+      // キャラが手に持つ武器（装備中の武器で絵が変わる）
+      this.equipmentRenderer = new EquipmentRenderer(this);
+      this.weaponSprite = this.equipmentRenderer.weapon;
+    }
+    this.setPlayerVisual(this.player.dir, 'idle');
+    this.placeSprite(this.playerSprite, this.player.x, this.player.y);
+    this.playerShadow?.setPosition(this.playerSprite.x, this.playerSprite.y + 13);
+    this.updatePlayerAura();
+    this.refreshTransformationVisual();
+    // Keep sub-pixel movement, matching the antialiased renderer in main.ts.
+    // Match the gradual camera follow used on October 3.
+    this.cameras.main.startFollow(this.playerSprite, false, 0.15, 0.15);
+    this.cameras.main.setZoom(MAP_ZOOM);
+
+    // 敵配置
+    if (snapshot) {
+      this.restoreRunEntities(snapshot);
+      for (const room of newlyOpenedSideRooms) this.populateOptionalRoom(room);
+    } else {
+      if (!bossRoom) {
+        if (this.eventMode) this.spawnHalloweenProps();
+        else { this.spawnDungeonObjects(floor); this.spawnRoomProps(floor); }
+        for (const room of newlyOpenedSideRooms) this.populateOptionalRoom(room);
+        for (const optional of d.optionalRooms.filter(room => room.kind === 'diamond')) {
+          this.spawnChestAt(optional.room.cx, optional.room.cy, true, true);
+        }
+      }
+      this.spawnEnemies(floor);
+      if (!bossRoom) {
+        // 通常迷宮だけに探索用の宝箱とアイテムを置く。
+        this.spawnChests(floor);
+        this.spawnGroundItems(floor);
+      }
+    }
+
+    const qaParamsForFloor = new URLSearchParams(location.search);
+    if (localQaEnabled() && qaParamsForFloor.has('qa-dungeon-object') && this.dungeonObjects[0]) {
+      const object = this.dungeonObjects[0];
+      const containingRoom = this.dungeon.optionalRooms.find((optional) => object.x >= optional.room.x
+        && object.x < optional.room.x + optional.room.w && object.y >= optional.room.y
+        && object.y < optional.room.y + optional.room.h);
+      if (containingRoom && !containingRoom.opened) this.openOptionalRoom(containingRoom);
+    }
+    if (localQaEnabled() && qaParamsForFloor.has('qa-room-props')) {
+      const prop = this.dungeonObjects.find((object) => qaParamsForFloor.get('qa-room-props') === 'ice'
+        ? object.kind === 'iceCrystal' : object.kind === 'barrel' || object.kind === 'jar');
+      const containingRoom = prop ? this.optionalRoomContaining(prop.x, prop.y) : undefined;
+      if (containingRoom && !containingRoom.opened) this.openOptionalRoom(containingRoom);
+    }
+    if (localQaEnabled() && qaParamsForFloor.has('qa-teleport') && d.teleportPads[0]) {
+      const pad = d.teleportPads[0];
+      const qaPos = [
+        { x: pad.x + 1, y: pad.y }, { x: pad.x - 1, y: pad.y },
+        { x: pad.x, y: pad.y + 1 }, { x: pad.x, y: pad.y - 1 }
+      ].find((position) => {
+        const tile = d.tiles[position.y]?.[position.x];
+        return !!tile && isWalkable(tile) && !d.teleportPads.some((candidate) => candidate.x === position.x && candidate.y === position.y)
+          && !this.enemyAt(position.x, position.y) && !this.chestAt(position.x, position.y)
+          && !this.dungeonObjectAt(position.x, position.y);
+      });
+      if (qaPos) {
+        this.player.x = qaPos.x;
+        this.player.y = qaPos.y;
+        this.placeSprite(this.playerSprite, qaPos.x, qaPos.y);
+      }
+    }
+    const qaHazard = qaParamsForFloor.get('qa-hazard') as TileType | null;
+    if (localQaEnabled()
+      && qaHazard && ['poison', 'cracked', 'lava', 'lightning', 'voidRift'].includes(qaHazard)) {
+      const qaHazardPos = [
+        { x: this.player.x + 1, y: this.player.y }, { x: this.player.x - 1, y: this.player.y },
+        { x: this.player.x, y: this.player.y + 1 }, { x: this.player.x, y: this.player.y - 1 },
+        { x: this.player.x + 2, y: this.player.y }, { x: this.player.x - 2, y: this.player.y }
+      ].find((position) => d.tiles[position.y]?.[position.x] === 'floor'
+        && !this.enemyAt(position.x, position.y) && !this.chestAt(position.x, position.y)
+        && !this.dungeonObjectAt(position.x, position.y));
+      if (qaHazardPos) {
+        d.tiles[qaHazardPos.y][qaHazardPos.x] = qaHazard;
+        this.applyTileVisual(this.tileSprites[qaHazardPos.y][qaHazardPos.x], qaHazard, theme.era,
+          qaHazardPos.x, qaHazardPos.y);
+      }
+    }
+
+    if (this.qaBossMode && d.bossRoom) {
+      const candidates = [
+        { x: d.bossRoom.x + 1, y: d.bossRoom.cy },
+        { x: d.bossRoom.x + 1, y: d.bossRoom.cy - 1 },
+        { x: d.bossRoom.cx, y: d.bossRoom.y + d.bossRoom.h - 2 }
+      ];
+      const qaPos = candidates.find((pos) => !this.enemyAt(pos.x, pos.y));
+      if (qaPos) {
+        this.player.x = qaPos.x;
+        this.player.y = qaPos.y;
+        this.placeSprite(this.playerSprite, qaPos.x, qaPos.y);
+        this.setBossEntranceClosed(true, false);
+      }
+    }
+
+    this.updateVisibility();
+    const floorIntro = this.eventMode ? `🎃 ${floor} / 5層「${HALLOWEEN_FLOORS[floor - 1]}」。番人を倒すと階段が開く。` : bossRoom
+      ? `重い扉の先で、強大な魔物が待ち構えている。`
+      : floor % 5 === 0
+          ? `${floor}階「${getTheme(floor).name}」に足を踏み入れた。奥の赤い階段から、強大な魔物の気配が漂っている。`
+          : `${floor}階「${getTheme(floor).name}」に足を踏み入れた。出口へ続く道は、魔物の封印に閉ざされている。`;
+    this.log(floorIntro, 'sys');
+    const bossDirection = this.bossCompassDirection();
+    if (!bossRoom && bossDirection) {
+      this.log(`${bossDirection.label}から禍々しい気配を感じる……石の方位盤が赤紫に脈打っている。`, 'special');
+    }
+    this.events.emit('floor', floor);
+    // BGMは2階ごとに切り替わる。
+    Audio.playBgm(this.floorBgm(bossRoom || this.bossEntranceClosed));
+    this.savePending = true;
+  }
+
+  terrainConnectionMask(x: number, y: number): number {
+    let mask = 0;
+    if (this.dungeon.tiles[y - 1]?.[x] && this.dungeon.tiles[y - 1][x] !== 'wall') mask |= 1;
+    if (this.dungeon.tiles[y]?.[x + 1] && this.dungeon.tiles[y][x + 1] !== 'wall') mask |= 2;
+    if (this.dungeon.tiles[y + 1]?.[x] && this.dungeon.tiles[y + 1][x] !== 'wall') mask |= 4;
+    if (this.dungeon.tiles[y]?.[x - 1] && this.dungeon.tiles[y][x - 1] !== 'wall') mask |= 8;
+    return mask;
+  }
+
+  worldDepth(worldY: number, offset = 0): number {
+    return WORLD_DEPTH_BASE + (worldY + offset) * WORLD_DEPTH_Y_SCALE;
+  }
+
+  usesGlacialTerrain(): boolean {
+    return !!this.dungeon.glacialArena || (!this.inBossRoom && this.dungeon.biome === 'frost');
+  }
+
+  createWallFacades(era: number) {
+    if (this.eventMode) return;
+    if (this.usesGlacialTerrain() || hasRuinTerrain(this.floor) || hasVolcanoTerrain(this.floor) || hasWaterTerrain(this.floor) || hasThunderTerrain(this.floor) || hasFinalDepthTerrain(this.floor)) return;
+    const d = this.dungeon;
+    const texture = `terrain_wall_facade_${era}`;
+    for (let y = 0; y < d.h; y++) {
+      for (let x = 0; x < d.w; x++) {
+        if (d.tiles[y][x] !== 'wall') continue;
+        const isOpen = (tx: number, ty: number) => {
+          const tile = d.tiles[ty]?.[tx];
+          return !!tile && tile !== 'wall';
+        };
+        const northOpen = isOpen(x, y - 1);
+        const southOpen = isOpen(x, y + 1);
+        const westOpen = isOpen(x - 1, y);
+        const eastOpen = isOpen(x + 1, y);
+        const frame = (x * 13 + y * 7) % 3;
+        const topY = y * TILE + TILE / 2 - 3;
+
+        if (northOpen || southOpen) {
+          const sprite = this.add.image(x * TILE + TILE / 2, topY, texture, frame)
+            .setOrigin(0.5, 0)
+            .setDisplaySize(TILE + 4, WALL_FACADE_HEIGHT)
+            .setDepth(this.worldDepth(topY + WALL_FACADE_HEIGHT, -0.2));
+          this.wallFacades.push({ x, y, sprite });
+        }
+
+        // 左右が通路に接する壁には、横壁用の石積みを90度回した「縦壁柱」を置く。
+        // 上下の正面壁と同時に描くため、角やT字路でも縦壁だけ欠けない。
+        for (const side of [
+          { open: westOpen, sideX: x * TILE + 3, angle: -90 },
+          { open: eastOpen, sideX: x * TILE + TILE - 3, angle: 90 }
+        ]) {
+          if (!side.open) continue;
+          const sprite = this.add.image(side.sideX, y * TILE + TILE / 2, texture, frame)
+            .setOrigin(0.5)
+            .setAngle(side.angle)
+            .setDisplaySize(TILE + 6, 16)
+            .setDepth(this.worldDepth(y * TILE + TILE, -0.24));
+          this.wallFacades.push({ x, y, sprite });
+        }
+      }
+    }
+  }
+
+  tileVisual(t: TileType, era: number, x: number, y: number): TerrainVisual {
+    if (this.eventMode) {
+      const treasury = this.dungeon.optionalRooms.find(o=>o.kind==='diamond' && x>=o.room.x-1 && x<=o.room.x+o.room.w && y>=o.room.y-1 && y<=o.room.y+o.room.h);
+      if (treasury) {
+        if (t === 'roomDoor') return {key:'terrain_treasury_door',size:TILE*1.25,depth:4.2};
+        if (t === 'wall') return {key:'terrain_treasury_wall',size:TILE+2};
+        if (t === 'floor') return {key:'terrain_treasury_floor',size:TILE+2};
+      }
+      if (t === 'stairs') return { key: 'hw_stairs', size: TILE * 1.7, depth: 3 };
+      if (t === 'door') return { key: 'hw_gate', size: TILE * 1.65, depth: 3 };
+      if (t === 'wall') return { key: 'hw_wall', size: TILE + 2, flipX: (x + y) % 2 === 0 };
+      return { key: `hw_floor_${this.floor}`, frame:(x % 4) + (y % 4) * 4, size: TILE + 2 };
+    }
+    const treasury = this.dungeon.optionalRooms.find(optional => optional.kind === 'diamond'
+      && x >= optional.room.x - 1 && x <= optional.room.x + optional.room.w
+      && y >= optional.room.y - 1 && y <= optional.room.y + optional.room.h);
+    if (treasury) {
+      if (t === 'roomDoor') return { key: 'terrain_treasury_door', size: TILE * 1.25, depth: 4.2 };
+      if (t === 'floor') return { key: 'terrain_treasury_floor', size: TILE };
+      if (t === 'wall') return { key: 'terrain_treasury_wall', size: TILE };
+    }
+    const entrance = this.dungeon?.bossEntrance;
+    if (entrance && x === entrance.x && y === entrance.y && (t === 'floor' || t === 'door')) {
+      return this.bossGateVisual();
+    }
+    if (hasFinalDepthTerrain(this.floor) && t === 'wall') {
+      const arena = this.dungeon.finalDepthArena;
+      if (arena?.props.some(p => p.blocking && p.x === x && p.y === y)) return this.finalDepthFloorVisual(x, y);
+      const touchesFloor = [-1, 0, 1].some(dy => [-1, 0, 1].some(dx => { const t = this.dungeon.tiles[y + dy]?.[x + dx]; return t && t !== 'wall'; }));
+      if (this.floor === 30 && arena && !touchesFloor) return { key: 'terrain_thunder_clouds' };
+      return { key: finalDepthTerrainKey(this.floor, (x * 13 + y * 7) % 3 === 0 ? 'wall-b' : 'wall-a') };
+    }
+    if (hasThunderTerrain(this.floor) && t === 'wall') {
+      const arena = this.dungeon.thunderArena;
+      if (arena?.props.some(p => p.blocking && p.x === x && p.y === y)) return this.thunderFloorVisual(x, y);
+      const touchesFloor = [-1, 0, 1].some(dy => [-1, 0, 1].some(dx => {
+        const tile = this.dungeon.tiles[y + dy]?.[x + dx];
+        return tile && tile !== 'wall';
+      }));
+      if (arena && !touchesFloor) return { key: 'terrain_thunder_clouds' };
+      const wallKey = thunderTerrainKey(this.floor, (x * 13 + y * 7) % 3 === 0 ? 'wall-b' : 'wall-a');
+      return { key: `${wallKey}_${arena ? 'clouds' : 'ground'}` };
+    }
+    if (hasWaterTerrain(this.floor) && t === 'wall') {
+      const arena = this.dungeon.waterArena;
+      if (arena?.props.some(p => p.blocking && p.x === x && p.y === y)) return this.waterFloorVisual(x, y);
+      const touchesFloor = [-1, 0, 1].some(dy => [-1, 0, 1].some(dx => {
+        const tile = this.dungeon.tiles[y + dy]?.[x + dx];
+        return tile && tile !== 'wall';
+      }));
+      if (this.floor === 10 && this.inBossRoom) return { key: ruinTerrainKey(1, (x+y)%3 ? 'wall-a' : 'wall-b') };
+      if (arena && !touchesFloor) return { key: 'terrain_water_surface' };
+      const wallKey = waterTerrainKey(this.floor, (x * 13 + y * 7) % 3 === 0 ? 'wall-b' : 'wall-a');
+      return { key: `${wallKey}_${arena ? 'water' : 'ground'}` };
+    }
+    if (hasVolcanoTerrain(this.floor) && t === 'wall') {
+      const arena = this.dungeon.volcanoArena;
+      if (arena?.props.some(p => p.blocking && p.x === x && p.y === y)) return this.volcanoFloorVisual(x, y);
+      const touchesFloor = [-1, 0, 1].some(dy => [-1, 0, 1].some(dx => {
+        const tile = this.dungeon.tiles[y + dy]?.[x + dx];
+        return tile && tile !== 'wall';
+      }));
+      if (arena && !touchesFloor) return { key: 'terrain_volcano_lava' };
+      const wallKey = volcanoTerrainKey(this.floor, (x * 13 + y * 7) % 3 === 0 ? 'wall-b' : 'wall-a');
+      return { key: `${wallKey}_${arena ? 'lava' : 'ground'}` };
+    }
+    if (this.dungeon.glacialArena) {
+      const propCell = this.dungeon.glacialArena.props.some(p => p.blocking && p.x === x && p.y === y);
+      if (t === 'floor' || (t === 'wall' && propCell)) return { key: 'terrain_glacial_floor' };
+      if (t === 'wall') return { key: 'terrain_glacial_wall', flipX: (x + y) % 2 === 0 };
+    }
+    if (t === 'wall' && this.usesGlacialTerrain()) {
+      return { key: 'terrain_glacial_wall', flipX: (x + y) % 2 === 0 };
+    }
+    if (t === 'wall' && hasRuinTerrain(this.floor)) {
+      return { key: ruinTerrainKey(this.floor, (x * 13 + y * 7) % 3 === 0 ? 'wall-b' : 'wall-a') };
+    }
+    const suffix = eraSuffix(era);
+    switch (t) {
+      case 'wall': return {
+        key: this.inBossRoom ? `terrain_wall_${era}` : `terrain_biome_wall_${this.dungeon.biome}`,
+        frame: this.inBossRoom ? ((x * 13 + y * 7) % 3) * 16 + this.terrainConnectionMask(x, y) : undefined
+      };
+      case 'stairs': return { key: 'terrain_stairs', size: TILE + 10, depth: 3.4 };
+      case 'door': {
+        const isCentralStairSeal = x === this.dungeon.stairs.x && y === this.dungeon.stairs.y;
+        const bossEntrance = this.dungeon.bossEntrance;
+        const isBossEntrance = !!bossEntrance && x === bossEntrance.x && y === bossEntrance.y;
+        return isCentralStairSeal && !this.inBossRoom && this.floorHasGate(this.floor)
+          ? { key: 'terrain_boss_descent', size: TILE * 2.1, depth: 3.4 }
+          : isCentralStairSeal
+          ? { key: 'terrain_boss_chain_gate', size: TILE * 1.45, depth: 4.2 }
+          : isBossEntrance ? this.bossGateVisual()
+            : { key: 'terrain_boss_gate', size: TILE, depth: 4.2 };
+      }
+      case 'roomDoor': return { key: 'terrain_boss_gate', size: TILE, depth: 4.2 };
+      case 'ice': {
+        const open = (px: number, py: number) => {
+          const tile = this.dungeon.tiles[py]?.[px];
+          return !!tile && isWalkable(tile) && tile !== 'pit';
+        };
+        const vertical = open(x, y - 1) && open(x, y + 1) && !open(x - 1, y) && !open(x + 1, y);
+        return { key: 'terrain_hazard_ice', angle: vertical ? 90 : 0 };
+      }
+      case 'lava': return { key: hasVolcanoTerrain(this.floor) ? 'terrain_volcano_lava' : 'terrain_hazard_lava' };
+      case 'lightning': return { key: 'terrain_hazard_lightning' };
+      case 'voidRift': return { key: 'terrain_hazard_void' };
+      case 'poison': return { key: 'terrain_hazard_poison' };
+      case 'pit': return { key: `pit${suffix}` };
+      case 'rune': return { key: `rune${suffix}` };
+      case 'cracked': return { key: 'terrain_hazard_cracked' };
+      case 'floor':
+      default:
+        if (hasFinalDepthTerrain(this.floor)) return this.finalDepthFloorVisual(x, y);
+        if (hasThunderTerrain(this.floor)) return this.thunderFloorVisual(x, y);
+        if (hasWaterTerrain(this.floor)) return this.waterFloorVisual(x, y);
+        if (hasVolcanoTerrain(this.floor)) return this.volcanoFloorVisual(x, y);
+        if (hasRuinTerrain(this.floor)) return this.ruinFloorVisual(x, y);
+        return this.inBossRoom
+          ? { key: `terrain_floor_${era}`, frame: (x * 7 + y * 11) % 3 }
+          : { key: `terrain_biome_floor_${this.dungeon.biome}` };
+    }
+  }
+
+  waterFloorVisual(x: number, y: number): TerrainVisual {
+    if (this.floor === 10 && this.inBossRoom) {
+      const edge = [[0,-1],[0,1],[-1,0],[1,0]].some(([dx,dy]) => this.dungeon.tiles[y+dy]?.[x+dx] === 'wall');
+      return { key: ruinFloorKey(1), frame: ruinFloorFrame(1, x, y, edge) };
+    }
+    const edge = [[0, -1], [0, 1], [-1, 0], [1, 0]].some(([dx, dy]) => this.dungeon.tiles[y + dy]?.[x + dx] === 'wall');
+    return { key: waterTerrainKey(this.floor, 'floor'), frame: waterFloorFrame(this.floor, x, y, edge) };
+  }
+
+  finalDepthFloorVisual(x: number, y: number): TerrainVisual {
+    const edge = [[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy]) => this.dungeon.tiles[y+dy]?.[x+dx] === 'wall');
+    return { key: finalDepthTerrainKey(this.floor, 'floor'), frame: finalDepthFloorFrame(this.floor, x, y, edge) };
+  }
+
+  thunderFloorVisual(x: number, y: number): TerrainVisual {
+    const edge = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => this.dungeon.tiles[y + dy]?.[x + dx] === 'wall');
+    return { key: thunderTerrainKey(this.floor, 'floor'), frame: thunderFloorFrame(this.floor, x, y, edge) };
+  }
+
+  volcanoFloorVisual(x: number, y: number): TerrainVisual {
+    const edge = [[0, -1], [0, 1], [-1, 0], [1, 0]].some(([dx, dy]) => this.dungeon.tiles[y + dy]?.[x + dx] === 'wall');
+    return { key: volcanoTerrainKey(this.floor, 'floor'), frame: volcanoFloorFrame(this.floor, x, y, edge) };
+  }
+
+  ruinFloorVisual(x: number, y: number): TerrainVisual {
+    const edge = [[0, -1], [0, 1], [-1, 0], [1, 0]].some(([dx, dy]) => this.dungeon.tiles[y + dy]?.[x + dx] === 'wall');
+    return { key: ruinFloorKey(this.floor), frame: ruinFloorFrame(this.floor, x, y, edge) };
+  }
+
+  bossGateVisual(): TerrainVisual {
+    const zone = this.dungeon?.bossRoomZone;
+    const direction = zone === 'east' || zone === 'west' || zone === 'south' ? zone : 'north';
+    const entrance = this.dungeon.bossEntrance!;
+    return { key: `terrain_boss_entry_${direction}`, size: TILE * 2.6,
+      depth: this.worldDepth((entrance.y + .5) * TILE, 14) };
+  }
+
+  applyTileVisual(sprite: Phaser.GameObjects.Image, t: TileType, era: number, x: number, y: number) {
+    if (!sprite.active) return;
+    const visual = this.tileVisual(t, era, x, y);
+    sprite.setTexture(visual.key, visual.frame)
+      .setFlipX(visual.flipX ?? false)
+      .setAngle(visual.angle ?? 0)
+      .setDepth(visual.depth ?? 0)
+      .setDisplaySize(visual.size ?? TERRAIN_RENDER_SIZE, visual.size ?? TERRAIN_RENDER_SIZE);
+  }
+
+  softenTerrainTint(tint: number): number {
+    const mix = (channel: number) => Math.round(255 * 0.68 + channel * 0.32);
+    const r = mix((tint >> 16) & 0xff);
+    const g = mix((tint >> 8) & 0xff);
+    const b = mix(tint & 0xff);
+    return (r << 16) | (g << 8) | b;
+  }
+
+  createBossRoomVisuals(era: number, accent: number) {
+    const room = this.dungeon.bossRoom;
+    if (!room) return;
+    if (this.dungeon.finalDepthArena) {
+      for (const prop of this.dungeon.finalDepthArena.props) {
+        const size = this.floor === 30 ? (prop.part === 'prop-6' ? 2.5 : 1.85) : 1.4;
+        const sprite = this.add.image(prop.x * TILE + TILE / 2, prop.y * TILE + TILE / 2, finalDepthTerrainKey(this.floor, prop.part))
+          .setOrigin(.5, .78).setDisplaySize(TILE * size, TILE * size).setVisible(false)
+          .setDepth(this.worldDepth(prop.y * TILE + TILE, -.2));
+        this.bossRoomDecorSprites.push(sprite);
+      }
+      if (this.floor === 30) {
+        const seal = this.add.graphics().setDepth(.3);
+        const cx = room.cx * TILE + TILE / 2, cy = room.cy * TILE + TILE / 2;
+        seal.lineStyle(1.5, 0xd9c497, .23).strokeCircle(cx, cy, TILE * 5).strokeCircle(cx, cy, TILE * 4.7);
+        FINAL_ELEMENTS.forEach((element, i) => {
+          const angle = i * Math.PI * 2 / 5 - Math.PI / 2;
+          seal.lineStyle(1, ELEMENT_INFO[element].color, .24).strokeCircle(cx + Math.cos(angle) * TILE * 3, cy + Math.sin(angle) * TILE * 3, TILE * 1.3);
+        });
+        this.bossFloorDecor = seal;
+      }
+      return;
+    }
+    if (this.dungeon.thunderArena) {
+      for (const prop of this.dungeon.thunderArena.props) {
+        const size = this.floor === 25 && prop.part === 'prop-1' ? 1.8 : 1.35;
+        const sprite = this.add.image(prop.x * TILE + TILE / 2, prop.y * TILE + TILE / 2,
+          thunderTerrainKey(this.floor, prop.part)).setOrigin(.5, .78)
+          .setDisplaySize(TILE * size, TILE * size).setVisible(false)
+          .setDepth(this.worldDepth(prop.y * TILE + TILE, -.2));
+        this.bossRoomDecorSprites.push(sprite);
+      }
+      return;
+    }
+    if (this.dungeon.waterArena) {
+      for (const prop of this.dungeon.waterArena.props) {
+        const size = this.floor === 10 ? 1.65 : 1.4;
+        const sprite = this.add.image(prop.x * TILE + TILE / 2, prop.y * TILE + TILE / 2,
+          (this.floor === 10 ? ruinTerrainKey(1, prop.part === 'prop-2' ? 'relic' : 'rubble') : waterTerrainKey(this.floor, prop.part))).setOrigin(.5, .78)
+          .setDisplaySize(TILE * size, TILE * size).setVisible(false)
+          .setDepth(this.worldDepth(prop.y * TILE + TILE, -.2));
+        this.bossRoomDecorSprites.push(sprite);
+      }
+      this.createBossFloorDecor(this.floor === 10 ? 0xc98b52 : 0x78b6b1);
+      return;
+    }
+    if (this.dungeon.glacialArena) {
+      // Supply the floor beneath the sealed stair, whose own tile is an object.
+      const stairs = this.dungeon.stairs;
+      this.bossRoomDecorSprites.push(this.add.image(stairs.x * TILE + TILE / 2, stairs.y * TILE + TILE / 2,
+        'terrain_glacial_floor').setDisplaySize(TERRAIN_RENDER_SIZE, TERRAIN_RENDER_SIZE).setDepth(0));
+      for (const prop of this.dungeon.glacialArena.props) {
+        const size = prop.kind === 'altar' ? TILE * 3 : prop.kind === 'boulder' ? TILE * 1.65 : TILE * 2.2;
+        const sprite = this.add.image(prop.x * TILE + TILE / 2, prop.y * TILE + TILE / 2,
+          `terrain_glacial_${prop.kind}`).setDisplaySize(size, size)
+          .setOrigin(0.5, prop.kind === 'altar' ? 0.5 : 0.78)
+          .setDepth(prop.blocking ? this.worldDepth(prop.y * TILE + TILE, -0.2) : 0.3);
+        this.bossRoomDecorSprites.push(sprite);
+      }
+      return;
+    }
+    if (this.dungeon.volcanoArena) {
+      for (const prop of this.dungeon.volcanoArena.props) {
+        const size = prop.part === 'prop-1' ? 1.8 : 1.5;
+        const sprite = this.add.image(prop.x * TILE + TILE / 2, prop.y * TILE + TILE / 2,
+          volcanoTerrainKey(this.floor, prop.part)).setOrigin(.5, .78)
+          .setDisplaySize(TILE * size, TILE * size).setVisible(false)
+          .setDepth(this.worldDepth(prop.y * TILE + TILE, -.2));
+        this.bossRoomDecorSprites.push(sprite);
+      }
+      this.createBossFloorDecor(0xff783d);
+      return;
+    }
+    // 埋め込み型の中ボス部屋は、通常タイルの床だけで描く。
+    // 大きな背景絵に含まれていた内壁と、外周の実壁が二重に見えるのを防ぐ。
+    if (!this.inBossRoom) return;
+    this.createBossFloorDecor(accent);
+  }
+
+  createBossFloorDecor(accent: number) {
+    const room = this.dungeon.bossRoom;
+    if (!room) return;
+    if (this.dungeon.waterArena) {
+      if (this.floor === 10) {
+        const g = this.add.graphics().setDepth(.35).setVisible(false);
+        const cx = (room.cx + .5) * TILE, cy = (room.cy + .5) * TILE;
+        g.lineStyle(1.5, 0xb69b59, .26).strokeCircle(cx, cy, TILE * 3.2);
+        g.lineStyle(1, 0xb69b59, .18).strokeCircle(cx, cy, TILE * 2.9);
+        // Horn-shaped engraving stays below actors and charge warnings.
+        g.beginPath().arc(cx - TILE*.7, cy, TILE*.8, -.9, 1.7).strokePath();
+        g.beginPath().arc(cx + TILE*.7, cy, TILE*.8, 1.4, 4).strokePath();
+        this.bossFloorDecor = g;
+      }
+      return;
+    }
+    if (this.dungeon.volcanoArena) {
+      const g = this.add.graphics().setDepth(.35).setVisible(false);
+      const cx = (room.cx + .5) * TILE, cy = (room.cy + .5) * TILE;
+      g.lineStyle(1.5, 0xb2754b, .26);
+      g.strokeCircle(cx, cy, TILE * 2.4);
+      g.lineStyle(1, 0xb2754b, .16);
+      g.strokeCircle(cx, cy, TILE * 1.9);
+      this.bossFloorDecor = g;
+      return;
+    }
+    if (this.floor === 5) {
+      // Static, worn engraving in the stone, below actors and attack warnings.
+      const inset = TILE;
+      const left = room.x * TILE + inset, top = room.y * TILE + inset;
+      const width = room.w * TILE - inset * 2, height = room.h * TILE - inset * 2;
+      const cx = (room.x + room.w / 2) * TILE, cy = (room.y + room.h / 2) * TILE;
+      const radius = Math.min(width, height) * .28;
+      const g = this.add.graphics().setDepth(.35).setVisible(false);
+      g.lineStyle(1.5, 0xb69b59, .38);
+      g.strokeRect(left, top, width, height);
+      g.lineStyle(1, 0xb69b59, .20);
+      g.strokeCircle(cx, cy, radius);
+      g.strokeCircle(cx, cy, radius * .72);
+      g.beginPath();
+      g.moveTo(cx, cy - radius * .48); g.lineTo(cx + radius * .48, cy);
+      g.lineTo(cx, cy + radius * .48); g.lineTo(cx - radius * .48, cy); g.closePath();
+      g.strokePath();
+      this.bossFloorDecor = g;
+      return;
+    }
+    const left = room.x * TILE + 10;
+    const top = room.y * TILE + 10;
+    const width = room.w * TILE - 20;
+    const height = room.h * TILE - 20;
+    const cx = room.cx * TILE + TILE / 2;
+    const cy = room.cy * TILE + TILE / 2;
+    const g = this.add.graphics().setDepth(0.45).setBlendMode(Phaser.BlendModes.ADD).setVisible(false);
+    g.lineStyle(2, 0xffd36b, 0.32);
+    g.strokeRoundedRect(left, top, width, height, 12);
+    g.lineStyle(1, accent, 0.28);
+    g.strokeRoundedRect(left + 7, top + 7, width - 14, height - 14, 9);
+    g.strokeCircle(cx, cy, 46);
+    g.strokeCircle(cx, cy, 27);
+    g.beginPath();
+    g.moveTo(cx, cy - 58); g.lineTo(cx + 58, cy); g.lineTo(cx, cy + 58); g.lineTo(cx - 58, cy); g.closePath();
+    g.strokePath();
+    g.fillStyle(0xffe09a, 0.45);
+    for (const [x, y] of [[left + 12, top + 12], [left + width - 12, top + 12], [left + 12, top + height - 12], [left + width - 12, top + height - 12]]) {
+      g.fillCircle(x, y, 2.5);
+    }
+    this.bossFloorDecor = g;
+  }
+
+  spawnAmbientMotes(floor: number) {
+    const floorCells: Vec2[] = [];
+    for (let y = 1; y < this.dungeon.h - 1; y++) {
+      for (let x = 1; x < this.dungeon.w - 1; x++) {
+        if (this.dungeon.tiles[y][x] !== 'wall') floorCells.push({ x, y });
+      }
+    }
+    Phaser.Utils.Array.Shuffle(floorCells);
+    const count = Math.min(18, floorCells.length);
+    const color = hasFinalDepthTerrain(floor) ? FINAL_DEPTH_COLORS[floor - 26] : hasThunderTerrain(floor) ? 0x9dcfff : hasWaterTerrain(floor) ? 0x71b8b9 : hasVolcanoTerrain(floor) ? 0xff853f : floor >= 21 ? 0xb47aff : floor >= 11 ? 0x6ce8d8 : 0x65d8ff;
+    for (let i = 0; i < count; i++) {
+      const pos = floorCells[i];
+      const baseY = pos.y * TILE + TILE / 2 - 2 - Math.random() * 10;
+      const sprite = this.add.circle(
+        pos.x * TILE + TILE / 2 + (Math.random() * 18 - 9), baseY,
+        0.7 + Math.random() * 1.1, color, 0.32
+      ).setDepth(4.4).setBlendMode(Phaser.BlendModes.ADD);
+      this.ambientMotes.push({ x: pos.x, y: pos.y, baseY, phase: Math.random() * Math.PI * 2, sprite });
+    }
+  }
+
+  spawnTeleportPads() {
+    if (!this.dungeon.teleportPads.length) return;
+    this.textures.get('terrain_teleport_pad').setFilter(Phaser.Textures.FilterMode.NEAREST);
+    for (const pad of this.dungeon.teleportPads) {
+      const sprite = this.add.image(
+        pad.x * TILE + TILE / 2,
+        pad.y * TILE + TILE / 2,
+        'terrain_teleport_pad'
+      )
+        .setDisplaySize(TILE, TILE)
+        .setDepth(2.7)
+        .setVisible(false);
+      this.teleportPadVisuals.push({
+        ...pad,
+        sprite,
+        phase: Math.random() * Math.PI * 2,
+        baseScale: sprite.scaleX
+      });
+    }
+  }
+
+  bossCompassDirection() {
+    const zone = this.dungeon?.bossRoomZone;
+    const directions = {
+      north: { dx: 0, dy: -1, angle: 0, label: '北' },
+      east: { dx: 1, dy: 0, angle: 90, label: '東' },
+      south: { dx: 0, dy: 1, angle: 180, label: '南' },
+      west: { dx: -1, dy: 0, angle: -90, label: '西' }
+    } as const;
+    return zone && zone !== 'center' ? directions[zone] : undefined;
+  }
+
+  spawnBossCompass() {
+    const pos = this.dungeon.bossCompass;
+    if (!pos) return;
+    const cx = pos.x * TILE + TILE / 2;
+    const cy = pos.y * TILE + TILE / 2;
+    const base = this.add.circle(cx, cy, 12, 0x071319, 0.88)
+      .setStrokeStyle(2.5, 0xc99c4e, 1)
+      .setDepth(2.72);
+    const glow = this.add.circle(cx, cy, 13, 0x64d6c4, 0.13)
+      .setDepth(2.76).setBlendMode(Phaser.BlendModes.ADD);
+    // 装飾を入れず、一本の太い矢印だけでボス方向を読ませる。
+    const arrow = this.add.graphics().setPosition(cx, cy).setDepth(2.82);
+    arrow.lineStyle(1, 0xffe0a0, 1);
+    arrow.lineStyle(1, 0x947744, .9).strokeCircle(0, 0, 9);
+    for (let i = 0; i < 8; i++) { const angle = i * Math.PI / 4; arrow.lineBetween(Math.sin(angle)*10,Math.cos(angle)*10,Math.sin(angle)*12,Math.cos(angle)*12); }
+    arrow.lineStyle(1, 0xffe0a0, 1);
+    arrow.fillStyle(0xecc875, 1);
+    arrow.beginPath();
+    arrow.moveTo(0, -11);
+    arrow.lineTo(8, -2);
+    arrow.lineTo(3, -2);
+    arrow.lineTo(3, 9);
+    arrow.lineTo(-3, 9);
+    arrow.lineTo(-3, -2);
+    arrow.lineTo(-8, -2);
+    arrow.closePath();
+    arrow.fillPath();
+    arrow.strokePath();
+    this.bossCompassVisual = { ...pos, base, glow, arrow };
+    this.refreshBossCompassVisual();
+  }
+
+  destroyBossCompass() {
+    const visual = this.bossCompassVisual;
+    if (!visual) return;
+    visual.base.destroy();
+    visual.glow.destroy();
+    visual.arrow.destroy();
+    this.bossCompassVisual = undefined;
+  }
+
+  refreshBossCompassVisual() {
+    const visual = this.bossCompassVisual;
+    if (!visual) return;
+    const direction = this.bossCompassDirection();
+    const active = !!direction && !this.floorBossDefeated;
+    visual.base
+      .setFillStyle(active ? 0x071319 : 0x252a2e, active ? 0.88 : 0.62)
+      .setStrokeStyle(1.5, active ? 0x6bcac8 : 0x667078, active ? 0.62 : 0.42);
+    visual.glow.setVisible(active);
+    visual.arrow.setVisible(active);
+    if (!direction) return;
+    const cx = visual.x * TILE + TILE / 2;
+    const cy = visual.y * TILE + TILE / 2;
+    visual.arrow.setPosition(cx, cy).setAngle(direction.angle);
+    visual.glow.setPosition(cx, cy);
+  }
+
+  inspectBossCompass() {
+    const direction = this.bossCompassDirection();
+    if (!direction || this.floorBossDefeated) return;
+    this.log(`方位盤の矢印が${direction.label}を指している。${direction.label}から禍々しい気配を感じる……`, 'special');
+    this.effectFx(this.player.x, this.player.y, 'fx_magic', 1.15, 360, 0xc342ff);
+  }
+
+  spawnEnemies(floor: number) {
+    if (this.eventMode) { this.spawnHalloweenEnemies(); return; }
+    const pool = NORMAL_MONSTER_DEFS.filter((m) =>
+      m.minFloor <= floor && floor <= m.maxFloor && !m.isBoss && !m.isTreasureRabbit
+    );
+    if (this.inBossRoom) {
+      const baseMobCount = floor % 10 === 0 ? 5 : floor % 5 === 0 ? 4 : Math.min(4, 2 + Math.floor(floor / 12));
+      const mobCount = finalDepthMobCount(floor, true, Math.ceil(baseMobCount * 1.5));
+      let spawned = 0;
+      for (let attempts = 0; attempts < mobCount * 12 && spawned < mobCount; attempts++) {
+        const def = pool.length ? pool[Math.floor(runRandom() * pool.length)] : MONSTER_DEFS[0];
+        const pos = this.randomBossCombatFloor(this.occupiedPositions());
+        if (!pos || this.distToPlayer(pos.x, pos.y) < 4) continue;
+        this.addEnemy(def, pos.x, pos.y, 1 + floor * 0.035);
+        spawned++;
+      }
+      // 分離部屋に置くのは5階刻みの強ボスだけ。通常の中ボスはフィールド側にいる。
+      if (floor % 5 === 0) this.spawnMilestoneBoss(floor);
+      else this.spawnMidBossDragon(floor, false); // QAで通常階のボス部屋を直接開いた場合の保険
+      return;
+    }
+    const arenaCells = this.bossRoomCells();
+    // 出現数（狭い迷路マップに合わせて調整）
+    const baseCount = floor === 30 ? 5 : Math.min(10, 4 + Math.floor(floor / 3));
+    const count = finalDepthMobCount(floor, false, Math.ceil(baseCount * 1.5));
+    let spawned = 0;
+    for (let attempts = 0; attempts < count * 12 && spawned < count; attempts++) {
+      const def = pool.length ? pool[Math.floor(runRandom() * pool.length)] : MONSTER_DEFS[0];
+      const pos = randomFloor(this.dungeon, [...this.occupiedPositions(), ...arenaCells]);
+      if (!pos) continue;
+      if (this.distToPlayer(pos.x, pos.y) < 4) continue;
+      if (hasFinalDepthTerrain(floor) && this.enemies.filter(e => e.alive && Math.abs(e.x - pos.x) + Math.abs(e.y - pos.y) <= 5).length >= 2) continue;
+      this.addEnemy(def, pos.x, pos.y, 1 + floor * 0.04);
+      spawned++;
+    }
+    if (floor !== 30) this.maybeSpawnTreasureRabbit(floor);
+    if (floor !== 5 && floor !== 30) this.spawnMidBossDragon(floor, !this.dungeon.bossRoom);
+  }
+
+  spawnHalloweenProps() {
+    for (const prop of halloweenDecorations(this.dungeon, this.floor)) {
+      this.addDungeonObject(prop.key as RoomPropKind, prop.x, prop.y, 1, 1);
+    }
+    // Breakable pumpkin barrels reward exploration while room centers stay clear.
+    for (const r of this.dungeon.rooms.filter(r => r !== this.dungeon.bossRoom && !this.dungeon.optionalRooms.some(o=>o.room===r))) {
+      this.addDungeonObject('hw_barrel', r.x + 2, r.y + r.h - 2, 1, 1, true);
+    }
+    const rest = this.dungeon.rooms[3];
+    this.addDungeonObject('fountain', rest.cx, rest.cy - 1, 1, 1);
+  }
+
+  spawnHalloweenEnemies() {
+    const arenaCells = this.bossRoomCells();
+    const count = (11 + this.floor * 2) * 3;
+    const blocked = new Set([...this.occupiedPositions(), ...arenaCells, ...this.halloweenDeadEnds()].map(p => `${p.x},${p.y}`));
+    const candidates: Vec2[] = [];
+    this.dungeon.tiles.forEach((row, y) => row.forEach((tile, x) => {
+      if (tile === 'floor' && !blocked.has(`${x},${y}`) && this.distToPlayer(x, y) >= 5) candidates.push({ x, y });
+    }));
+    for (let i = 0; i < count && candidates.length; i++) {
+      const pos = candidates.splice(Math.floor(runRandom() * candidates.length), 1)[0];
+      const available = this.floor === 1 ? HALLOWEEN_MOBS.slice(0, 2) : this.floor === 2 ? HALLOWEEN_MOBS.slice(0, 3) : HALLOWEEN_MOBS;
+      const source = available[i % available.length];
+      const def = { ...source, hp: Math.floor(source.hp * (1 + (this.floor - 1) * .25)), atkMin: source.atkMin + this.floor - 1, atkMax: source.atkMax + this.floor - 1 };
+      this.addEnemy(def, pos.x, pos.y, 1);
+    }
+    const source = this.floor === 5 && runRandom() < .01 ? GOLDEN_KING : HALLOWEEN_BOSSES[this.floor - 1];
+    const def = { ...source, isFloorBoss: true, isElite: true, bossTint: 0xffffff };
+    const gimmicks: BossGimmickKind[] = ['mid_hw_pumpkin', 'mid_hw_ghost', 'mid_hw_witch', 'mid_hw_knight', 'hw_king'];
+    this.placeFloorBoss(def, this.floor === 5 ? 3.3 : 2.8, HALLOWEEN_COLORS[this.floor - 1], `🎃 ${def.name}が城の奥で待っている。`, gimmicks[this.floor - 1]);
+    const retainer = HALLOWEEN_RETAINERS[this.floor - 1];
+    const roomCells = this.bossRoomCells();
+    const center = roomCells.reduce((sum, p) => ({ x: sum.x + p.x / roomCells.length, y: sum.y + p.y / roomCells.length }), { x: 0, y: 0 });
+    const positions = roomCells.filter(p => this.dungeon.tiles[p.y]?.[p.x] === 'floor'
+      && !this.occupiedPositions().some(o => o.x === p.x && o.y === p.y)
+      && this.distToPlayer(p.x, p.y) >= 3);
+    positions.sort((a, b) => Math.abs(a.y - center.y - 3) - Math.abs(b.y - center.y - 3));
+    for (let i = 0; i < 3 && positions.length; i++) {
+      const targetX = center.x + (i - 1) * 3;
+      const index = positions.reduce((best, p, n) =>
+        Math.abs(p.x - targetX) + Math.abs(p.y - center.y - 3) * 3
+        < Math.abs(positions[best].x - targetX) + Math.abs(positions[best].y - center.y - 3) * 3 ? n : best, 0);
+      const pos = positions.splice(index, 1)[0];
+      this.addEnemy({ ...retainer }, pos.x, pos.y, 1);
+    }
+  }
+
+  maybeSpawnTreasureRabbit(floor: number) {
+    const def = MONSTER_DEFS.find((monster) => monster.isTreasureRabbit);
+    if (!def || floor < def.minFloor || floor > def.maxFloor) return;
+    const qaForced = localQaEnabled()
+      && new URLSearchParams(location.search).has('qa-rare-rabbit');
+    if (!qaForced && runRandom() >= 0.025) return;
+    const pos = randomFloor(this.dungeon, [...this.occupiedPositions(), ...this.bossRoomCells()]);
+    if (!pos || this.distToPlayer(pos.x, pos.y) < 5) return;
+    this.addEnemy(def, pos.x, pos.y, 1 + floor * 0.025);
+    this.log('どこかでまばゆい金色の気配が走った…！', 'special');
+  }
+
+  floorHasGate(floor: number): boolean {
+    return !this.eventMode && floor % 5 === 0;
+  }
+
+  spawnMidBossDragon(floor: number, fieldPlacement: boolean) {
+    const sourceFloor = floor % 5 === 0 ? Math.max(5, floor - 5) : floor;
+    const custom = customFloorBoss(sourceFloor, this.playerGender);
+    const previousMilestone = floor % 5 === 0 ? MILESTONE_BOSSES[sourceFloor] : undefined;
+    const spec = previousMilestone ?? (custom ? { key: custom.key, name: custom.name, tint: custom.color }
+      : MID_DRAGONS[(floor - 1) % MID_DRAGONS.length]);
+    const base = custom ?? MONSTER_DEFS.find((m) => m.key === spec.key) ?? MONSTER_DEFS[0];
+    const def: MonsterDef = {
+      ...base,
+      name: spec.name,
+      hp: Math.max(78, Math.floor(base.hp * (1.35 + floor * 0.025) * BOSS_HP_MULTIPLIER * FLOOR_BOSS_HP_BOOST)),
+      atkMin: Math.max(5, Math.floor(base.atkMin * (1.04 + floor * 0.008) * BOSS_ATTACK_MULTIPLIER * FLOOR_BOSS_ATTACK_BOOST)),
+      atkMax: Math.max(10, Math.floor(base.atkMax * (1.04 + floor * 0.008) * BOSS_ATTACK_MULTIPLIER * FLOOR_BOSS_ATTACK_BOOST)),
+      def: Math.max(1, Math.ceil((base.def + Math.floor(floor / 10)) * BOSS_DEFENSE_MULTIPLIER * FLOOR_BOSS_DEFENSE_BOOST)),
+      exp: Math.max(12, base.exp * 2),
+      gold: Math.max(18, base.gold * 3),
+
+      minFloor: floor,
+      maxFloor: floor,
+      isElite: true,
+      isBoss: false,
+      isFloorBoss: true,
+      isDragonType: custom ? custom.isDragonType : true,
+      bossTint: custom || floor === 10 ? 0xffffff : spec.tint
+    };
+    const message = fieldPlacement
+      ? `◆ 迷宮のどこかで「${def.name}」が待ち構えている……。`
+      : this.inBossRoom
+        ? `◆ 「${def.name}」が姿を現した！`
+        : `◆ 重い扉の向こうから強い気配を感じる……。`;
+    this.placeFloorBoss(strengthenLateBoss(def, floor), hasFinalDepthTerrain(floor) ? 1.55 : custom && !custom.isDragonType ? 1 : 1.32, spec.tint, message, this.midBossGimmick(base.key), fieldPlacement);
+  }
+
+  spawnMilestoneBoss(floor: number) {
+    const spec = MILESTONE_BOSSES[floor];
+    if (!spec) return;
+    const custom = customFloorBoss(floor, this.playerGender);
+    const base = custom ?? MONSTER_DEFS.find((m) => m.key === spec.key) ?? MONSTER_DEFS[0];
+    const def: MonsterDef = {
+      ...base,
+      name: spec.name,
+      hp: Math.floor(spec.hp * BOSS_HP_MULTIPLIER * FLOOR_BOSS_HP_BOOST),
+      atkMin: Math.floor(spec.atkMin * BOSS_ATTACK_MULTIPLIER * FLOOR_BOSS_ATTACK_BOOST),
+      atkMax: Math.floor(spec.atkMax * BOSS_ATTACK_MULTIPLIER * FLOOR_BOSS_ATTACK_BOOST),
+      def: Math.ceil(spec.def * BOSS_DEFENSE_MULTIPLIER * FLOOR_BOSS_DEFENSE_BOOST),
+      exp: Math.max(30, base.exp * 4),
+      gold: Math.max(45, base.gold * 5),
+
+      minFloor: floor,
+      maxFloor: floor,
+      isElite: true,
+      isBoss: floor === 30,
+      isFloorBoss: true,
+      isDragonType: custom ? custom.isDragonType : floor >= 20,
+      bossTint: custom ? 0xffffff : spec.tint
+    };
+    const label = floor % 10 === 0
+      ? `★★ 強大な魔物「${def.name}」が立ちはだかった！`
+      : `★ 「${def.name}」が行く手を阻んだ！`;
+    this.placeFloorBoss(strengthenLateBoss(def, floor), spec.scale, spec.tint, label, this.milestoneGimmick(floor));
+  }
+
+  placeFloorBoss(
+    def: MonsterDef,
+    scale: number,
+    tint: number,
+    message: string,
+    gimmick: BossGimmickKind,
+    fieldPlacement = false
+  ) {
+    let pos = fieldPlacement ? this.randomFieldBossPosition() : this.bossArenaPosition();
+    if (!fieldPlacement && !pos) pos = this.nearStairsPosition();
+    if (!pos || this.distToPlayer(pos.x, pos.y) < 5 || this.enemyAt(pos.x, pos.y)) {
+      pos = this.inBossRoom
+        ? this.randomBossCombatFloor(this.occupiedPositions())
+        : randomFloor(this.dungeon, this.occupiedPositions());
+    }
+    if (!pos) return;
+    if (bossBodyRadius(def) && this.dungeon.bossRoom) {
+      const room = this.dungeon.bossRoom;
+      pos = { x: room.cx, y: room.cy - 2 };
+      if (!bodyCells(pos, 1).every(p => this.validMonsterTile(p.x, p.y) && !this.enemyAt(p.x, p.y))) return;
+    }
+    const enemy = this.addEnemy(def, pos.x, pos.y, 1);
+    enemy.midBossVisualMultiplier = this.floor >= 11 && this.floor % 5 !== 0 ? 1.5 : 1;
+    enemy.baseScale *= scale * enemy.midBossVisualMultiplier;
+    enemy.sprite.setScale(enemy.baseScale);
+    this.attachAura(enemy, bossBodyRadius(def) ? TILE * 3 : 36 * scale * enemy.midBossVisualMultiplier, tint);
+    this.updateEnemyShadow(enemy);
+    this.registerBossGimmick(enemy, gimmick);
+    this.log(message, 'dmg');
+  }
+
+  midBossGimmick(key: string): BossGimmickKind {
+    if (Object.values(FINAL_DEPTH_BOSSES).some(b => b.key === key)) return key === 'm_astravein' ? 'astral_dragon' : 'mid_final_depth';
+    if (key === 'm_voltyrex') return 'mid_thunder_jaw';
+    if (key === 'm_spark_beetle') return 'mid_thunder_shell';
+    if (key === 'm_galvan') return 'mid_thunder_engine';
+    if (key === 'm_amatsuchi') return 'mid_thunder_ring';
+    if (key === 'm_raiga') return 'thunder_king';
+    if (key === 'm_unicorn') return 'mid_magma_lance';
+    if (key === 'm_bone_reaper') return 'mid_ember_bone';
+    if (key === 'm_valgrado') return 'magma_breath';
+    if (key === 'm_ice_behemoth') return 'glacial_slam';
+    if (key === 'm_bone_colossus') return 'furnace_titan';
+    if (key === 'm_black_mage' || key === 'm_silver_seraph') return 'mid_magic';
+    if (key === 'm_fallen_angel') return 'mid_ember_shift';
+    if (key === 'm_abyss_dragon') return 'mid_void';
+    if (key === 'm_ice_knight') return 'mid_frost';
+    if (key === 'm_thunder_sovereign') return 'mid_storm';
+    if (key.startsWith('m_rival_')) return 'mid_rival';
+    if (/frost|wyrm/.test(key)) return 'mid_frost';
+    if (/storm|wyvern/.test(key)) return 'mid_storm';
+    if (/void/.test(key)) return 'mid_void';
+    if (/bone/.test(key)) return 'mid_bone';
+    if (/hydra/.test(key)) return 'mid_poison';
+    return 'mid_fire';
+  }
+
+  milestoneGimmick(floor: number): BossGimmickKind {
+    return ({
+      5: 'mid_fire', 10: 'bull_charge', 15: 'glacial_slam',
+      20: 'magma_breath', 25: 'thunder_king', 30: 'astral_dragon'
+    } as Record<number, BossGimmickKind>)[floor] ?? 'mid_fire';
+  }
+
+  bossRoomCells(): Vec2[] {
+    const room = this.dungeon?.bossRoom;
+    if (!room) return [];
+    const cells: Vec2[] = [];
+    for (let y = room.y; y < room.y + room.h; y++) {
+      for (let x = room.x; x < room.x + room.w; x++) cells.push({ x, y });
+    }
+    if (this.dungeon.bossEntrance) cells.push({ ...this.dungeon.bossEntrance });
+    return cells;
+  }
+
+  isInsideBossRoom(x: number, y: number): boolean {
+    const room = this.dungeon?.bossRoom;
+    return !!room && x >= room.x && x < room.x + room.w && y >= room.y && y < room.y + room.h;
+  }
+
+  isInsideBossCombatFrame(x: number, y: number): boolean {
+    const room = this.dungeon?.bossRoom;
+    if (!room) return true;
+    // 通常マップは中ボス部屋も端まで使う。大型の当たり判定はpassableで別途確認する。
+    const inset = this.eventMode && !this.inBossRoom ? 1 : 0;
+    return x >= room.x + inset && x < room.x + room.w - inset
+      && y >= room.y + inset && y < room.y + room.h - inset;
+  }
+
+  randomBossCombatFloor(avoid: Vec2[]): Vec2 | null {
+    const room = this.dungeon?.bossRoom;
+    if (!room) return randomFloor(this.dungeon, avoid);
+    const blocked = new Set(avoid.map((position) => `${position.x},${position.y}`));
+    const candidates: Vec2[] = [];
+    for (let y = room.y; y < room.y + room.h; y++) {
+      for (let x = room.x; x < room.x + room.w; x++) {
+        if (blocked.has(`${x},${y}`) || !this.validMonsterTile(x, y)) continue;
+        candidates.push({ x, y });
+      }
+    }
+    return runShuffle(candidates)[0] ?? null;
+  }
+
+  optionalRoomAtDoor(x: number, y: number): OptionalRoom | undefined {
+    return this.dungeon.optionalRooms.find((optional) => optional.door.x === x && optional.door.y === y);
+  }
+
+  optionalRoomContaining(x: number, y: number): OptionalRoom | undefined {
+    return this.dungeon.optionalRooms.find((optional) => x >= optional.room.x && x < optional.room.x + optional.room.w
+      && y >= optional.room.y && y < optional.room.y + optional.room.h);
+  }
+
+  openOptionalRoom(optional: OptionalRoom) {
+    if (optional.opened) return;
+    optional.opened = true;
+    this.openedOptionalRooms.add(optional);
+    const { door, entry, room } = optional;
+    this.dungeon.tiles[door.y][door.x] = 'floor';
+    this.applyTileVisual(this.tileSprites[door.y][door.x], 'floor', getTheme(this.floor).era, door.x, door.y);
+    this.effectFx(door.x, door.y, 'fx_magic', 1.35, 360, getTheme(this.floor).accent);
+    Audio.playSe('seal');
+    this.populateOptionalRoom(optional);
+    this.log(optional.kind === 'diamond' ? '金扉の先に、ダイヤモンドの宝箱が輝いている！'
+      : '小部屋への道が開いた。', 'special');
+    this.updateVisibility();
+  }
+
+  populateOptionalRoom(optional: OptionalRoom) {
+    const { room } = optional;
+    if (optional.kind === 'hazard') {
+      const hazard: TileType = this.dungeon.biome === 'frost' ? 'cracked'
+        : this.dungeon.biome === 'magma' ? 'lava'
+          : this.dungeon.biome === 'storm' ? 'lightning'
+            : this.dungeon.biome === 'void' ? 'voidRift'
+              : this.dungeon.biome === 'aqueduct' ? 'poison' : 'pit';
+      for (const pos of [{ x: room.cx, y: room.cy }, { x: room.cx - 2, y: room.cy }, { x: room.cx + 2, y: room.cy }]) {
+        this.dungeon.tiles[pos.y][pos.x] = hazard;
+        this.applyTileVisual(this.tileSprites[pos.y][pos.x], hazard, getTheme(this.floor).era, pos.x, pos.y);
+      }
+    }
+    if ((optional.kind === 'ambush' || optional.kind === 'hazard') && !this.milestoneFloorCleared()) {
+      const pool = (this.eventMode ? HALLOWEEN_MOBS : NORMAL_MONSTER_DEFS).filter((monster) => monster.minFloor <= this.floor && this.floor <= monster.maxFloor
+        && !monster.isBoss && !monster.isTreasureRabbit);
+      const positions = runShuffle([
+        { x: room.cx - 2, y: room.cy - 1 }, { x: room.cx + 2, y: room.cy - 1 },
+        { x: room.cx - 2, y: room.cy + 2 }, { x: room.cx + 2, y: room.cy + 2 }
+      ]).filter((position) => !this.dungeonObjectAt(position.x, position.y));
+      for (const position of positions.slice(0, hasFinalDepthTerrain(this.floor) ? 2 : optional.kind === 'ambush' ? 4 : 2)) {
+        const def = pool[Math.floor(runRandom() * pool.length)] ?? MONSTER_DEFS[0];
+        this.addEnemy(def, position.x, position.y, 1 + this.floor * 0.035);
+      }
+    }
+    if (optional.kind === 'treasure') {
+      for (const position of [{ x: room.cx - 2, y: room.cy }, { x: room.cx, y: room.cy - 1 }, { x: room.cx + 2, y: room.cy }]) {
+        this.spawnChestAt(position.x, position.y, runRandom() < 0.22);
+      }
+    }
+  }
+
+  bossEntrancePosition(): Vec2 | null {
+    return this.dungeon?.bossEntrance ? { ...this.dungeon.bossEntrance } : null;
+  }
+
+  floorBgm(battle: boolean): BgmName {
+    if (!this.eventMode) return this.inBossRoom ? 'boss' : battle ? 'midboss' : bgmForFloor(this.floor);
+    const eventBattle = !this.floorBossDefeated && (battle || this.isInsideBossRoom(this.player.x, this.player.y));
+    if (!eventBattle) return 'halloweenMap';
+    if (this.floor < 5) return 'halloweenMidboss';
+    return this.enemies.some(e => e.alive && e.def.key === 'm_hw_golden_king') ? 'halloweenGolden' : 'halloweenBoss';
+  }
+
+  setBossEntranceClosed(closed: boolean, announce = true) {
+    const entrance = this.bossEntrancePosition();
+    if (!entrance || this.bossEntranceClosed === closed) return;
+    if (closed && this.floorBossDefeated) return;
+    this.bossEntranceClosed = closed;
+    const tile: TileType = closed ? 'door' : 'floor';
+    this.dungeon.tiles[entrance.y][entrance.x] = tile;
+    const era = getTheme(this.floor).era;
+    const sprite = this.tileSprites[entrance.y]?.[entrance.x];
+    if (sprite) this.applyTileVisual(sprite, tile, era, entrance.x, entrance.y);
+    const entry = this.dungeon.bossEntry;
+    const entrySprite = entry ? this.tileSprites[entry.y]?.[entry.x] : undefined;
+    if (entry && entrySprite) this.applyTileVisual(entrySprite, this.dungeon.tiles[entry.y][entry.x], era, entry.x, entry.y);
+    if (!this.inBossRoom) {
+      Audio.playBgm(this.floorBgm(closed));
+    }
+    if (!announce) return;
+    this.effectFx(entrance.x, entrance.y, 'fx_magic', 1.45, 420, closed ? 0xff8a5b : 0x58d9d1);
+    Audio.playSe('seal');
+    const revealedBoss = closed
+      ? this.enemies.find((enemy) => enemy.def.isFloorBoss && this.isInsideBossRoom(enemy.x, enemy.y))
+      : undefined;
+    this.log(closed && revealedBoss
+      ? `背後の扉が閉じ、魔物「${revealedBoss.def.name}」が姿を現した！`
+      : closed ? '背後の扉が結界に閉ざされた！' : '扉を覆っていた結界が消えた。', 'special');
+  }
+
+  closeBossEntranceOnEntry(x: number, y: number) {
+    const room = this.dungeon?.bossRoom;
+    if (!room || this.floorBossDefeated || this.bossEntranceClosed) return;
+    const entry = this.dungeon.bossEntry;
+    if (entry && x === entry.x && y === entry.y) this.setBossEntranceClosed(true);
+  }
+
+  bossArenaPosition(): Vec2 | null {
+    const room = this.dungeon.bossRoom;
+    if (!room) return null;
+    const entry = this.dungeon.bossEntry;
+    const candidates: Vec2[] = [];
+    for (let y = room.y; y < room.y + room.h; y++) {
+      for (let x = room.x; x < room.x + room.w; x++) candidates.push({ x, y });
+    }
+    if (entry) {
+      // 埋め込み10×10部屋の中ボスは、唯一の入口から最も遠い床を初期位置にする。
+      candidates.sort((a, b) => {
+        const distanceA = Math.abs(a.x - entry.x) + Math.abs(a.y - entry.y);
+        const distanceB = Math.abs(b.x - entry.x) + Math.abs(b.y - entry.y);
+        return distanceB - distanceA;
+      });
+    } else {
+      // N.5Fの大型アリーナは従来どおり中央を優先する。
+      candidates.sort((a, b) => {
+        const distanceA = Math.abs(a.x - room.cx) + Math.abs(a.y - room.cy);
+        const distanceB = Math.abs(b.x - room.cx) + Math.abs(b.y - room.cy);
+        return distanceA - distanceB;
+      });
+    }
+    for (const pos of candidates) {
+      if (!this.validBossTile(pos.x, pos.y) || !this.isInsideBossCombatFrame(pos.x, pos.y)) continue;
+      if (this.enemyAt(pos.x, pos.y) || this.player.x === pos.x && this.player.y === pos.y) continue;
+      return pos;
+    }
+    return null;
+  }
+
+  registerBossGimmick(e: Enemy, kind: BossGimmickKind) {
+    const state: BossRuntime = {
+      kind,
+      cooldown: this.qaBossMode ? 0 : kind.startsWith('mid_') ? 3 : 2,
+      phase: 0,
+      stunned: 0,
+      phaseTwo: false
+    };
+    if (kind === 'astral_dragon') state.coreLabel = this.add.text(0, 0, '核：火', { fontSize: '13px', color: '#ffe4a5', backgroundColor: '#11131e', padding: { x: 5, y: 3 } }).setOrigin(.5).setDepth(45);
+    this.bossStates.set(e, state);
+  }
+
+  // 階段に隣接する歩行可能タイル（＝出口を守る位置）を返す
+  nearStairsPosition(): Vec2 | null {
+    const st = this.dungeon.stairs;
+    const cand = [[0, -1], [0, 1], [-1, 0], [1, 0], [-1, -1], [1, 1], [1, -1], [-1, 1]];
+    for (const [dx, dy] of cand) {
+      const nx = st.x + dx, ny = st.y + dy;
+      const t = this.dungeon.tiles[ny]?.[nx];
+      if (t && isWalkable(t) && t !== 'pit' && !(nx === this.dungeon.start.x && ny === this.dungeon.start.y)) {
+        return { x: nx, y: ny };
+      }
+    }
+    return null;
+  }
+
+  randomFieldBossPosition(): Vec2 | null {
+    const exitRoom = this.dungeon.exitRoom;
+    const outsideExitRoom = (pos: Vec2) => !exitRoom || !(
+      pos.x >= exitRoom.x - 1 && pos.x < exitRoom.x + exitRoom.w + 1
+      && pos.y >= exitRoom.y - 1 && pos.y < exitRoom.y + exitRoom.h + 1
+    );
+    for (let tries = 0; tries < 80; tries++) {
+      const pos = randomFloor(this.dungeon, this.occupiedPositions());
+      if (!pos || !outsideExitRoom(pos)) continue;
+      if (this.distToPlayer(pos.x, pos.y) < 6) continue;
+      if (Math.abs(pos.x - this.dungeon.stairs.x) + Math.abs(pos.y - this.dungeon.stairs.y) < 6) continue;
+      return pos;
+    }
+    return null;
+  }
+
+  addEnemy(def: MonsterDef, x: number, y: number, hpScale: number): Enemy {
+    def = difficultyEnemy(def, this.difficulty);
+    const e = new Enemy(def, x, y, hpScale);
+    e.shadow = this.add.image(0, 0, def.isBoss || def.isFloorBoss ? 'boss_tile_shadow' : 'shadow').setDepth(9.5).setAlpha(0.6);
+    e.sprite = this.add.image(0, 0, def.key).setDepth(10)
+      .setOrigin(0.5, def.isBoss || def.isFloorBoss ? BOSS_GROUND_ORIGIN_Y : 0.6);
+    const maxDim = def.isBoss || def.isFloorBoss ? 40
+      : def.gimmick === 'mimic' ? 44
+      : def.isTreasureRabbit ? 32
+      : def.isElite ? 34
+      : def.isDragonType ? 30
+      : 26;
+    const animation = getMonsterAnimation(def.key);
+    e.directionArt = DIRECTIONAL_MONSTERS.find(art => art.monsterKey === def.key && this.textures.exists(art.textureKey));
+    const drawnAnimation = animation && this.textures.exists(animation.motionKey)
+      && this.textures.exists(animation.attackKey) ? animation : undefined;
+    const tex = this.textures.get(def.key).getSourceImage();
+    const eventSize = this.eventMode && def.key.startsWith('m_hw_') && !def.isFloorBoss ? 1.7 : 1;
+    const sc = maxDim * eventSize / (e.directionArt?.artSize ?? drawnAnimation?.artSize ?? Math.max(tex.width, tex.height));
+    e.sprite.setScale(sc);
+    if (def.bossTint && def.bossTint !== drawnAnimation?.baseTint) e.sprite.setTint(def.bossTint);
+    if (def.isDarkNinja) {
+      e.sprite.setAlpha(0.08);
+      e.shadow.setAlpha(0.12);
+    }
+    if (def.gimmick === 'mimic') {
+      // 本物の通常宝箱と同じ絵・同じ約30pxサイズで擬態する。
+      // baseScaleは変身後のミミック用なので、待機中はdisplaySizeを固定する。
+      e.sprite.setTexture('chest_common').setDisplaySize(26, 26).setAlpha(1).clearTint();
+      e.shadow.setAlpha(0.35);
+    } else if (def.gimmick === 'ambush') {
+      e.sprite.setAlpha(0.1);
+      e.shadow.setAlpha(0.08);
+    } else if (def.gimmick === 'statue') {
+      e.sprite.setTint(0x777c83);
+    } else if (def.gimmick === 'phase' || def.gimmick === 'wraith_phase') {
+      e.sprite.setAlpha(def.gimmick === 'wraith_phase' ? 0.42 : 0.68);
+    }
+    e.baseScale = sc;
+    if (e.directionArt) this.updateEnemyDirection(e);
+    if (drawnAnimation) {
+      e.sprite.setOrigin(0.5, def.isBoss || def.isFloorBoss ? BOSS_GROUND_ORIGIN_Y : drawnAnimation.originY);
+      this.setEnemyAnimation(e, 'idle');
+    }
+    e.bobPhase = Math.random() * Math.PI * 2;
+    this.placeSprite(e.sprite, x, y);
+    this.updateEnemyShadow(e);
+    // 最終ボスは足元に特殊オーラ（中ボス/強ボスはspawnBossで付与）
+    if (def.isBoss) this.attachAura(e, maxDim, 0x4fd0ff);
+    else if (def.isTreasureRabbit) this.attachAura(e, maxDim, 0xffdc55);
+    this.bindEnemyPointer(e);
+    this.enemies.push(e);
+    return e;
+  }
+
+  updateEnemyShadow(e: Enemy) {
+    if (!e.shadow) return;
+    if (e.def.isBoss || e.def.isFloorBoss) {
+      // Anchor to the occupied cell, independently of oversized art, lunges and bobbing.
+      // Boss artwork is anchored at its feet so the shadow stays on the floor, not on its body.
+      e.shadow.setPosition((e.x + 0.5) * TILE, (e.y + 0.7) * TILE)
+        .setDisplaySize(TILE, TILE * 0.65).setAlpha(0.82)
+        .setDepth(e.sprite.depth - 0.1).setVisible(e.alive && e.sprite.visible);
+    } else {
+      e.shadow.setPosition(e.sprite.x, e.sprite.y + 11).setDepth(e.sprite.depth - 0.22);
+    }
+  }
+
+  revealMimic(e: Enemy, attacked = false) {
+    if (e.awakened) return;
+    e.awakened = true;
+    this.drawEnemyHp(e);
+    e.animating = true;
+    e.sprite.setTexture(e.def.key).setScale(e.baseScale * 0.68).setAlpha(1).clearTint().setAngle(0);
+    e.shadow?.setAlpha(0.55);
+    this.tweens.add({
+      targets: e.sprite,
+      scaleX: e.baseScale,
+      scaleY: e.baseScale,
+      duration: 180,
+      ease: 'Back.easeOut',
+      onComplete: () => { e.animating = false; }
+    });
+    this.effectFx(e.x, e.y, 'fx_magic', 1.2, 320, e.def.color);
+    this.log(`${e.def.name}が${attacked ? '触れられて' : ''}正体を現した！`, 'dmg');
+  }
+
+  // ボスの足元に脈動する特殊オーラを付与する（格を演出）
+  attachAura(e: Enemy, baseDim: number, tint: number) {
+    if (e.aura) { this.tweens.killTweensOf(e.aura); e.aura.destroy(); }
+    const auraSize = baseDim * 2.2;
+    e.aura = this.add.image(e.sprite.x, e.sprite.y - 6, 'glow')
+      .setDepth(e.sprite.depth - 0.16).setBlendMode(Phaser.BlendModes.ADD)
+      .setDisplaySize(auraSize, auraSize)
+      .setTint(tint).setAlpha(0.55);
+    // 明滅で脈動（スケールは触らない＝サイズ変更と競合させない）
+    this.tweens.add({ targets: e.aura, alpha: 0.9, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+  }
+
+  clearBossMechanics() {
+    for (const enemy of this.difficultyWarnings.keys()) this.clearDifficultyWarnings(enemy);
+    for (const state of this.bossStates.values()) {
+      state.coreLabel?.destroy();
+      for (const marker of state.intent?.markers ?? []) {
+        this.destroyBossWarningMarker(marker);
+      }
+    }
+    for (const hazard of this.bossHazards) hazard.sprite.destroy();
+    for (const obstacle of this.bossObstacles) obstacle.sprite.destroy();
+    this.bossStates.clear();
+    this.bossHazards = [];
+    this.bossObstacles = [];
+  }
+
+  bossObstacleAt(x: number, y: number): BossObstacle | null {
+    return this.bossObstacles.find((o) => o.x === x && o.y === y) ?? null;
+  }
+
+  destroyBossObstacle(obstacle: BossObstacle) {
+    const color = obstacle.kind === 'iron' ? 0xff9147 : 0xe8d9bd;
+    this.effectFx(obstacle.x, obstacle.y, 'fx_hit', 1.35, 300, color);
+    this.pickupBurst(obstacle.sprite.x, obstacle.sprite.y, color, 5);
+    obstacle.sprite.destroy();
+    this.bossObstacles = this.bossObstacles.filter((o) => o !== obstacle);
+    this.log(obstacle.kind === 'iron' ? '炉鉄壁を砕いた！' : '骨壁を砕いた！', 'special');
+  }
+
+  validBossTile(x: number, y: number): boolean {
+    const tile = this.dungeon.tiles[y]?.[x];
+    // The body inset is for boss movement, not attacks: players can stand on the room rim.
+    const insideGimmickArea = this.dungeon.bossRoom ? this.isInsideBossRoom(x, y) : true;
+    return insideGimmickArea && !!tile && isWalkable(tile)
+      && tile !== 'pit' && tile !== 'stairs' && tile !== 'door' && tile !== 'roomDoor'
+      && !this.dungeonObjectAt(x, y);
+  }
+
+  validMonsterTile(x: number, y: number): boolean {
+    const tile = this.dungeon.tiles[y]?.[x];
+    const insideCombatFrame = !this.inBossRoom || this.isInsideBossCombatFrame(x, y);
+    return insideCombatFrame && !!tile && isWalkable(tile) && tile !== 'pit' && tile !== 'stairs' && tile !== 'door'
+      && !this.dungeonObjectAt(x, y);
+  }
+
+  uniqueBossTiles(tiles: Vec2[]): Vec2[] {
+    const seen = new Set<string>();
+    return tiles.filter((tile) => {
+      const key = `${tile.x},${tile.y}`;
+      if (seen.has(key) || !this.validBossTile(tile.x, tile.y)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  bossCrossTiles(cx: number, cy: number, radius: number): Vec2[] {
+    const tiles: Vec2[] = [{ x: cx, y: cy }];
+    for (let d = 1; d <= radius; d++) {
+      tiles.push({ x: cx + d, y: cy }, { x: cx - d, y: cy }, { x: cx, y: cy + d }, { x: cx, y: cy - d });
+    }
+    return this.uniqueBossTiles(tiles);
+  }
+
+  bossAreaTiles(cx: number, cy: number, radius: number): Vec2[] {
+    const tiles: Vec2[] = [];
+    for (let y = cy - radius; y <= cy + radius; y++) {
+      for (let x = cx - radius; x <= cx + radius; x++) tiles.push({ x, y });
+    }
+    return this.uniqueBossTiles(tiles);
+  }
+
+  bossRoomLine(horizontal: boolean, coordinate: number): Vec2[] {
+    const room = this.dungeon.bossRoom;
+    const tiles: Vec2[] = [];
+    if (!room && horizontal) {
+      for (let x = 1; x < this.dungeon.w - 1; x++) tiles.push({ x, y: coordinate });
+    } else if (!room) {
+      for (let y = 1; y < this.dungeon.h - 1; y++) tiles.push({ x: coordinate, y });
+    } else if (horizontal) {
+      for (let x = room.x; x < room.x + room.w; x++) tiles.push({ x, y: coordinate });
+    } else {
+      for (let y = room.y; y < room.y + room.h; y++) tiles.push({ x: coordinate, y });
+    }
+    return this.uniqueBossTiles(tiles);
+  }
+
+  bossBreathTiles(e: Enemy, phaseTwo: boolean): Vec2[] {
+    const horizontal = Math.abs(this.player.x - e.x) >= Math.abs(this.player.y - e.y);
+    const dx = horizontal ? Math.sign(this.player.x - e.x) || 1 : 0;
+    const dy = horizontal ? 0 : Math.sign(this.player.y - e.y) || 1;
+    const tiles: Vec2[] = [];
+    const reach = phaseTwo ? 9 : 7;
+    for (let side = -1; side <= 1; side++) {
+      for (let step = 1; step <= reach; step++) {
+        const x = e.x + dx * step + (horizontal ? 0 : side);
+        const y = e.y + dy * step + (horizontal ? side : 0);
+        const tile = this.dungeon.tiles[y]?.[x];
+        if (!tile || !isWalkable(tile)) break;
+        tiles.push({ x, y });
+      }
+    }
+    return this.uniqueBossTiles(tiles);
+  }
+
+  bossChargePath(e: Enemy): Vec2[] {
+    const dx = this.player.x === e.x ? 0 : Math.sign(this.player.x - e.x);
+    const dy = this.player.y === e.y ? 0 : Math.sign(this.player.y - e.y);
+    if ((dx === 0 && dy === 0) || (dx !== 0 && dy !== 0)) return [];
+    const path: Vec2[] = [];
+    let x = e.x + dx;
+    let y = e.y + dy;
+    while (this.validBossTile(x, y)) {
+      if (this.enemyAt(x, y, e) || this.bossObstacleAt(x, y)) break;
+      path.push({ x, y });
+      x += dx;
+      y += dy;
+    }
+    return path;
+  }
+
+  bossThunderCone(e: Enemy, reach: number): Vec2[] {
+    const horizontal = Math.abs(this.player.x - e.x) >= Math.abs(this.player.y - e.y);
+    const dx = horizontal ? Math.sign(this.player.x - e.x) || 1 : 0;
+    const dy = horizontal ? 0 : Math.sign(this.player.y - e.y) || 1;
+    const tiles: Vec2[] = [];
+    // Each lane stops at cover; a discharge cannot pass through a solid prop or wall.
+    for (let side = -2; side <= 2; side++) {
+      for (let step = Math.max(1, Math.abs(side) + 1); step <= reach; step++) {
+        const x = e.x + dx * step + (horizontal ? 0 : side);
+        const y = e.y + dy * step + (horizontal ? side : 0);
+        if (!this.validBossTile(x, y)) break;
+        tiles.push({ x, y });
+      }
+    }
+    return this.uniqueBossTiles(tiles);
+  }
+
+  findBossDestination(e: Enemy, edge = false): Vec2 | null {
+    const room = this.dungeon.bossRoom;
+    if (!room) {
+      const position = this.randomFieldBossPosition();
+      return position && this.canBossRelocate(e, position) ? position : null;
+    }
+    const candidates: Vec2[] = edge
+      ? [
+          { x: room.x + 1, y: this.player.y }, { x: room.x + room.w - 2, y: this.player.y },
+          { x: this.player.x, y: room.y + 1 }, { x: this.player.x, y: room.y + room.h - 2 }
+        ]
+      : [
+          { x: room.x + 1, y: room.y + 1 }, { x: room.x + room.w - 2, y: room.y + 1 },
+          { x: room.x + room.w - 2, y: room.y + room.h - 2 }, { x: room.x + 1, y: room.y + room.h - 2 },
+          { x: room.cx, y: room.cy }
+        ];
+    if (!edge) {
+      const offset = this.bossStates.get(e)?.phase ?? 0;
+      for (let i = 0; i < offset % candidates.length; i++) candidates.push(candidates.shift()!);
+    }
+    // Every teleporting boss needs a fallback when preferred corners are blocked.
+    for (let y = room.y + 1; y < room.y + room.h - 1; y++) {
+      for (let x = room.x + 1; x < room.x + room.w - 1; x++) {
+        if (Math.abs(x - this.player.x) + Math.abs(y - this.player.y) < 2) continue;
+        candidates.push({ x, y });
+      }
+    }
+    for (const pos of candidates) {
+      if (this.canBossRelocate(e, pos)) return pos;
+    }
+    return null;
+  }
+
+  canBossRelocate(e: Enemy, destination: Vec2): boolean {
+    if (destination.x === e.x && destination.y === e.y) return false;
+    if (!this.passable(e, destination.x, destination.y)) return false;
+    return bossApproach(destination, this.player, bossBodyRadius(e.def), (x, y) => this.passable(e, x, y)).reachesTarget;
+  }
+
+  teleportBoss(e: Enemy, destination: Vec2) {
+    // The telegraph can last several turns; its destination may now be occupied.
+    if (e.def.isFloorBoss ? !this.canBossRelocate(e, destination) : !this.passable(e, destination.x, destination.y)) return;
+    this.effectFx(e.x, e.y, 'fx_magic', 1.5, 360, e.def.bossTint ?? e.def.color);
+    e.x = destination.x;
+    e.y = destination.y;
+    this.placeSprite(e.sprite, e.x, e.y);
+    this.effectFx(e.x, e.y, 'fx_magic', 1.7, 420, e.def.bossTint ?? e.def.color);
+  }
+
+  destroyBossWarningMarker(marker: BossWarningMarker) {
+    this.tweens.killTweensOf(marker.plate);
+    marker.plate.destroy();
+    marker.label.destroy();
+  }
+
+  bossWarningMarkers(
+    tiles: Vec2[],
+    color: number,
+    anchor: Vec2,
+    channel: BossStrikeChannel,
+    simultaneous = false
+  ): BossWarningMarker[] {
+    return tiles.map((tile) => {
+      const distance = Math.abs(tile.x - anchor.x) + Math.abs(tile.y - anchor.y);
+      const turns = simultaneous ? 1 : Phaser.Math.Clamp(distance + 1, 1, 3);
+      const plate = this.add.rectangle(
+        tile.x * TILE + TILE / 2, tile.y * TILE + TILE / 2,
+        TILE - 5, TILE - 5, color, 0.2
+      ).setDepth(8.2).setStrokeStyle(2, color, 0.94).setBlendMode(Phaser.BlendModes.ADD);
+      const label = this.add.text(plate.x, plate.y, String(turns), {
+        fontFamily: 'Arial Black, "Yu Gothic UI"',
+        fontSize: '17px',
+        color: '#ffffff',
+        stroke: '#071115',
+        strokeThickness: 5,
+        fontStyle: 'bold'
+      }).setOrigin(0.5).setDepth(8.4);
+      this.tweens.add({ targets: plate, alpha: 0.68, duration: 330, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      return { ...tile, turns, channel, plate, label };
+    });
+  }
+
+
+  prepareFinalDepthIntent(e: Enemy, state: BossRuntime): BossIntent | null {
+    const plan = finalAttackPlan(this.floor, state.phase, state.phaseTwo, e, this.player,
+      (x, y) => this.validBossTile(x, y) && !bodyContains(e, bossBodyRadius(e.def), { x, y }));
+    state.phase++;
+    const waves = plan.waves.filter(w => w.tiles.length);
+    if (!waves.length) { state.cooldown = 1; return null; }
+    const markers: BossWarningMarker[] = [];
+    for (const wave of waves) {
+      const group = this.bossWarningMarkers(wave.tiles, ELEMENT_INFO[wave.element].color, this.player, 'primary', true);
+      for (const marker of group) {
+        marker.element = wave.element;
+        marker.turns = wave.turns;
+        // Overlapping waves are offset within a cell so every countdown remains readable.
+        const index = markers.filter(m => m.x === marker.x && m.y === marker.y).length;
+        marker.plate.setDepth(35).setFillStyle(ELEMENT_INFO[wave.element].color, .1);
+        marker.label.setText(String(wave.turns)).setFontSize('10px')
+          .setPosition(marker.plate.x + (index % 2 ? 7 : -7), marker.plate.y - 10 + Math.floor(index / 2) * 9).setDepth(36);
+        markers.push(marker);
+      }
+    }
+    e.def.element = waves[0].element;
+    state.coreLabel?.setText('核：' + waves.map(w => FINAL_ELEMENT_LABEL[w.element]).join(' → '))
+      .setColor('#' + ELEMENT_INFO[waves[0].element].color.toString(16).padStart(6, '0'));
+    this.faceEnemyToward(e, this.player);
+    this.updateEnemyDirection(e);
+    this.log(e.def.name + '：' + plan.message, 'special');
+    return { kind: state.kind, tiles: waves.flatMap(w => w.tiles), secondary: [], tertiary: [], markers, triggered: false, recovery: plan.recovery };
+  }
+
+  resolveFinalDepthIntent(e: Enemy, state: BossRuntime, intent: BossIntent): { done: boolean; animation?: Promise<void> } {
+    const due = intent.markers.filter(m => m.turns <= 1);
+    intent.markers = intent.markers.filter(m => m.turns > 1);
+    for (const marker of intent.markers) {
+      marker.turns--;
+      marker.label.setText(String(marker.turns));
+    }
+    for (const marker of due) this.destroyBossWarningMarker(marker);
+    const done = intent.markers.length === 0;
+    if (!due.length) return { done };
+    const apply = () => {
+      const kinds: Record<MonsterElement, BossImpactKind> = { fire: 'fire', water: 'water', ice: 'ice', thunder: 'lightning', dark: 'void' };
+      for (const element of FINAL_ELEMENTS) {
+        const tiles = due.filter(m => m.element === element).map(({ x, y }) => ({ x, y }));
+        if (tiles.length) this.bossImpactFx(tiles, kinds[element]);
+      }
+      // One hit per turn even where two telegraphs overlap; never wear a shield twice.
+      const hit = due.find(m => m.x === this.player.x && m.y === this.player.y);
+      if (hit) this.damagePlayerFromBoss(e, state.kind === 'astral_dragon' ? .88 : .75, FINAL_ELEMENT_LABEL[hit.element!] + '属性の一撃！', hit.element);
+      if (done) {
+        state.stunned = intent.recovery ?? 1;
+        state.coreLabel?.setText('反撃の好機');
+      } else {
+        const next = intent.markers.reduce((a, b) => a.turns <= b.turns ? a : b);
+        e.def.element = next.element;
+        state.coreLabel?.setText('核：' + FINAL_ELEMENT_LABEL[next.element!] + ' ／ あと' + next.turns);
+      }
+    };
+    return { done, animation: this.playDrawnEnemyAttack(e, 'cast', apply, false) };
+  }
+
+  prepareBossIntent(e: Enemy, state: BossRuntime): BossIntent | null {
+    if (state.kind === 'mid_final_depth' || state.kind === 'astral_dragon') return this.prepareFinalDepthIntent(e, state);
+    let tiles: Vec2[] = [];
+    let secondary: Vec2[] = [];
+    let tertiary: Vec2[] = [];
+    let destination: Vec2 | undefined;
+    let message = '';
+    const p = this.player;
+    let kind = state.kind;
+
+    switch (state.kind) {
+      case 'mid_hw_pumpkin': {
+        for (const bomb of this.halloweenObjects(e, 'bomb')) this.destroyHalloweenObject(bomb, false);
+        const targets = [{x:p.x-2,y:p.y}, {x:p.x+2,y:p.y}, {x:p.x,y:p.y-2}];
+        for (const target of targets) {
+          const bomb = this.spawnHalloweenObject(e, 'bomb', target);
+          if (bomb) tiles.push(...this.bossCrossTiles(bomb.x,bomb.y,1));
+        }
+        if (e.hp <= e.hpMax*.5) { secondary = this.bossRoomLine(true,p.y); tertiary = this.bossRoomLine(false,p.x); }
+        message = '爆弾カボチャが3個出現！ 2ターンで爆発。壊して逃げ場所を作ろう！';
+        break;
+      }
+      case 'mid_hw_ghost': {
+        const lanterns = this.halloweenObjects(e, 'lantern');
+        if (lanterns.length) {
+          const lantern = lanterns[(state.phase++) % lanterns.length];
+          tiles = this.bossRoomLine(state.phase % 2 === 0, state.phase % 2 === 0 ? lantern.y : lantern.x);
+          message = '鬼火ランタンが冷気を溜めた！ 予告帯を避け、ランタンを壊そう。';
+        } else {
+          destination = this.findBossDestination(e) ?? undefined;
+          if (!destination) return null;
+          tiles = this.bossAreaTiles(destination.x,destination.y,1);
+          message = '墓守が霧へ消えた！ 青い鬼火の場所へ転移する。';
+        }
+        break;
+      }
+      case 'mid_hw_witch':
+        state.castDamage = 0;
+        tiles = this.bossAreaTiles(p.x,p.y,2).filter((_,i)=>i%2===0);
+        message = '魔女が大魔法を詠唱！ 本物へ最大HPの8%分のダメージ、またはスタンで中断できる！';
+        break;
+      case 'mid_hw_knight': {
+        const horizontal = Math.abs(p.x-e.x)>=Math.abs(p.y-e.y);
+        tiles = this.bossRoomLine(horizontal,horizontal?e.y:e.x);
+        const path = tiles.filter(t => horizontal ? (t.x-e.x)*Math.sign(p.x-e.x)>0 : (t.y-e.y)*Math.sign(p.y-e.y)>0);
+        path.sort((a,b)=>Math.abs(b.x-e.x)+Math.abs(b.y-e.y)-Math.abs(a.x-e.x)-Math.abs(a.y-e.y));
+        destination = path.find(t=>this.canBossRelocate(e,t));
+        const end = destination ?? e;
+        secondary = this.bossRoomLine(!horizontal,horizontal?end.x:end.y);
+        tertiary = this.bossAreaTiles(end.x,end.y,1);
+        this.faceEnemyToward(e,p);
+        message = '突進→振り返り斬り→薙ぎ払い！ 数字の順に避けよう。正面は硬いが、大技後は2ターン弱体化！';
+        break;
+      }
+      case 'hw_king': {
+        state.phase++;
+        state.goldenRitual = e.def.key === 'm_hw_golden_king' && state.phase % 2 === 1;
+        if (state.goldenRitual) {
+          if (!this.enemies.some(m=>m.def.isHalloweenRetainer)) {
+            const guard=HALLOWEEN_RETAINERS[4];
+            for(const target of [{x:e.x-3,y:e.y+3},{x:e.x+3,y:e.y+3},{x:e.x,y:e.y+4}]) {
+              const pos=this.bossRoomCells().find(t=>this.isInsideBossRoom(t.x,t.y)&&this.dungeon.tiles[t.y]?.[t.x]==='floor'&&!this.enemyAt(t.x,t.y)&&!this.dungeonObjectAt(t.x,t.y)&&Math.abs(t.x-target.x)+Math.abs(t.y-target.y)<=2&&!(t.x===p.x&&t.y===p.y));
+              if(pos)this.addEnemy({...guard},pos.x,pos.y,1);
+            }
+          }
+          tiles=this.bossRoomCells().filter(t=>this.isInsideBossRoom(t.x,t.y)&&this.dungeon.tiles[t.y]?.[t.x]==='floor');
+          message='黄金の収穫祭！ 3ターン後に大爆発。近衛兵を倒した跡の安全地帯へ避難！';
+        } else {
+          tiles=this.bossCrossTiles(p.x,p.y,state.phaseTwo?2:1);
+          if(state.phaseTwo)secondary=this.bossAreaTiles(e.x,e.y,2).filter(t=>t.x!==e.x||t.y!==e.y);
+          message=state.phaseTwo?'収穫王が覚醒！ 鬼火と茨の二重攻撃。茨は攻撃で切り払える！':'収穫王が王笏を掲げた！ 鬼火の予告から離れよう。';
+        }
+        break;
+      }
+      case 'mid_thunder_jaw':
+      case 'mid_thunder_shell': {
+        const reach = state.kind === 'mid_thunder_jaw' ? 3 : 4;
+        if (Math.max(Math.abs(p.x - e.x), Math.abs(p.y - e.y)) > reach) return null;
+        tiles = this.bossThunderCone(e, reach);
+        message = state.kind === 'mid_thunder_jaw'
+          ? `${e.def.name}が帯電した顎を開いた！ 前方の光っている床から離れよう。`
+          : `${e.def.name}の甲殻が光った！ 扇形の放電を横へ避けろ。`;
+        break;
+      }
+      case 'mid_thunder_engine': {
+        const horizontal = Math.abs(p.x - e.x) >= Math.abs(p.y - e.y);
+        const offset = (state.phase++ % 2 === 0 ? 1 : -1) * 2;
+        for (const side of [0, offset]) for (let step = -2; step <= 2; step++) {
+          tiles.push(horizontal ? { x: p.x + step, y: p.y + side } : { x: p.x + side, y: p.y + step });
+        }
+        tiles = this.uniqueBossTiles(tiles);
+        message = `${e.def.name}が双雷の機関を起動！ 2本の予告帯の隙間へ避けろ。`;
+        break;
+      }
+      case 'mid_thunder_ring':
+        tiles = this.bossCrossTiles(p.x, p.y, 1);
+        for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) {
+          if (Math.abs(dx) + Math.abs(dy) === 2) secondary.push({ x: p.x + dx, y: p.y + dy });
+        }
+        secondary = this.uniqueBossTiles(secondary);
+        message = `${e.def.name}が嵐を呼んだ！ 外側は1、内側は2ターン後に落雷する。`;
+        break;
+      case 'thunder_king':
+        if (Math.abs(p.x - e.x) + Math.abs(p.y - e.y) >= 2 && (p.x === e.x || p.y === e.y)) {
+          tiles = this.bossChargePath(e);
+          if (tiles.length >= 2) {
+            kind = 'thunder_charge';
+            message = `${e.def.name}が雷をまとって突進の構え！ 横へ避けて反撃しよう。`;
+            break;
+          }
+        }
+        tiles = this.bossCrossTiles(p.x, p.y, state.phaseTwo ? 3 : 2);
+        message = `${e.def.name}が轟雷の咆哮を上げる！ 十字の落雷から離れろ。`;
+        break;
+      case 'mid_magic':
+        tiles = this.bossCrossTiles(p.x, p.y, 1);
+        message = `${e.def.name}が魔力を集中している！ 銀色に光る床から離れよう。`;
+        break;
+      case 'mid_ember_shift':
+        destination = this.findBossDestination(e) ?? undefined;
+        if (!destination) return null;
+        tiles = this.bossAreaTiles(destination.x, destination.y, 1);
+        message = `${e.def.name}が炎の中に消えた！ 赤く光る床への転移斬りに注意。`;
+        break;
+      case 'mid_magma_lance': {
+        const horizontal = Math.abs(p.x - e.x) >= Math.abs(p.y - e.y);
+        tiles = this.bossRoomLine(horizontal, horizontal ? p.y : p.x);
+        message = `${e.def.name}の角から熔熱が一直線に走る！`;
+        break;
+      }
+      case 'mid_ember_bone':
+        tiles = this.bossCrossTiles(p.x, p.y, 1);
+        message = `${e.def.name}が灼けた大鎌を振り上げた！ 十字の火柱から離れろ。`;
+        break;
+      case 'magma_breath':
+        tiles = this.bossBreathTiles(e, state.phaseTwo);
+        message = '熔獄竜ヴァルグラドが息を吸い込んだ！ 赤く光る床に熔岩の息吹が来る。';
+        break;
+      case 'mid_rival':
+        // An armed adventurer fights with its sword, not a dragon spell.
+        return null;
+      case 'mid_fire':
+        tiles = this.bossCrossTiles(p.x, p.y, 1);
+        message = `${e.def.name}が火炎弾を溜めている！ 赤く光る床から離れよう。`;
+        break;
+      case 'mid_frost': {
+        const horizontal = Math.abs(p.x - e.x) >= Math.abs(p.y - e.y);
+        tiles = this.bossRoomLine(horizontal, horizontal ? p.y : p.x);
+        message = `${e.def.name}の冷気が一直線に走る！`;
+        break;
+      }
+      case 'mid_storm':
+        tiles = this.bossCrossTiles(p.x, p.y, 2);
+        message = `${e.def.name}が十字雷撃を呼んでいる！`;
+        break;
+      case 'mid_void':
+        destination = this.findBossDestination(e) ?? undefined;
+        if (!destination) return null;
+        tiles = this.bossAreaTiles(destination.x, destination.y, 1);
+        message = `${e.def.name}が空間を歪めた！ 紫に光る床へ転移攻撃が来る。`;
+        break;
+      case 'mid_bone':
+        tiles = this.bossCrossTiles(p.x, p.y, 1);
+        message = `${e.def.name}が骨片を地面へ撃ち込む！`;
+        break;
+      case 'mid_poison':
+        tiles = this.bossAreaTiles(p.x, p.y, 1).filter((_, i) => i % 2 === 0);
+        message = `${e.def.name}が毒液を撒こうとしている！`;
+        break;
+      case 'bull_charge':
+        if (Math.abs(p.x - e.x) + Math.abs(p.y - e.y) < 2) return null;
+        if (p.x !== e.x && p.y !== e.y) return null;
+        tiles = this.bossChargePath(e);
+        if (tiles.length < 2) return null;
+        message = `${e.def.name}が突進の構え！ 横へ避ければ壁へ激突する。`;
+        break;
+      case 'furnace_titan':
+        tiles = this.bossCrossTiles(p.x, p.y, 2);
+        message = '炉心王タイタンが大地を踏み砕く！ 灼熱の炉鉄壁に注意。';
+        break;
+      case 'glacial_slam': {
+        tiles = this.bossCrossTiles(p.x, p.y, state.phaseTwo ? 3 : 2);
+        message = '氷晶王ベヒーモスが両腕を振り上げた！ 青く光る床から離れよう。';
+        break;
+      }
+      case 'ancient_fire':
+        destination = this.findBossDestination(e) ?? undefined;
+        if (destination) this.teleportBoss(e, destination);
+        tiles = this.bossAreaTiles(p.x, p.y, 1);
+        state.phase++;
+        message = 'エンシェントドラゴンが外周を巡り、足場を焼き払う！';
+        break;
+      case 'tri_head': {
+        const attackCount = e.hp <= e.hpMax * 0.25 ? 3 : state.phaseTwo ? 2 : 1;
+        for (let i = 0; i < attackCount; i++) {
+          const head = (state.phase + i) % 3;
+          if (head === 0) {
+            const horizontal = Math.abs(p.x - e.x) >= Math.abs(p.y - e.y);
+            tiles = this.bossRoomLine(horizontal, horizontal ? p.y : p.x);
+          } else if (head === 1) {
+            secondary = this.bossCrossTiles(p.x, p.y, 2);
+          } else {
+            tertiary = this.bossAreaTiles(p.x, p.y, 1).filter((_, index) => index % 2 === 0);
+          }
+        }
+        state.phase = (state.phase + 1) % 3;
+        message = `三つ首が${attackCount}つの息吹を同時に溜めている！`;
+        break;
+      }
+    }
+
+    if (!tiles.length && !secondary.length && !tertiary.length) return null;
+    const simultaneous = kind.includes('hw_') || kind === 'bull_charge' || kind === 'thunder_charge' || kind.startsWith('mid_thunder_') || kind === 'thunder_king';
+    const markers = [
+      ...this.bossWarningMarkers(
+        tiles,
+        this.bossImpactColor(this.bossImpactKind(kind, 'primary')),
+        p,
+        'primary',
+        simultaneous
+      ),
+      ...this.bossWarningMarkers(secondary, this.bossImpactColor(this.bossImpactKind(state.kind, 'secondary')), p, 'secondary'),
+      ...this.bossWarningMarkers(tertiary, this.bossImpactColor(this.bossImpactKind(state.kind, 'tertiary')), p, 'tertiary')
+    ];
+    if (kind.includes('hw_')) for (const marker of markers) {
+      marker.turns = kind === 'mid_hw_pumpkin' ? (marker.channel === 'primary' ? 2 : marker.channel === 'secondary' ? 3 : 4)
+        : kind === 'mid_hw_knight' ? (marker.channel === 'primary' ? 1 : marker.channel === 'secondary' ? 2 : 3)
+        : kind === 'mid_hw_witch' ? 2 : state.goldenRitual ? 3 : 1;
+      marker.label.setText(String(marker.turns));
+      if(state.goldenRitual) { marker.plate.setFillStyle(0xffd34e,.26).setStrokeStyle(1,0xffe7a0,.9); marker.label.setColor('#ffe798'); }
+    }
+    if (kind === 'mid_thunder_ring') for (const marker of markers) {
+      marker.turns = marker.channel === 'primary' ? 2 : 1;
+      marker.label.setText(String(marker.turns));
+    }
+    if (e.directionArt) {
+      this.faceEnemyToward(e, p);
+      this.updateEnemyDirection(e);
+    } else if (e.frameAnimation) {
+      this.faceEnemyToward(e, p);
+      this.setEnemyAnimation(e, 'charge');
+    }
+    this.log(message, 'dmg');
+    Audio.playSe('seal');
+    return { kind, tiles, secondary, tertiary, destination, markers, triggered: false };
+  }
+
+  halloweenObjects(owner: Enemy, role?: MonsterDef['halloweenObject']) {
+    return this.enemies.filter(e => e.alive && e.def.halloweenOwner === owner.def.key && (!role || e.def.halloweenObject === role));
+  }
+
+  spawnHalloweenObject(owner: Enemy, role: NonNullable<MonsterDef['halloweenObject']>, desired: Vec2): Enemy | undefined {
+    const spots = this.bossRoomCells().filter(p => this.isInsideBossRoom(p.x, p.y)
+      && this.dungeon.tiles[p.y]?.[p.x] === 'floor' && !this.enemyAt(p.x, p.y)
+      && !(p.x === this.player.x && p.y === this.player.y) && !this.dungeonObjectAt(p.x, p.y) && !this.chestAt(p.x, p.y));
+    spots.sort((a, b) => Math.abs(a.x-desired.x)+Math.abs(a.y-desired.y)-Math.abs(b.x-desired.x)-Math.abs(b.y-desired.y));
+    const pos = spots[0]; if (!pos) return;
+    const keys = { bomb: 'hw_pumpkins', lantern: 'hw_lantern', decoy: 'm_hw_witch', heart: 'hw_tree' };
+    const names = { bomb: '爆弾カボチャ', lantern: '鬼火ランタン', decoy: '魔女の分身', heart: '茨の心臓' };
+    const hp = role === 'bomb' || role === 'decoy' ? 12 : role === 'lantern' ? 25 : 40;
+    const object = this.addEnemy({ ...owner.def, key: keys[role], name: names[role], hp, def: 0,
+      atkMin: 0, atkMax: 0, exp: 0, gold: 0,  isElite: false, isFloorBoss: false,
+      isBoss: false, element: null, halloweenObject: role, halloweenOwner: owner.def.key }, pos.x, pos.y, 1);
+    object.baseScale *= role === 'decoy' ? 2.8 : 1.4; object.sprite.setScale(object.baseScale);
+    if (role === 'heart') object.sprite.setTint(0xa5ff80);
+    if (role === 'decoy') object.sprite.setAlpha(.82);
+    this.drawEnemyHp(object); return object;
+  }
+
+  destroyHalloweenObject(object: Enemy, attacked: boolean) {
+    const owner = this.enemies.find(e => e.def.isFloorBoss && e.def.key === object.def.halloweenOwner);
+    const state = owner && this.bossStates.get(owner);
+    if (attacked && object.def.halloweenObject === 'bomb' && state?.intent) {
+      for (const marker of [...state.intent.markers]) if (marker.channel === 'primary' && Math.abs(marker.x-object.x)+Math.abs(marker.y-object.y) <= 1
+        && !this.halloweenObjects(owner!, 'bomb').some(b=>b!==object && Math.abs(marker.x-b.x)+Math.abs(marker.y-b.y)<=1)) {
+        this.destroyBossWarningMarker(marker); state.intent.markers = state.intent.markers.filter(m => m !== marker);
+      }
+    }
+    if (attacked && object.def.halloweenObject === 'decoy') { this.addBossHazards([{x:object.x,y:object.y}], 'poison', 3); this.log('分身が崩れ、毒の魔法陣が残った！', 'dmg'); }
+    object.hp = 0; this.destroyEnemyFreezeFx(object); object.sprite.destroy(); object.shadow?.destroy(); object.hpBar?.destroy();
+    this.enemies = this.enemies.filter(e => e !== object);
+    if (attacked) {
+      this.effectFx(object.x, object.y, 'fx_magic', 1.2, 400, 0x98ffd7);
+      this.log(`${object.def.name}を破壊！`, 'special');
+      if (owner && state && object.def.halloweenObject === 'lantern' && !this.halloweenObjects(owner, 'lantern').length) {
+        this.interruptHalloweenCast(owner, state); state.stunned = 2; owner.sprite.setAlpha(1);
+        this.log('鬼火が消え、墓守が姿を現した！ 2ターン反撃できる。', 'special');
+      }
+    }
+  }
+
+  interruptHalloweenCast(e: Enemy, state: BossRuntime) {
+    for (const marker of state.intent?.markers ?? []) this.destroyBossWarningMarker(marker);
+    state.intent = undefined; state.castDamage = 0; state.stunned = 1; state.cooldown = 2;
+    for (const bomb of this.halloweenObjects(e, 'bomb')) this.destroyHalloweenObject(bomb, false);
+    state.goldenRitual = false;
+    this.log(`${e.def.name}の詠唱を中断した！`, 'special');
+  }
+
+  tickHalloweenBoss(e: Enemy, state: BossRuntime) {
+    if (!state.halloweenStarted) {
+      state.halloweenStarted = true; const r = this.dungeon.bossRoom!;
+      if (state.kind === 'mid_hw_ghost' || state.kind === 'hw_king') {
+        const role = state.kind === 'mid_hw_ghost' ? 'lantern' : 'heart';
+        this.spawnHalloweenObject(e, role, { x:r.cx-3, y:r.cy-3 });
+        this.spawnHalloweenObject(e, role, { x:r.cx+3, y:r.cy-3 });
+        this.log(role === 'lantern' ? '鬼火ランタンが墓守を守る！ ランタンを壊そう。' : '茨の心臓が王を回復させる！ 心臓を先に壊そう。', 'special');
+      }
+      if (state.kind === 'mid_hw_witch') {
+        this.spawnHalloweenObject(e, 'decoy', { x:e.x-3, y:e.y });
+        this.spawnHalloweenObject(e, 'decoy', { x:e.x+3, y:e.y });
+        this.effectFx(e.x, e.y, 'fx_magic', 1.8, 1500, 0x56ff88);
+        e.sprite.setTint(0x9cffad); this.log('魔女が分裂！ 緑の炎をまとう本物を狙おう。', 'special');
+      }
+    }
+    if(state.kind === 'mid_hw_witch') this.effectFx(e.x,e.y,'fx_magic',1.4,600,0x56ff88);
+    state.halloweenTurn = (state.halloweenTurn ?? 0) + 1;
+    if (state.kind === 'hw_king' && state.halloweenTurn % 4 === 0 && this.halloweenObjects(e, 'heart').length) {
+      const heal = Math.ceil(e.hpMax * .04 * this.halloweenObjects(e, 'heart').length);
+      e.hp = Math.min(e.hpMax, e.hp + heal); this.drawEnemyHp(e); this.effectFx(e.x,e.y,'fx_magic',2,500,0x7eff9a);
+      this.log(`茨の心臓が王のHPを${heal}回復！`, 'special');
+    }
+  }
+
+  handleBossTurn(e: Enemy): { handled: boolean; animation?: Promise<void> } {
+    const state = this.bossStates.get(e);
+    if (!state) return { handled: false };
+    if (state.kind.includes('hw_') && this.isInsideBossRoom(this.player.x, this.player.y)) this.tickHalloweenBoss(e, state);
+
+    if (!state.phaseTwo && e.hp <= e.hpMax * 0.5 && (!state.kind.startsWith('mid_') || state.kind.includes('hw_'))) {
+      state.phaseTwo = true;
+      state.cooldown = Math.min(state.cooldown, 1);
+      this.effectFx(e.x, e.y, 'fx_levelup', 2.2, 700, e.def.bossTint ?? 0xff7050);
+      this.log(`${e.def.name}が第2形態へ移行した！ ギミックの間隔が短くなる。`, 'special');
+    }
+
+    if (state.stunned > 0) {
+      state.stunned--;
+      this.effectFx(e.x, e.y, 'fx_hit', 1.15, 260, 0xffe09a);
+      this.log(`${e.def.name}は体勢を崩して動けない！`, 'special');
+      return { handled: true };
+    }
+
+    if (state.intent) {
+      const resolution = this.resolveBossIntent(e, state, state.intent);
+      if (resolution.done) {
+        state.intent = undefined;
+        state.cooldown = state.kind.startsWith('mid_') ? 3 : state.phaseTwo ? 1 : 2;
+      }
+      return { handled: true, animation: resolution.animation };
+    }
+
+    if (state.cooldown > 0) {
+      state.cooldown--;
+      return { handled: false };
+    }
+    if (this.invisTurns > 0) return { handled: false };
+    const room = this.dungeon.bossRoom;
+    if (room && !(this.player.x >= room.x && this.player.x < room.x + room.w && this.player.y >= room.y && this.player.y < room.y + room.h)) {
+      return { handled: false };
+    }
+    const distance = Math.max(Math.abs(this.player.x - e.x), Math.abs(this.player.y - e.y));
+    // A boss must keep telegraphing throughout its room, including the far corners.
+    if (!room && distance > (state.kind === 'astral_dragon' ? 14 : 9)) return { handled: false };
+    const intent = this.prepareBossIntent(e, state);
+    if (!intent) return { handled: false };
+    state.intent = intent;
+    return { handled: true };
+  }
+
+  clearDifficultyWarnings(enemy: Enemy) {
+    for (const marker of this.difficultyWarnings.get(enemy) ?? []) this.destroyBossWarningMarker(marker);
+    this.difficultyWarnings.delete(enemy);
+  }
+
+  drawDifficultyWarnings(enemy: Enemy) {
+    this.clearDifficultyWarnings(enemy);
+    const markers: BossWarningMarker[] = [];
+    for (const wave of enemy.challengeWaves) {
+      const color = this.difficulty === 'hard' ? 0x58bfff : wave.turns === 1 ? 0xffc957 : 0xeb8eff;
+      const group = this.bossWarningMarkers(wave.tiles, color, this.player, 'primary', true);
+      for (const marker of group) {
+        marker.turns = wave.turns;
+        const overlap = markers.some(m => m.x === marker.x && m.y === marker.y);
+        marker.label.setText(String(wave.turns)).setFontSize('13px').setDepth(36);
+        marker.label.setPosition(marker.plate.x + (overlap ? 7 : -7), marker.plate.y);
+        marker.plate.setDepth(35);
+        const visible = !!this.visibleTiles[marker.y]?.[marker.x];
+        marker.plate.setVisible(visible); marker.label.setVisible(visible);
+      }
+      markers.push(...group);
+    }
+    this.difficultyWarnings.set(enemy, markers);
+  }
+
+  handleDifficultyBossTurn(enemy: Enemy): boolean {
+    if (this.difficulty === 'normal' || !(enemy.def.isBoss || enemy.def.isFloorBoss)) return false;
+    if (enemy.challengeWaves.length) {
+      const due = enemy.challengeWaves.filter(w => --w.turns === 0);
+      enemy.challengeWaves = enemy.challengeWaves.filter(w => w.turns > 0);
+      this.drawDifficultyWarnings(enemy);
+      const tiles = due.flatMap(w => w.tiles);
+      if (tiles.length) this.bossImpactFx(tiles, this.difficulty === 'hard' ? 'ice' : 'lightning');
+      if (this.invisTurns <= 0 && tiles.some(p => p.x === this.player.x && p.y === this.player.y)) {
+        this.damagePlayerFromBoss(enemy, 1, '試練の追撃！');
+      }
+      return true;
+    }
+    const state = this.bossStates.get(enemy);
+    if (state?.intent || state?.stunned || enemy.charging || enemy.stunnedTurns > 0 || this.playerRootTurns > 0 || this.invisTurns > 0) return false;
+    if (!this.isInsideBossRoom(this.player.x, this.player.y)
+      && bodyDistance(enemy, bossBodyRadius(enemy.def), this.player) > 7) return false;
+    // Count available action turns; native boss telegraphs and recovery always take precedence.
+    if (++enemy.challengeTurn % (this.difficulty === 'hard' ? 3 : 2)) return false;
+    const validTile = (x: number, y: number) => isWalkable(this.dungeon.tiles[y]?.[x] ?? 'wall')
+      && this.dungeon.tiles[y]?.[x] !== 'pit' && !this.bossObstacleAt(x, y);
+    const canStand = (x: number, y: number) => validTile(x, y) && !this.enemyAt(x, y)
+      && !this.chestAt(x, y)
+      && !this.dungeonObjects.some(o => x >= o.x && x < o.x + o.w && y >= o.y && y < o.y + o.h)
+      && !this.bossHazards.some(h => h.x === x && h.y === y);
+    enemy.challengeWaves = planDifficultyChallenge(this.difficulty, this.player,
+      enemy.challengeTurn % 2 === 0, validTile, canStand);
+    if (!enemy.challengeWaves.length) return false;
+    this.drawDifficultyWarnings(enemy);
+    this.log(this.difficulty === 'hard' ? '試練の追撃！ 青い予告帯から1歩離れよう。'
+      : '二連の追撃！ 数字の順に攻撃が来る。1を避け、次は2の帯から離れよう。', 'dmg');
+    return true;
+  }
+
+  resolveBossIntent(
+    e: Enemy,
+    state: BossRuntime,
+    intent: BossIntent
+  ): { done: boolean; animation?: Promise<void> } {
+    if (state.goldenRitual) {
+      for (const marker of [...intent.markers]) if ((state.goldenSafe ?? []).some(p=>Math.abs(p.x-marker.x)+Math.abs(p.y-marker.y)<=1)) {
+        this.destroyBossWarningMarker(marker); intent.markers=intent.markers.filter(m=>m!==marker);
+      }
+    }
+    if (intent.kind === 'mid_final_depth' || intent.kind === 'astral_dragon') return this.resolveFinalDepthIntent(e, state, intent);
+    const due = intent.markers.filter((marker) => marker.turns <= 1);
+    const remaining = intent.markers.filter((marker) => marker.turns > 1);
+    const primary = due.filter((marker) => marker.channel === 'primary').map(({ x, y }) => ({ x, y }));
+    const secondary = due.filter((marker) => marker.channel === 'secondary').map(({ x, y }) => ({ x, y }));
+    const tertiary = due.filter((marker) => marker.channel === 'tertiary').map(({ x, y }) => ({ x, y }));
+    const finalWave = remaining.length === 0;
+    const firstWave = !intent.triggered;
+
+    for (const marker of due) this.destroyBossWarningMarker(marker);
+    for (const marker of remaining) {
+      marker.turns--;
+      marker.label.setText(String(marker.turns));
+    }
+    intent.markers = remaining;
+    intent.triggered = true;
+
+    const applyImpact = (): Promise<void> | undefined => {
+      const onTiles = (tiles: Vec2[]) => tiles.some((tile) => tile.x === this.player.x && tile.y === this.player.y);
+      this.bossImpactFx(primary, this.bossImpactKind(intent.kind, 'primary'));
+      this.bossImpactFx(secondary, this.bossImpactKind(intent.kind, 'secondary'));
+      this.bossImpactFx(tertiary, this.bossImpactKind(intent.kind, 'tertiary'));
+
+      switch (intent.kind) {
+        case 'mid_hw_pumpkin':
+        case 'mid_hw_ghost':
+        case 'mid_hw_witch':
+        case 'mid_hw_knight':
+        case 'hw_king':
+          if (firstWave && intent.destination) this.teleportBoss(e, intent.destination);
+          if (onTiles(primary) || onTiles(secondary) || onTiles(tertiary)) this.damagePlayerFromBoss(e, state.goldenRitual ? 1.7 : intent.kind === 'hw_king' ? .9 : .9, `${e.def.name}のハロウィンの一撃！`);
+          if (intent.kind === 'mid_hw_pumpkin' && primary.length) for (const bomb of this.halloweenObjects(e, 'bomb')) this.destroyHalloweenObject(bomb, false);
+          if (intent.kind === 'mid_hw_witch') {
+            this.addBossHazards(primary, 'poison', 3);
+            if (firstWave && this.enemies.filter(m => m.summoned).length < 3) this.summonGimmickMonsters(e, 'm_hw_bat', 1);
+          }
+          if (intent.kind === 'hw_king' && !state.goldenRitual) { this.addBossHazards(primary,'fire',2); this.addBossHazards(secondary,'slow',6); }
+          if (intent.kind === 'mid_hw_witch' && finalWave) {
+            const decoys=this.halloweenObjects(e,'decoy'); const decoy=decoys[state.phase++ % Math.max(1,decoys.length)];
+            if(decoy) { const old={x:e.x,y:e.y};this.teleportBoss(e,{x:decoy.x,y:decoy.y});decoy.x=old.x;decoy.y=old.y;this.placeSprite(decoy.sprite,old.x,old.y); }
+            e.sprite.setTint(0x9cffad);this.effectFx(e.x,e.y,'fx_magic',1.8,1200,0x56ff88);
+          }
+          if (finalWave) { state.stunned = intent.kind === 'mid_hw_knight' || state.goldenRitual ? 2 : 1;
+            if(state.goldenRitual)this.log('黄金装甲が割れた！ 2ターン、王へのダメージ1.5倍！','special');state.goldenRitual=false; }
+          break;
+        case 'mid_magic':
+          if (onTiles(primary)) this.damagePlayerFromBoss(e, 0.7, '無属性の魔力衝撃！');
+          break;
+        case 'bull_charge':
+        case 'thunder_charge':
+          return this.resolveBullCharge(e, state, primary);
+        case 'mid_thunder_jaw':
+        case 'mid_thunder_shell':
+        case 'mid_thunder_engine':
+        case 'mid_thunder_ring':
+        case 'thunder_king':
+          if (onTiles(primary) || onTiles(secondary)) this.damagePlayerFromBoss(e, intent.kind === 'thunder_king' ? 0.88 : 0.75, '雷撃の一撃！');
+          if (intent.kind === 'thunder_king' && finalWave) state.stunned = 1;
+          break;
+        case 'mid_ember_shift':
+          if (firstWave && intent.destination) this.teleportBoss(e, intent.destination);
+          if (onTiles(primary)) this.damagePlayerFromBoss(e, 0.72, '熔翼の転移斬り！');
+          this.addBossHazards(primary, 'fire', 2);
+          break;
+        case 'mid_magma_lance':
+        case 'mid_ember_bone':
+          if (onTiles(primary)) this.damagePlayerFromBoss(e, 0.66, '灼熱の一撃！');
+          this.addBossHazards(primary, 'fire', 2);
+          break;
+        case 'magma_breath':
+          if (onTiles(primary)) this.damagePlayerFromBoss(e, 0.88, '熔獄の息吹！');
+          this.addBossHazards(primary, 'fire', 3);
+          break;
+        case 'mid_void':
+          if (firstWave && intent.destination) this.teleportBoss(e, intent.destination);
+          if (onTiles(primary)) this.damagePlayerFromBoss(e, 0.72, `${e.def.name}の転移衝撃！`);
+          break;
+        case 'furnace_titan':
+          if (onTiles(primary)) this.damagePlayerFromBoss(e, 0.92, '炉心震撃！');
+          this.spawnBossWalls(e, primary, state.phaseTwo ? 2 : 1, 'iron');
+          break;
+        case 'glacial_slam':
+          if (onTiles(primary)) this.damagePlayerFromBoss(e, 0.86, '氷晶震撃！');
+          this.addBossHazards(primary, 'ice', 4);
+          break;
+        case 'ancient_fire':
+          if (onTiles(primary)) this.damagePlayerFromBoss(e, 0.88, '古竜の炎！');
+          this.addBossHazards(primary, 'fire', 4);
+          break;
+        case 'tri_head': {
+          const hit = onTiles(primary) || onTiles(secondary) || onTiles(tertiary);
+          if (hit) this.damagePlayerFromBoss(e, state.phaseTwo ? 1.0 : 0.82, '三首連携ブレス！');
+          this.addBossHazards(primary, 'fire', 3);
+          this.addBossHazards(secondary, 'ice', 3);
+          this.addBossHazards(tertiary, 'poison', 4);
+          break;
+        }
+        case 'mid_fire':
+          if (onTiles(primary)) this.damagePlayerFromBoss(e, 0.7, '火炎弾！');
+          this.addBossHazards(primary, 'fire', 2);
+          break;
+        case 'mid_frost':
+          if (onTiles(primary)) this.damagePlayerFromBoss(e, 0.66, e.def.key === 'm_ice_knight' ? '氷晶の剣撃！' : '冷気ブレス！');
+          this.addBossHazards(primary, 'ice', 2);
+          break;
+        case 'mid_storm':
+          if (onTiles(primary)) this.damagePlayerFromBoss(e, 0.78, '十字雷撃！');
+          break;
+        case 'mid_bone':
+          if (onTiles(primary)) this.damagePlayerFromBoss(e, 0.62, '骨片噴出！');
+          this.spawnBossWalls(e, primary, 1, 'bone');
+          break;
+        case 'mid_poison':
+          if (onTiles(primary)) this.damagePlayerFromBoss(e, 0.64, '毒液散布！');
+          this.addBossHazards(primary, 'poison', 3);
+          break;
+      }
+      this.cameras.main.shake(finalWave ? 145 : 90, finalWave ? 0.009 : 0.005);
+      return undefined;
+    };
+    // Charges own their movement tween; a stationary attack recovery would pull them back.
+    // Await either the charge or the spell recovery before the next turn.
+    const animation = intent.kind === 'bull_charge' || intent.kind === 'thunder_charge' ? applyImpact() : e.frameAnimation || e.directionArt
+      ? this.playDrawnEnemyAttack(e, 'cast', () => applyImpact(), false)
+      : applyImpact();
+    return { done: finalWave, animation };
+  }
+
+  bossImpactKind(kind: BossGimmickKind, channel: BossStrikeChannel): BossImpactKind {
+    if (kind === 'mid_hw_ghost') return 'ice';
+    if (kind === 'mid_hw_witch') return 'poison';
+    if (kind === 'mid_hw_knight' || kind === 'mid_hw_pumpkin') return 'fire';
+    if (kind === 'hw_king') return channel === 'primary' ? 'fire' : 'void';
+    if (kind.startsWith('mid_thunder_') || kind === 'thunder_king' || kind === 'thunder_charge') return 'lightning';
+    if (kind === 'mid_ember_shift' || kind === 'mid_magma_lance' || kind === 'mid_ember_bone' || kind === 'magma_breath') return 'fire';
+    if (kind === 'mid_magic') return 'magic';
+    if (kind === 'tri_head') {
+      return channel === 'primary' ? 'fire' : channel === 'secondary' ? 'ice' : 'poison';
+    }
+    if (kind === 'mid_fire' || kind === 'ancient_fire') return 'fire';
+    if (kind === 'mid_frost' || kind === 'glacial_slam') return 'ice';
+    if (kind === 'mid_storm') return 'lightning';
+    if (kind === 'mid_void') return 'void';
+    if (kind === 'mid_bone') return 'bone';
+    if (kind === 'furnace_titan') return 'fire';
+    if (kind === 'mid_poison') return 'poison';
+    return 'impact';
+  }
+
+  bossImpactColor(kind: BossImpactKind): number {
+    return {
+      water: 0x55cedb,
+      fire: 0xff5a24,
+      ice: 0x62dcff,
+      lightning: 0xffe875,
+      void: 0xb45cff,
+      bone: 0xf0ddbd,
+      poison: 0x8ee85a,
+      magic: 0xc7c5d0,
+      impact: 0xff9d52
+    }[kind];
+  }
+
+  bossImpactFx(tiles: Vec2[], kind: BossImpactKind) {
+    const color = this.bossImpactColor(kind);
+
+    for (const tile of tiles) {
+      const x = tile.x * TILE + TILE / 2;
+      const y = tile.y * TILE + TILE / 2;
+      const art = this.add.graphics().setPosition(x, y).setDepth(23).setBlendMode(Phaser.BlendModes.ADD);
+
+      if (kind === 'water') {
+        art.lineStyle(3, color, .9).strokeEllipse(0, 4, 28, 18).strokeEllipse(0, -4, 23, 15);
+      } else if (kind === 'fire') {
+        art.fillStyle(0xff4a1f, 0.9).fillTriangle(-10, 12, 0, -17, 10, 12);
+        art.fillStyle(0xffc14d, 0.95).fillTriangle(-5, 10, 2, -9, 6, 10);
+        art.fillStyle(0xffffff, 0.7).fillCircle(1, 7, 3);
+        this.pickupBurst(x, y + 4, 0xff8b38, 8);
+        art.y -= 16;
+      } else if (kind === 'ice') {
+        art.fillStyle(0x72e5ff, 0.76);
+        art.fillTriangle(-12, 12, -5, -17, 0, 12);
+        art.fillTriangle(-2, 12, 5, -22, 10, 12);
+        art.fillStyle(0xeaffff, 0.92).fillTriangle(1, 10, 5, -14, 7, 10);
+        art.lineStyle(2, 0xffffff, 0.9).strokeCircle(0, 2, 13);
+        this.pickupBurst(x, y, 0xa9f4ff, 7);
+      } else if (kind === 'lightning') {
+        art.lineStyle(5, 0xffffff, 0.96).beginPath().moveTo(-6, -22).lineTo(4, -7).lineTo(-2, -7).lineTo(8, 18).strokePath();
+        art.lineStyle(2, 0xffde55, 1).beginPath().moveTo(-11, -17).lineTo(-2, -5).lineTo(-7, -4).lineTo(4, 13).strokePath();
+        this.pickupBurst(x, y, 0xffef8a, 9);
+      } else if (kind === 'void' || kind === 'magic') {
+        art.fillStyle(kind === 'magic' ? 0x34313f : 0x5d1a8c, 0.78).fillCircle(0, 0, 14);
+        art.lineStyle(3, kind === 'magic' ? color : 0xd491ff, 0.95).strokeCircle(0, 0, 13).strokeCircle(0, 0, 7);
+        art.fillStyle(0xffffff, 0.9).fillCircle(0, 0, 2);
+        art.setAngle(Phaser.Math.Between(-35, 35));
+      } else if (kind === 'bone') {
+        art.fillStyle(0xf7e4bd, 0.9);
+        art.fillTriangle(-13, 13, -8, -16, -3, 13);
+        art.fillTriangle(-5, 13, 1, -22, 6, 13);
+        art.fillTriangle(4, 13, 10, -12, 14, 13);
+        art.lineStyle(2, 0x9a7951, 0.9).lineBetween(-14, 13, 14, 13);
+      } else if (kind === 'poison') {
+        art.fillStyle(0x7dcf45, 0.74).fillCircle(-7, 6, 8).fillCircle(5, 7, 10).fillCircle(0, -2, 7);
+        art.lineStyle(2, 0xc4ff83, 0.9).strokeCircle(-7, 6, 8).strokeCircle(5, 7, 10);
+        this.pickupBurst(x, y, 0x9eea61, 6);
+      } else {
+        art.lineStyle(4, 0xffffff, 0.95);
+        for (let i = 0; i < 8; i++) {
+          const angle = i * Math.PI / 4;
+          art.lineBetween(Math.cos(angle) * 4, Math.sin(angle) * 4, Math.cos(angle) * 17, Math.sin(angle) * 17);
+        }
+        this.pickupBurst(x, y, color, 8);
+      }
+
+      const ring = this.add.circle(x, y, 7, color, 0.16).setDepth(22.5)
+        .setStrokeStyle(3, color, 0.9).setBlendMode(Phaser.BlendModes.ADD);
+      this.tweens.add({
+        targets: ring,
+        scale: 2.5,
+        alpha: 0,
+        duration: 380,
+        ease: 'Quad.easeOut',
+        onComplete: () => ring.destroy()
+      });
+      this.tweens.add({
+        targets: art,
+        y: kind === 'fire' ? y + 5 : art.y - 5,
+        scaleX: kind === 'void' ? 1.55 : 1.28,
+        scaleY: kind === 'fire' ? 1.6 : 1.28,
+        angle: kind === 'void' ? art.angle + 100 : art.angle,
+        alpha: 0,
+        duration: kind === 'fire' ? 460 : 390,
+        ease: 'Cubic.easeOut',
+        onComplete: () => art.destroy()
+      });
+    }
+  }
+
+  resolveBullCharge(e: Enemy, state: BossRuntime, path: Vec2[]): Promise<void> | undefined {
+    if (!path.length) return undefined;
+    const hitIndex = path.findIndex((tile) => tile.x === this.player.x && tile.y === this.player.y);
+    let endIndex = hitIndex >= 0 ? hitIndex - 1 : path.length - 1;
+    // The impact reaches the rim, while the boss body still stops within its movement frame.
+    while (endIndex >= 0 && !this.isInsideBossCombatFrame(path[endIndex].x, path[endIndex].y)) endIndex--;
+    const end = endIndex >= 0 ? path[endIndex] : { x: e.x, y: e.y };
+    if (e.directionArt) {
+      this.faceEnemyToward(e, end);
+      this.updateEnemyDirection(e);
+      const [dx, dy] = this.dirVec(e.facing);
+      e.directionMotion = { kind: 'walk', startedAt: this.time.now, duration: 190, dx, dy };
+    }
+    if (hitIndex >= 0) {
+      this.damagePlayerFromBoss(e, 1.2, '猛烈な突進！');
+    } else {
+      state.stunned = 2;
+      this.log(`${e.def.name}が壁へ激突！ 2ターンの反撃チャンス！`, 'special');
+      this.cameras.main.shake(220, 0.012);
+    }
+    e.x = end.x;
+    e.y = end.y;
+    e.animating = true;
+    return this.tween(e.sprite, { x: end.x * TILE + TILE / 2, y: end.y * TILE + TILE / 2 }, 190, 'Cubic.easeIn').then(() => {
+      e.animating = false;
+      e.directionMotion = undefined;
+      this.effectFx(e.x, e.y, 'fx_hit', 1.8, 420, 0xffb060);
+    });
+  }
+
+  damagePlayerFromBoss(e: Enemy, factor: number, label: string, element?: MonsterElement) {
+    const result = this.computeIncomingAttack(e, element);
+    const damage = Math.max(1, Math.floor(result.damage * factor));
+    Audio.playSe(elementAttackSe(element ?? monsterElement(e.def)));
+    this.damagePlayer(damage, label, e, [...result.steps, `技の倍率 ×${factor}／${result.damage} × ${factor} → ${damage}（切り捨て・最低1）`]);
+    if (result.shieldBroke) this.handleShieldBreak();
+    this.hitFx(this.player.x, this.player.y);
+  }
+
+  handleShieldBreak() {
+    const broken = this.player.shield;
+    if (!broken || broken.dur > 0) return;
+    this.log(`${broken.name}は壊れて砕け散った！`, 'dmg');
+    Audio.playSe('shieldBreak');
+    this.player.shields = this.player.shields.filter((shield) => shield !== broken);
+    this.player.shield = isTwoHanded(this.player.weapon) ? null : this.player.shields[0] ?? null;
+  }
+
+  spawnBossWalls(e: Enemy, candidates: Vec2[], count: number, kind: 'bone' | 'iron') {
+    const choices = candidates.filter((tile) => {
+      if (tile.x === this.player.x && tile.y === this.player.y) return false;
+      if (tile.x === e.x && tile.y === e.y) return false;
+      return !this.enemyAt(tile.x, tile.y) && !this.bossObstacleAt(tile.x, tile.y);
+    });
+    runShuffle(choices);
+    const suffix = eraSuffix(getTheme(this.floor).era);
+    const tint = kind === 'iron' ? 0x7a4b36 : 0xffe7c2;
+    const effectColor = kind === 'iron' ? 0xff9147 : 0xe8d9bd;
+    for (const tile of choices.slice(0, count)) {
+      const texture = this.textures.exists('prop_statue') ? 'prop_statue' : `wall${suffix}`;
+      const sprite = this.add.image(tile.x * TILE + TILE / 2, tile.y * TILE + TILE / 2, texture)
+        .setDepth(this.worldDepth(tile.y * TILE + TILE / 2, 12))
+        .setDisplaySize(TILE - 5, TILE - 3).setTint(tint);
+      this.bossObstacles.push({ ...tile, turns: 5, kind, sprite });
+      this.effectFx(tile.x, tile.y, 'fx_hit', 1.25, 300, effectColor);
+    }
+  }
+
+  addBossHazards(tiles: Vec2[], kind: BossHazardKind, turns: number, restrictToBossRoom = true) {
+    const color = kind === 'fire' ? 0xff5b35
+      : kind === 'ice' ? 0x55cfff
+      : kind === 'poison' ? 0x9c55d9
+      : kind === 'web' ? 0xd7e8ef
+      : kind === 'lightning' ? 0xffdb45
+      : 0x62b86c;
+    for (const tile of tiles) {
+      if (!(restrictToBossRoom ? this.validBossTile(tile.x, tile.y) : this.validMonsterTile(tile.x, tile.y))) continue;
+      const existing = this.bossHazards.find((hazard) => hazard.x === tile.x && hazard.y === tile.y && hazard.kind === kind);
+      if (existing) { existing.turns = Math.max(existing.turns, turns); continue; }
+      const sprite = this.add.rectangle(
+        tile.x * TILE + TILE / 2, tile.y * TILE + TILE / 2,
+        TILE - 7, TILE - 7, color, 0.3
+      ).setDepth(7.8).setStrokeStyle(1, color, 0.75).setBlendMode(Phaser.BlendModes.ADD);
+      this.bossHazards.push({ ...tile, kind, turns, sprite });
+    }
+  }
+
+  tickBossMechanics() {
+    const standing = this.bossHazards.filter((hazard) => hazard.x === this.player.x && hazard.y === this.player.y);
+    if (standing.some((hazard) => hazard.kind === 'fire')) {
+      this.damagePlayer(3 + Math.floor(this.floor / 6), '足元の炎に焼かれた！');
+    }
+    if (standing.some((hazard) => hazard.kind === 'poison')) {
+      this.player.poisonTurns = Math.max(this.player.poisonTurns, 2);
+    }
+    if (standing.some((hazard) => hazard.kind === 'lightning')) {
+      this.damagePlayer(2 + Math.floor(this.floor / 8), '雷床が弾けた！');
+    }
+    for (const hazard of [...this.bossHazards]) {
+      hazard.turns--;
+      hazard.sprite.setAlpha(0.16 + hazard.turns * 0.05);
+      if (hazard.turns <= 0) {
+        hazard.sprite.destroy();
+        this.bossHazards = this.bossHazards.filter((h) => h !== hazard);
+      }
+    }
+    for (const obstacle of [...this.bossObstacles]) {
+      obstacle.turns--;
+      if (obstacle.turns <= 0) {
+        obstacle.sprite.destroy();
+        this.bossObstacles = this.bossObstacles.filter((o) => o !== obstacle);
+      }
+    }
+  }
+
+  applyBossHazardOnEntry(x: number, y: number) {
+    const hazards = this.bossHazards.filter((hazard) => hazard.x === x && hazard.y === y);
+    if (hazards.some((hazard) => hazard.kind === 'fire')) this.damagePlayer(3 + Math.floor(this.floor / 8), '燃える床を踏んだ！');
+    if (hazards.some((hazard) => hazard.kind === 'poison')) {
+      this.player.poisonTurns = Math.max(this.player.poisonTurns, 3);
+      this.log('毒沼を踏み、毒状態になった！', 'dmg');
+    }
+    if (hazards.some((hazard) => hazard.kind === 'slow' || hazard.kind === 'web')) {
+      this.playerRootTurns = Math.max(this.playerRootTurns, 1);
+      this.log(hazards.some((hazard) => hazard.kind === 'web') ? '糸に絡まり、次の移動が止まる！' : '足場に絡まり、次の移動が止まる！', 'dmg');
+    }
+    if (hazards.some((hazard) => hazard.kind === 'lightning')) {
+      this.damagePlayer(3 + Math.floor(this.floor / 8), '雷床を踏んだ！');
+    }
+  }
+
+  private halloweenDeadEnds(): Vec2[] {
+    const ends: Vec2[] = [];
+    if (!this.eventMode) return ends;
+    const d = this.dungeon;
+    for (let y = 1; y < d.h - 1; y++) for (let x = 1; x < d.w - 1; x++) {
+      if (d.tiles[y][x] !== 'floor' || d.rooms.some(r => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h)) continue;
+      const exits = [[1,0],[-1,0],[0,1],[0,-1]].filter(([dx,dy]) => isWalkable(d.tiles[y+dy][x+dx])).length;
+      if (exits === 1) ends.push({x,y});
+    }
+    return ends;
+  }
+
+  spawnChests(floor: number) {
+    if (this.eventMode) {
+      const rooms = this.dungeon.rooms.filter(r => r !== this.dungeon.bossRoom && !this.dungeon.optionalRooms.some(o=>o.room===r));
+      for (const r of rooms.slice(1)) {
+        const candidates = [{x:r.cx,y:r.cy},{x:r.cx-1,y:r.cy},{x:r.cx+1,y:r.cy}];
+        const pos = candidates.find(p => !this.enemyAt(p.x,p.y) && !this.groundAt(p.x,p.y) && !this.dungeonObjectAt(p.x,p.y));
+        if (pos) this.spawnChestAt(pos.x,pos.y,runRandom()<.2);
+      }
+      for (const pos of this.halloweenDeadEnds()) this.spawnChestAt(pos.x, pos.y, runRandom() < .1);
+      return;
+    }
+
+    // 各マップに宝箱を4個追加。従来分を含め、1Fは4個・2F以降は5～6個になる。
+    const existingCount = floor === 1 ? 0 : (runRandom() < 0.75 ? 1 : 2);
+    const n = existingCount + 4;
+    const arenaCells = this.bossRoomCells();
+    for (let i = 0; i < n; i++) {
+      const pos = randomFloor(this.dungeon, [...this.occupiedPositions(), ...arenaCells]);
+      if (!pos) continue;
+      // レア箱は序盤約10%、最深部でも最大25%。色と専用絵で一目で判別できる。
+      this.spawnChestAt(pos.x, pos.y, runRandom() < 0.10 + Math.min(0.15, floor * 0.005));
+    }
+  }
+
+  spawnChestAt(x: number, y: number, rare: boolean, diamond = false) {
+    if (this.chestAt(x, y) || this.enemyAt(x, y) || this.dungeonObjectAt(x, y)) return;
+    const displaySize = diamond ? 34 : rare ? 27 : 26;
+    const spr = this.add.image(0, 0, diamond ? 'chest_diamond' : this.eventMode ? 'hw_chest' : rare ? 'chest_rare' : 'chest_common')
+      .setDepth(6).setOrigin(0.5, 0.62).setDisplaySize(displaySize, displaySize);
+    const baseScale = spr.scaleX;
+    this.placeSprite(spr, x, y);
+    const glow = rare
+      ? this.add.image(spr.x, spr.y - 4, 'glow').setDepth(spr.depth - 0.12).setBlendMode(Phaser.BlendModes.ADD)
+        .setTint(diamond ? 0x9feeff : 0xffca52).setDisplaySize(42, 42).setAlpha(0.34)
+      : undefined;
+    this.chests.push({
+      x, y, opened: false, rare, diamond, sprite: spr, glow,
+      phase: Math.random() * Math.PI * 2, baseScale
+    });
+  }
+
+  spawnDungeonObjects(floor: number) {
+    const rooms = runShuffle(this.dungeon.optionalRooms
+      .filter((optional) => optional.kind === 'shrine')
+      .map((optional) => optional.room));
+    const lakeRoom = this.dungeon.lakeRoom;
+    const fallbackRooms = runShuffle(this.dungeon.rooms.filter((room) => room.w >= 5 && room.h >= 5
+      && this.optionalRoomContaining(room.cx, room.cy)?.kind !== 'diamond'
+      && room !== this.dungeon.bossRoom && room !== this.dungeon.exitRoom
+      && !(this.dungeon.start.x >= room.x && this.dungeon.start.x < room.x + room.w
+        && this.dungeon.start.y >= room.y && this.dungeon.start.y < room.y + room.h)));
+    const candidates = [...rooms, ...fallbackRooms].filter((room) => room !== lakeRoom);
+    if (this.dungeonObjects.some(object => object.kind === 'fountain')) return;
+    const wanted: HealingDungeonObjectKind[] = ['fountain'];
+    for (let index = 0; index < wanted.length; index++) {
+      const kind = wanted[index];
+      const room = (index === 0 ? lakeRoom : undefined)
+        ?? candidates.find((candidate) => !this.dungeonObjects.some((object) => object.x === candidate.cx && object.y === candidate.cy));
+      if (!room) break;
+      const roll = runRandom();
+      // Preserve issued tickets and older cached clients; new adventures use 5% / 30% / 65%.
+      const goldRate = usesLegacyLoot() ? .01 : .05;
+      const rareRate = usesLegacyLoot() ? .04 : .35;
+      this.addDungeonObject(kind, room.cx, room.cy, 3, 3, false, roll >= goldRate && roll < rareRate, roll < goldRate);
+    }
+  }
+
+  roomPropTexture(kind: RoomPropKind) {
+    if (kind.startsWith('hw_')) return kind;
+    if (kind.startsWith('finalProp')) return finalDepthTerrainKey(this.floor, `prop-${kind.slice(-1)}` as FinalDepthPart);
+    if (kind.startsWith('thunderProp')) return thunderTerrainKey(this.floor, `prop-${kind.slice(-1)}` as ThunderPart);
+    if (kind.startsWith('waterProp')) return waterTerrainKey(this.floor, `prop-${kind.slice(-1)}` as WaterPart);
+    if (kind.startsWith('volcanoProp')) return volcanoTerrainKey(this.floor, `prop-${kind.slice(-1)}` as VolcanoPart);
+    if (kind === 'ruinRelic' || kind === 'ruinRubble') {
+      return ruinTerrainKey(this.floor, kind === 'ruinRelic' ? 'relic' : 'rubble');
+    }
+    const iceTextures: Partial<Record<RoomPropKind, string>> = {
+      iceCrystal: 'terrain_glacial_crystal', iceObelisk: 'terrain_glacial_obelisk',
+      snowBoulder: 'terrain_glacial_boulder', iceAltar: 'terrain_glacial_altar'
+    };
+    if (iceTextures[kind]) return iceTextures[kind]!;
+    return `terrain_prop_${kind.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)}`;
+  }
+
+  roomPropRenderTiles(kind: RoomPropKind) {
+    if (kind.startsWith('hw_')) return kind === 'hw_throne' || kind === 'hw_tree' ? 1.85 : 1.4;
+    if (kind.startsWith('finalProp')) return 1.25;
+    if (kind.startsWith('thunderProp')) return kind === 'thunderProp1' ? 1.3 : 1.15;
+    if (kind.startsWith('waterProp')) return kind === 'waterProp2' ? 1.4 : 1.2;
+    if (kind.startsWith('volcanoProp')) return kind === 'volcanoProp2' ? 1.4 : 1.2;
+    if (kind === 'ruinRelic' || kind === 'ruinRubble') return 1.05;
+    if (kind === 'iceCrystal') return 1.45;
+    if (kind === 'iceObelisk') return 1.65;
+    if (kind === 'snowBoulder' || kind === 'iceAltar') return 1.25;
+    if (kind === 'weaponRack' || kind === 'mapTable') return 0.84;
+    if (kind === 'crates' || kind === 'minecart') return 0.82;
+    if (kind === 'cookingPot') return 0.78;
+    if (kind === 'bonePile') return 0.72;
+    if (kind === 'barrel') return 0.76;
+    return 0.72;
+  }
+
+  roomPropChoices(kind?: OptionalRoomKind): RoomPropKind[] {
+    if (hasFinalDepthTerrain(this.floor)) return finalDepthPropKinds(this.floor);
+    if (hasThunderTerrain(this.floor)) return [...THUNDER_PROP_KINDS];
+    if (hasWaterTerrain(this.floor)) return [...WATER_PROP_KINDS];
+    if (hasVolcanoTerrain(this.floor)) return [...VOLCANO_PROP_KINDS];
+    if (hasRuinTerrain(this.floor)) return ['ruinRubble', 'ruinRelic', 'crates', 'jar'];
+    if (this.dungeon.biome === 'frost') {
+      return kind === 'shrine' ? ['iceAltar', 'iceObelisk', 'iceCrystal']
+        : ['iceCrystal', 'iceObelisk', 'snowBoulder', 'iceAltar'];
+    }
+    if (kind === 'treasure') return ['barrel', 'jar', 'crates', 'barrel', 'crates'];
+    if (kind === 'ambush') return ['bonePile', 'weaponRack', 'barrel', 'jar'];
+    if (kind === 'shrine') return ['cookingPot', 'mapTable', 'jar', 'bonePile'];
+    if (kind === 'hazard') return ['minecart', 'bonePile', 'crates', 'jar'];
+    const byBiome: Partial<Record<typeof this.dungeon.biome, RoomPropKind[]>> = {
+      aqueduct: ['jar', 'barrel', 'crates', 'cookingPot'],
+      magma: ['cookingPot', 'minecart', 'crates', 'barrel'],
+      storm: ['weaponRack', 'mapTable', 'crates', 'jar'],
+      void: ['bonePile', 'jar', 'weaponRack', 'mapTable']
+    };
+    return byBiome[this.dungeon.biome] ?? ['barrel', 'jar', 'crates', 'weaponRack', 'mapTable', 'cookingPot'];
+  }
+
+  roomPropCandidates(room: Room): Vec2[] {
+    const x0 = room.x + 1, x1 = room.x + room.w - 2;
+    const y0 = room.y + 1, y1 = room.y + room.h - 2;
+    const candidates = [
+      { x: x0, y: y0 }, { x: x1, y: y0 }, { x: x0, y: y1 }, { x: x1, y: y1 },
+      { x: room.cx - 2, y: y0 }, { x: room.cx + 2, y: y0 },
+      { x: x0, y: room.cy - 1 }, { x: x0, y: room.cy + 1 },
+      { x: x1, y: room.cy - 1 }, { x: x1, y: room.cy + 1 }
+    ];
+    const unique = new Map<string, Vec2>();
+    for (const position of candidates) {
+      if (position.x < room.x || position.x >= room.x + room.w
+        || position.y < room.y || position.y >= room.y + room.h) continue;
+      unique.set(`${position.x},${position.y}`, position);
+    }
+    const edges = runShuffle([...unique.values()]);
+    // Rounded rooms may have few usable corners. Try their open interior only after the edges.
+    const interior: Vec2[] = [];
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      if (!unique.has(`${x},${y}`)) interior.push({ x, y });
+    }
+    return [...edges, ...runShuffle(interior)];
+  }
+
+  canPlaceRoomProp(position: Vec2) {
+    const tile = this.dungeon.tiles[position.y]?.[position.x];
+    if (!tile || !isWalkable(tile) || tile === 'pit' || this.dungeonObjectAt(position.x, position.y)) return false;
+    if (this.dungeon.teleportPads.some((pad) => pad.x === position.x && pad.y === position.y)) return false;
+    if (Math.max(Math.abs(position.x - this.dungeon.start.x), Math.abs(position.y - this.dungeon.start.y)) <= 2) return false;
+    if (Math.max(Math.abs(position.x - this.dungeon.stairs.x), Math.abs(position.y - this.dungeon.stairs.y)) <= 2) return false;
+    if (this.dungeon.bossEntry && Math.max(Math.abs(position.x - this.dungeon.bossEntry.x), Math.abs(position.y - this.dungeon.bossEntry.y)) <= 2) return false;
+    if (this.dungeon.bossEntrance && Math.max(Math.abs(position.x - this.dungeon.bossEntrance.x), Math.abs(position.y - this.dungeon.bossEntrance.y)) <= 2) return false;
+    if (this.dungeon.optionalRooms.some((optional) => Math.max(Math.abs(position.x - optional.entry.x), Math.abs(position.y - optional.entry.y)) <= 1)) return false;
+    return !this.dungeon.hazards.some((hazard) => hazard.x === position.x && hazard.y === position.y);
+  }
+
+  isReservedOptionalRoomCell(room: Room, kind: OptionalRoomKind | undefined, position: Vec2) {
+    if (!kind || kind === 'shrine') return false;
+    const reserved = kind === 'treasure'
+      ? [{ x: room.cx - 2, y: room.cy }, { x: room.cx, y: room.cy - 1 }, { x: room.cx + 2, y: room.cy }]
+      : kind === 'ambush'
+        ? [
+            { x: room.cx - 2, y: room.cy - 1 }, { x: room.cx + 2, y: room.cy - 1 },
+            { x: room.cx - 2, y: room.cy + 2 }, { x: room.cx + 2, y: room.cy + 2 }
+          ]
+        : [{ x: room.cx, y: room.cy }, { x: room.cx - 2, y: room.cy }, { x: room.cx + 2, y: room.cy }];
+    return reserved.some((cell) => cell.x === position.x && cell.y === position.y);
+  }
+
+  canPlacePermanentDecor(position: Vec2) {
+    // Keep a traversable ring around permanent props. Containers can still be broken to pass.
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const x = position.x + dx, y = position.y + dy, object = this.dungeonObjectAt(x, y);
+      if (this.dungeon.tiles[y]?.[x] !== 'floor' || (object && !object.breakable)) return false;
+    }
+    return true;
+  }
+
+  spawnRoomProps(floor: number) {
+    const optionalByRoom = new Map(this.dungeon.optionalRooms.map((optional) => [optional.room, optional.kind]));
+    const rooms = this.dungeon.rooms.filter((room) => room !== this.dungeon.bossRoom
+      && room !== this.dungeon.exitRoom && room !== this.dungeon.lakeRoom && optionalByRoom.get(room) !== 'diamond');
+    let breakableCount = 0;
+    for (const room of runShuffle([...rooms])) {
+      if (room.w < 5 || room.h < 5) continue;
+      const optionalKind = optionalByRoom.get(room);
+      const targetCount = optionalKind ? 3 : (room.w >= 7 && room.h >= 7 ? 4 : 2);
+      const choices = this.roomPropChoices(optionalKind);
+      let placed = 0;
+      for (const position of this.roomPropCandidates(room)) {
+        if (placed >= targetCount || !this.canPlaceRoomProp(position)
+          || this.isReservedOptionalRoomCell(room, optionalKind, position)) continue;
+        let kind = choices[Math.floor(runRandom() * choices.length)];
+        if (this.dungeon.biome === 'frost') {
+          kind = choices.find(choice => !this.dungeonObjects.some(object => object.kind === choice)) ?? kind;
+        }
+        if (breakableCount < 5 && placed === 0) kind = breakableCount % 2 === 0 ? 'barrel' : 'jar';
+        if (kind !== 'barrel' && kind !== 'jar' && !this.canPlacePermanentDecor(position)) continue;
+        this.addDungeonObject(kind, position.x, position.y, 1, 1, kind === 'barrel' || kind === 'jar');
+        if (kind === 'barrel' || kind === 'jar') breakableCount++;
+        placed++;
+      }
+    }
+
+    // 毎階、探索アイテムの供給源になる壊せる容器を最低6個は置く。
+    const fallbackRooms = runShuffle(rooms.filter((room) => room.w >= 5 && room.h >= 5));
+    for (const room of fallbackRooms) {
+      if (breakableCount >= 6) break;
+      const optionalKind = optionalByRoom.get(room);
+      do {
+        const position = this.roomPropCandidates(room).find((candidate) => this.canPlaceRoomProp(candidate)
+          && !this.isReservedOptionalRoomCell(room, optionalKind, candidate));
+        if (!position) break;
+        const kind: RoomPropKind = breakableCount % 2 === 0 ? 'barrel' : 'jar';
+        this.addDungeonObject(kind, position.x, position.y, 1, 1, true);
+        breakableCount++;
+      } while (breakableCount < 6);
+    }
+
+    // 各テーマの装飾を一通り置く。氷マップには20階の氷オブジェクトを小さく配置する。
+    const requiredDecor: RoomPropKind[] = hasFinalDepthTerrain(this.floor) ? finalDepthPropKinds(this.floor) : hasThunderTerrain(this.floor) ? [...THUNDER_PROP_KINDS] : hasWaterTerrain(this.floor) ? [...WATER_PROP_KINDS] : hasVolcanoTerrain(this.floor) ? [...VOLCANO_PROP_KINDS] : hasRuinTerrain(this.floor) ? ['ruinRelic', 'ruinRubble'] : this.dungeon.biome === 'frost'
+      ? ['iceCrystal', 'iceObelisk', 'snowBoulder', 'iceAltar']
+      : ['crates', 'weaponRack', 'mapTable', 'cookingPot', 'minecart', 'bonePile'];
+    requiredDecor.forEach((kind, index) => {
+      if (this.dungeonObjects.some((object) => object.kind === kind)) return;
+      const offset = fallbackRooms.length ? (floor + index) % fallbackRooms.length : 0;
+      const orderedRooms = [...fallbackRooms.slice(offset), ...fallbackRooms.slice(0, offset)];
+      for (const room of orderedRooms) {
+        const optionalKind = optionalByRoom.get(room);
+        const position = this.roomPropCandidates(room).find((candidate) => this.canPlaceRoomProp(candidate)
+          && !this.isReservedOptionalRoomCell(room, optionalKind, candidate)
+          && this.canPlacePermanentDecor(candidate));
+        if (!position) continue;
+        this.addDungeonObject(kind, position.x, position.y, 1, 1, false);
+        break;
+      }
+    });
+    this.spawnFieldBossRoomProps();
+  }
+
+  spawnFieldBossRoomProps() {
+    const room = this.dungeon.bossRoom;
+    if (this.inBossRoom || !room) return;
+    const choices = this.roomPropChoices().filter(kind => kind !== 'barrel' && kind !== 'jar');
+    const kinds: RoomPropKind[] = hasFinalDepthTerrain(this.floor) ? [choices[0], choices[1], choices[2], choices[3], 'jar', 'barrel'] : [choices[0], choices[1] ?? choices[0], 'jar', choices[0],
+      choices[2] ?? choices[0], 'barrel', choices[1] ?? choices[0], choices[3] ?? choices[0]];
+    const candidates = [
+      { x: room.x + 1, y: room.y + 1 }, { x: room.x + room.w - 2, y: room.y + 1 },
+      { x: room.x + 1, y: room.y + room.h - 2 }, { x: room.x + room.w - 2, y: room.y + room.h - 2 },
+      // Extra wall-side accents; the central four-by-four square stays open.
+      { x: room.x + 3, y: room.y + 1 }, { x: room.x + room.w - 2, y: room.y + 3 },
+      { x: room.x + room.w - 4, y: room.y + room.h - 2 }, { x: room.x + 1, y: room.y + room.h - 4 },
+      { x: room.x + room.w - 4, y: room.y + 1 }, { x: room.x + room.w - 2, y: room.y + room.h - 4 },
+      { x: room.x + 3, y: room.y + room.h - 2 }, { x: room.x + 1, y: room.y + 3 }
+    ];
+    let placed = 0;
+    for (const position of candidates) {
+      if (placed >= (hasFinalDepthTerrain(this.floor) ? 6 : 8)) break;
+      if (position.x === room.cx || position.y === room.cy
+        || !this.canPlaceRoomProp(position) || !this.canPlacePermanentDecor(position)) continue;
+      const kind = kinds[placed++];
+      this.addDungeonObject(kind, position.x, position.y, 1, 1, kind === 'barrel' || kind === 'jar');
+    }
+  }
+
+  addDungeonObject(kind: DungeonObjectKind, centerX: number, centerY: number, w: number, h: number, breakable = false, silverFountain = false, goldFountain = false) {
+    const isHealing = kind === 'fountain';
+    const texture = kind === 'fountain' ? this.eventMode ? 'hw_candy' : goldFountain ? 'terrain_gold_fountain' : silverFountain ? 'terrain_silver_fountain' : 'terrain_healing_fountain' : this.roomPropTexture(kind);
+    const renderTiles = kind === 'fountain' ? this.eventMode ? 1.5 : 3 : this.roomPropRenderTiles(kind);
+    const worldX = centerX * TILE + TILE / 2;
+    const worldY = centerY * TILE + TILE / 2;
+    const sprite = this.add.image(worldX, worldY, texture)
+      .setDisplaySize(renderTiles * TILE, renderTiles * TILE)
+      .setOrigin(0.5, isHealing ? 0.5 : 0.72)
+      .setDepth(this.worldDepth(worldY + h * TILE / 2, 10))
+      .setVisible(false);
+    let waterFx: Phaser.GameObjects.Container | undefined;
+    let waterDrops: { sprite: Phaser.GameObjects.Rectangle; x: number; phase: number }[] | undefined;
+    let waterRipples: { sprite: Phaser.GameObjects.Rectangle; phase: number }[] | undefined;
+    if (kind === 'fountain' && !this.eventMode) {
+      this.textures.get(texture).setFilter(Phaser.Textures.FilterMode.NEAREST);
+      waterDrops = [
+        { sprite: this.add.rectangle(-2, -16, 2, 7, 0xd8ffff, 0.92), x: -2, phase: 0 },
+        { sprite: this.add.rectangle(2, -13, 2, 6, 0x42e9ff, 0.86), x: 2, phase: 8 },
+        { sprite: this.add.rectangle(0, -8, 2, 5, 0x8df9ff, 0.78), x: 0, phase: 15 }
+      ];
+      waterRipples = [
+        { sprite: this.add.rectangle(0, 8, 12, 2, 0xa6ffff, 0.62), phase: 0 },
+        { sprite: this.add.rectangle(0, 11, 20, 2, 0x35ddeb, 0.48), phase: 0.52 }
+      ];
+      waterFx = this.add.container(worldX, worldY, [
+        ...waterDrops.map((drop) => drop.sprite),
+        ...waterRipples.map((ripple) => ripple.sprite)
+      ]).setDepth(sprite.depth + 0.12).setVisible(false);
+    }
+    this.dungeonObjects.push({
+      kind, x: centerX, y: centerY, w, h, sprite, waterFx, waterDrops, waterRipples,
+      used: false, breakable, silverFountain: isHealing && !this.eventMode && silverFountain, goldFountain: isHealing && !this.eventMode && goldFountain
+    });
+  }
+
+  dungeonObjectAt(x: number, y: number): DungeonObject | null {
+    for (const object of this.dungeonObjects) {
+      const left = object.x - Math.floor((object.w - 1) / 2);
+      const top = object.y - Math.floor((object.h - 1) / 2);
+      if (x >= left && x < left + object.w && y >= top && y < top + object.h) return object;
+    }
+    return null;
+  }
+
+  useHealingObject(object: DungeonObject) {
+    if (object.used) {
+      this.log(this.eventMode ? 'お菓子かごは空っぽになっている。' : '噴水の魔力は失われている。', 'sys');
+      Audio.playSe('deny');
+      return;
+    }
+    const healed = Math.max(0, this.player.hpMax - this.player.hp);
+    this.player.hp = this.player.hpMax;
+    this.player.poisonTurns = 0;
+    const blessingAvailable = !this.floorBossDefeated || (!this.inBossRoom && this.floorHasGate(this.floor));
+    if (blessingAvailable) {
+      this.player.fountainBlessingFloor = this.floor;
+      this.player.fountainBlessingPower = object.goldFountain ? 1.5 : object.silverFountain ? 1.2 : 1.1;
+    }
+    if (object.goldFountain) {
+      for (const item of new Set<Weapon | Shield>([...this.player.weapons, ...this.player.shields, ...(this.player.weapon ? [this.player.weapon] : []), ...(this.player.shield ? [this.player.shield] : [])])) {
+        item.dur = item.durMax; item.plus = (item.plus ?? 0) + 1;
+      }
+      this.updatePlayerAura();
+      this.log('金の泉で所持するすべての武器・盾を修復し、すべて+1強化した！', 'special');
+    } else if (object.silverFountain) {
+      if (this.player.weapon) this.player.weapon.dur = this.player.weapon.durMax;
+      if (this.player.shield) this.player.shield.dur = this.player.shield.durMax;
+      this.log('銀の泉で、装備中の武器と盾の耐久が全回復した。', 'special');
+    }
+    object.used = true;
+    object.sprite.setTint(0x7b8c8a).setAlpha(0.72);
+    object.waterFx?.setVisible(false);
+    this.effectFx(object.x, object.y, 'fx_magic', 1.8, 720, 0x62f7e8);
+    this.healFx();
+    Audio.playSe('heal');
+    this.log(`${this.eventMode ? '魔法のお菓子で' : object.goldFountain ? '金の泉で' : object.silverFountain ? '銀の泉で' : '古代の噴水で'}体力が全回復した。${healed > 0 ? `（+${healed}）` : ''}`, 'item');
+    if (blessingAvailable) this.log(`${this.eventMode ? '収穫の祝福' : object.goldFountain ? '金の泉の加護' : object.silverFountain ? '銀の泉の加護' : '噴水の加護'}：この階のボス討伐まで攻撃・防御が${this.player.fountainBlessingPower}倍！`, 'special');
+    this.emitRefresh();
+  }
+
+  healingObjectInfo(object: DungeonObject) {
+    const title = this.eventMode ? '魔法のお菓子' : object.goldFountain ? '金の泉' : object.silverFountain ? '銀の泉' : '古代の噴水';
+    if (object.used) return { title, description: '使用済み。この泉はもう使えません。' };
+    const lines = ['体力を全回復し、毒を治します。'];
+    if (object.goldFountain) lines.push('所持するすべての武器・盾の耐久を全回復し、それぞれ+1強化します。');
+    else if (object.silverFountain) lines.push('装備中の武器・盾の耐久を全回復します。予備の装備は対象外です。');
+    if (!this.floorBossDefeated || (!this.inBossRoom && this.floorHasGate(this.floor))) {
+      lines.push(object.goldFountain ? 'この階のボス討伐まで、攻撃力・防御力が1.5倍。'
+        : object.silverFountain ? 'この階のボス討伐まで、攻撃力・防御力が1.2倍。'
+        : 'この階のボス討伐まで、攻撃力・防御力が1.1倍。');
+      lines.push('加護は次の階へ持ち越せません。倍率は重複しません。');
+    }
+    lines.push('1回だけ使えます。泉に向かって移動すると使用します。');
+    return { title, description: lines.join('\n') };
+  }
+
+  breakRoomProp(object: DungeonObject) {
+    if (!object.breakable || object.used) return;
+    object.used = true;
+    object.breakable = false;
+    this.dungeonObjects = this.dungeonObjects.filter((candidate) => candidate !== object);
+    Audio.playSe('break');
+    this.effectFx(object.x, object.y, 'fx_hit', object.kind === 'jar' ? 1.0 : 1.2, 260,
+      object.kind === 'jar' ? 0xd5a86a : 0x9a6337);
+    this.tweens.add({
+      targets: object.sprite,
+      alpha: 0, angle: object.kind === 'jar' ? 16 : -9,
+      scaleX: object.sprite.scaleX * 1.18, scaleY: object.sprite.scaleY * 0.58,
+      duration: 150, ease: 'Quad.easeIn', onComplete: () => object.sprite.destroy()
+    });
+
+    // 樽だけは50%で空。壺の報酬と、当選時の中身・数量は維持する。
+    if (object.kind === 'barrel' && runRandom() >= 0.5) {
+      this.log('樽の中は空だった。', 'sys');
+      this.updateVisibility();
+      return;
+    }
+    const roll = runRandom();
+    if (roll < 0.32) {
+      const gold = 12 + Math.floor(runRandom() * (20 + this.floor * 3));
+      this.dropItem(object.x, object.y, 'coin', gold);
+      this.log(`${object.kind === 'jar' ? '壺' : '樽'}の中から${difficultyGold(gold, this.difficulty)}Gがこぼれた！`, 'gold');
+    } else {
+      const pool: ItemKind[] = object.kind === 'jar'
+        ? ['potion', 'potion', 'torch', 'invis']
+        : ['potion', 'torch', 'torch'];
+      const regularScroll = runRandom() < SCROLL_DROP_RATE * this.rareItemDropRate ? this.claimRegularEnhancementScroll() : null;
+      const kind = regularScroll ?? pool[Math.floor(runRandom() * pool.length)];
+      this.dropItem(object.x, object.y, kind);
+      this.log(`${object.kind === 'jar' ? '壺' : '樽'}を壊すと、${ITEM_DEFS[kind].name}が出てきた！`, 'item');
+    }
+    this.updateVisibility();
+  }
+
+  inspectRoomProp(object: DungeonObject) {
+    const message: Partial<Record<DungeonObjectKind, string>> = {
+      hw_pumpkins: 'カボチャの灯りが、城へ続く道を照らしている。',
+      hw_grave: '墓石には「お菓子を忘れずに」と刻まれている。',
+      hw_lantern: '鬼火のランタン。青白い炎が静かに揺れている。',
+      hw_cauldron: '魔女の釜から紫色の煙が立ちのぼる。',
+      hw_books: '呪いの料理本が並ぶ。ページの間からコウモリの羽がのぞく。',
+      hw_armor: '首のない鎧。奥の番人と同じ紋章が刻まれている。',
+      hw_coffin: '黒い棺。中から小さな笑い声が聞こえる。',
+      hw_throne: '収穫王の玉座。金色の茨とカボチャの紋章に覆われている。',
+      hw_tree: '古い木の枝が、まるで指のように城を指している。',
+      crates: '固く縛られた物資箱だ。鍵も蓋の隙間も見当たらない。',
+      weaponRack: '使い古された武器が並ぶ。今使えるものはなさそうだ。',
+      mapTable: '古い探索図だ。歩いた場所が書き足されている。',
+      cookingPot: 'まだ少し温かい。誰かがここで休んでいたようだ。',
+      minecart: '黒い鉱石を満載したトロッコだ。びくともしない。',
+      bonePile: '古い骨が積まれている。近づかないほうがよさそうだ。',
+      ruinRelic: '古い石造りの遺物だ。長い年月を感じさせる。',
+      ruinRubble: '崩れた石が積もっている。通り道は脇に続いている。',
+      iceCrystal: '透き通った氷晶だ。奥から青白い光が漏れている。',
+      iceObelisk: '厚い霜に覆われた氷の柱だ。紋様がかすかに光っている。',
+      snowBoulder: '雪をかぶった氷岩だ。表面は硬く凍りついている。',
+      iceAltar: '雪の結晶が刻まれた祭壇だ。静かな冷気が漂っている。'
+    };
+    this.log(message[object.kind] ?? '古びたダンジョンの置物だ。', 'sys');
+  }
+
+  spawnGroundItems(floor: number) {
+    const commonKinds: (ItemKind | 'coin')[] = ['coin', 'coin', 'coin', 'potion', 'torch', 'invis'];
+    // 消耗品は主に樽・壺から手に入る。床への直置きはたまに1個だけ。
+    const n = runRandom() < 0.28 ? 1 : 0;
+    const arenaCells = this.bossRoomCells();
+    for (let i = 0; i < n; i++) {
+      const pos = randomFloor(this.dungeon, [...this.occupiedPositions(), ...arenaCells]);
+      if (!pos) continue;
+      const regularScroll = runRandom() < SCROLL_DROP_RATE * this.rareItemDropRate ? this.claimRegularEnhancementScroll() : null;
+      const kind: ItemKind | 'coin' = regularScroll ?? commonKinds[Math.floor(runRandom() * commonKinds.length)];
+      const texKey = kind === 'coin' ? 'coin' : `i_${kind}`;
+      const spr = this.add.image(0, 0, texKey).setDepth(5).setOrigin(0.5, 0.6).setDisplaySize(22, 22);
+      this.placeSprite(spr, pos.x, pos.y);
+      const glow = this.add.image(spr.x, spr.y - 2, 'glow').setDepth(4.6)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setTint(kind === 'coin' || kind === 'mystery_bread' ? 0xffc45a : 0x88dfd4)
+        .setDisplaySize(28, 28).setAlpha(0.18);
+      glow.setDepth(spr.depth - 0.12);
+      const value = kind === 'coin' ? 10 + Math.floor(runRandom() * floor * 6) : undefined;
+      this.ground.push({ x: pos.x, y: pos.y, kind, sprite: spr, glow, phase: Math.random() * Math.PI * 2, value });
+    }
+  }
+
+  private claimRegularEnhancementScroll(): EnhancementScrollKind | null {
+    if (this.enhancementScrollClaimedBlocks.includes(Math.ceil(this.floor / 2)) || this.reservedBossScroll) return null;
+    const candidates: EnhancementScrollKind[] = (['stone', 'shieldstone'] as EnhancementScrollKind[])
+      .filter((kind) => !this.enhancementScrollDrops[kind] && kind !== this.reservedBossScroll);
+    if (!candidates.length) return null;
+    const kind = candidates[Math.floor(runRandom() * candidates.length)];
+    this.enhancementScrollDrops[kind] = true;
+    this.enhancementScrollClaimedBlocks.push(Math.ceil(this.floor / 2));
+    return kind;
+  }
+
+  private grantRegularEnhancementScroll(): EnhancementScrollKind | null {
+    const kind = this.claimRegularEnhancementScroll();
+    if (kind) this.player.inventory.push(makeItem(kind));
+    return kind;
+  }
+
+  private dropGuaranteedBossScroll(x: number, y: number): EnhancementScrollKind | null {
+    if (this.enhancementScrollClaimedBlocks.includes(Math.ceil(this.floor / 2))) return null;
+    const preferred = this.reservedBossScroll;
+    const fallback: EnhancementScrollKind = preferred === 'stone' ? 'shieldstone' : 'stone';
+    const kind = preferred && !this.enhancementScrollDrops[preferred]
+      ? preferred
+      : !this.enhancementScrollDrops[fallback]
+        ? fallback
+        : preferred ?? fallback;
+    this.enhancementScrollDrops[kind] = true;
+    this.enhancementScrollClaimedBlocks.push(Math.ceil(this.floor / 2));
+    this.dropItem(x, y, kind);
+    return kind;
+  }
+
+  occupiedPositions(): Vec2[] {
+    const arr: Vec2[] = [{ x: this.dungeon.start.x, y: this.dungeon.start.y }, this.dungeon.stairs];
+    if (this.dungeon.bossCompass) arr.push(this.dungeon.bossCompass);
+    for (const pad of this.dungeon.teleportPads) arr.push({ x: pad.x, y: pad.y });
+    for (const e of this.enemies) if (e.alive) arr.push(...bodyCells(e, bossBodyRadius(e.def)));
+    for (const c of this.chests) arr.push({ x: c.x, y: c.y });
+    for (const g of this.ground) arr.push({ x: g.x, y: g.y });
+    for (const obstacle of this.bossObstacles) arr.push({ x: obstacle.x, y: obstacle.y });
+    for (const object of this.dungeonObjects) {
+      const left = object.x - Math.floor((object.w - 1) / 2);
+      const top = object.y - Math.floor((object.h - 1) / 2);
+      for (let y = top; y < top + object.h; y++) {
+        for (let x = left; x < left + object.w; x++) arr.push({ x, y });
+      }
+    }
+    return arr;
+  }
+
+  placeSprite(spr: Phaser.GameObjects.Image, x: number, y: number) {
+    spr.setPosition(x * TILE + TILE / 2, y * TILE + TILE / 2)
+      .setDepth(this.worldDepth(y * TILE + TILE / 2, 12));
+  }
+
+  // ============ プレイヤー行動 ============
+  showSkillRangePreview(show: boolean) {
+    const ui = this.scene.get('UIScene') as { overlayMode?: string } | undefined;
+    const type = this.player?.weapon?.weaponType;
+    const skill = weaponSkill(type);
+    if (!show || !type || !skill || this.reviving || this.gameEnded || this.busy || ui?.overlayMode !== 'none') {
+      this.skillRangePreview?.setVisible(false);
+      this.skillRangePreviewKey = '';
+      return;
+    }
+    const plan = planSkill(type, this.player, this.player.dir, {
+      blocked: (x, y) => this.skillTileBlocked(x, y),
+      enemyAt: (x, y) => this.enemyAt(x, y),
+      canHit: () => true
+    });
+    if (type === 'dagger') {
+      plan.tiles = (['up', 'down', 'left', 'right'] as Dir[]).map(dir => this.timeStopMoveDestination(dir)).filter((tile): tile is Vec2 => !!tile);
+    }
+    const key = type + ':' + plan.tiles.map(p => p.x + ',' + p.y).join(';');
+    if (!this.skillRangePreview?.active) this.skillRangePreview = this.add.graphics().setDepth(2);
+    this.skillRangePreview.setVisible(true);
+    if (key === this.skillRangePreviewKey) return;
+    this.skillRangePreviewKey = key;
+    const g = this.skillRangePreview.clear();
+    g.fillStyle(skill.color, .2).lineStyle(1.5, skill.color, .8);
+    for (const tile of plan.tiles) {
+      g.fillRect(tile.x*TILE+2, tile.y*TILE+2, TILE-4, TILE-4);
+      g.strokeRect(tile.x*TILE+2, tile.y*TILE+2, TILE-4, TILE-4);
+    }
+  }
+
+  get skillChargeRequired() { return Math.max(1, weaponChargeSteps(this.player.weapon?.plus) - armorTraitValue(this.player.armor,'charge')); }
+  get rareItemDropRate() { return 1 + armorTraitValue(this.player.armor,'rare_drop') * .1; }
+
+  get skillStepsRemaining() {
+    return Math.max(0, this.skillChargeRequired - this.skillChargeSteps);
+  }
+
+  showDynamiteRangePreview(show: boolean) {
+    const ui = this.scene.get('UIScene') as { overlayMode?: string } | undefined;
+    if (!show || !this.player?.inventory.some(item => item.kind === 'dynamite')
+      || !this.dungeon || this.reviving || this.gameEnded || this.busy || ui?.overlayMode !== 'none') {
+      this.dynamiteRangePreview?.setVisible(false);
+      this.dynamiteRangePreviewKey = '';
+      return;
+    }
+    const tiles: Vec2[] = [];
+    // The explosion is a square and reaches across walls; match its real hit area.
+    for (let dy = -DYNAMITE_RADIUS; dy <= DYNAMITE_RADIUS; dy++) {
+      for (let dx = -DYNAMITE_RADIUS; dx <= DYNAMITE_RADIUS; dx++) {
+        const x = this.player.x + dx, y = this.player.y + dy;
+        if (this.dungeon.tiles[y]?.[x]) tiles.push({ x, y });
+      }
+    }
+    if (!this.dynamiteRangePreview?.active) {
+      this.dynamiteRangePreview = this.add.graphics().setDepth(2);
+      this.dynamiteRangePreviewKey = '';
+    }
+    this.dynamiteRangePreview.setVisible(true);
+    const key = tiles.map(tile => `${tile.x},${tile.y}`).join(';');
+    if (key === this.dynamiteRangePreviewKey) return;
+    this.dynamiteRangePreviewKey = key;
+    const g = this.dynamiteRangePreview.clear();
+    g.fillStyle(0xffa02d, .22).lineStyle(1.5, 0xffbd66, .9);
+    for (const tile of tiles) {
+      g.fillRect(tile.x * TILE + 2, tile.y * TILE + 2, TILE - 4, TILE - 4);
+      g.strokeRect(tile.x * TILE + 2, tile.y * TILE + 2, TILE - 4, TILE - 4);
+    }
+  }
+
+  private skillTileBlocked(x: number, y: number) {
+    const tile = this.dungeon.tiles[y]?.[x];
+    const entrance = this.dungeon.bossEntrance;
+    return !tile || !isWalkable(tile) || ['pit', 'door', 'roomDoor'].includes(tile)
+      || !!this.dungeonObjectAt(x, y) || !!this.bossObstacleAt(x, y)
+      || !!(this.bossEntranceClosed && entrance && entrance.x === x && entrance.y === y)
+      || (this.inBossRoom && !this.isInsideBossCombatFrame(x, y));
+  }
+
+  async useWeaponSkill(sustainedLance = false, daggerFinisher = false) {
+    const ui = this.scene.get('UIScene') as { overlayMode?: string } | undefined;
+    if (this.reviving || this.busy || this.gameEnded || ui?.overlayMode && ui.overlayMode !== 'none' || this.pendingEquipment) return false;
+    const weapon = this.player.weapon;
+    const skill = weaponSkill(weapon?.weaponType);
+    if (!weapon || !skill) return false;
+    const deny = (message: string) => { this.log(message, 'sys'); Audio.playSe('deny'); return false; };
+    if (this.timeStopTurns > 0) return deny('零刻領域では攻撃できない。移動で時を進めよう。');
+    sustainedLance = sustainedLance && weapon.weaponType === 'lance' && this.lanceSkillTurns > 0;
+    if (!daggerFinisher && !sustainedLance && this.skillStepsRemaining > 0) return deny(`スキルはあと${this.skillStepsRemaining}歩で使える。`);
+    if (weapon.weaponType === 'dagger' && !daggerFinisher) {
+      this.skillChargeSteps = 0;
+      this.timeStopTurns = 5;
+      this.clearMoveInput();
+      this.refreshTimeStopEffect();
+      this.log('零刻領域！ 5ターン時が止まる。攻撃せず、敵をすり抜けて移動できる。', 'special');
+      this.emitRefresh();
+      this.saveRun();
+      return true;
+    }
+    this.lanceSkillTurns = 0;
+    const plan = planSkill(weapon.weaponType, this.player, this.player.dir, {
+      blocked: (x, y) => this.skillTileBlocked(x, y),
+      enemyAt: (x, y) => this.enemyAt(x, y),
+      canHit: e => !e.def.isFloorBoss || !this.dungeon.bossRoom
+        || this.isInsideBossRoom(this.player.x, this.player.y) && this.isInsideBossRoom(e.x, e.y)
+    });
+    this.clearMoveInput();
+    this.busy = true;
+    this.playerAnimToken++;
+    this.playerAttacking = true;
+    if (!daggerFinisher) this.chargeTurn();
+    if (!sustainedLance && !daggerFinisher) this.skillChargeSteps = 0;
+    const origin = { x: this.player.x, y: this.player.y };
+    const direction = this.player.dir;
+    if (weapon.weaponType === 'katana') plan.targets.sort((a,b)=>Math.abs(b.x-origin.x)+Math.abs(b.y-origin.y)-Math.abs(a.x-origin.x)-Math.abs(a.y-origin.y));
+    if (daggerFinisher) {
+      const [dx, dy] = this.dirVec(this.player.dir);
+      const enemy = this.enemyAt(this.player.x + dx, this.player.y + dy);
+      plan.targets = enemy && plan.targets.includes(enemy) ? [enemy] : [];
+      plan.tiles = [{ x: this.player.x + dx, y: this.player.y + dy }];
+      if (!plan.targets.length) return false;
+    }
+    const maxDefense = Math.max(0, ...plan.targets.map(e => e.def.def));
+    const greatswordHits = new Set<Enemy>();
+    Audio.playSe(skill.sound);
+    this.log(`${skill.name}！`, 'special');
+    this.emitRefresh();
+    try {
+      this.setPlayerVisual(direction, 'atkWindup');
+      if (weapon.weaponType === 'katana') await new Promise<void>(resolve => this.time.delayedCall(170, resolve));
+      if (weapon.key === 'w_hero_sword') await new Promise<void>(resolve => this.time.delayedCall(200, resolve));
+      this.setPlayerVisual(this.player.dir, 'atk');
+      this.drawSkillEffect(weapon.weaponType, origin, direction, plan.tiles, skill.color);
+      if (weapon.key === 'w_hero_sword') {
+        const [dx,dy] = this.dirVec(direction);
+        this.arcadiaSlashFx(origin.x + dx, origin.y + dy, direction);
+      }
+      await new Promise<void>(resolve => this.time.delayedCall(skillImpactTime(weapon.weaponType), resolve));
+      const shots = weapon.weaponType === 'handgun' ? 5 : weapon.dual ? 3 : 1;
+      for (let shot = 0; shot < shots && !this.gameEnded; shot++) {
+        for (const enemy of plan.targets) {
+          if (!enemy.alive || !this.enemies.includes(enemy) || this.gameEnded) continue;
+          const daggerBackstab = daggerFinisher && direction === enemy.facing;
+          if (daggerBackstab) {
+            const fixedDamage = Math.max(1, Math.floor(enemy.hpMax * .05));
+            enemy.hp -= fixedDamage;
+            this.log(`${skill.name}：${enemy.def.name}に先制固定${fixedDamage}ダメージ（最大HPの5%）`, 'special');
+          }
+          const result = computePlayerAttack(this.player, this.enemyDefenseDefinition(enemy), false, {
+            consumeDurability: false, multiplier: daggerFinisher ? (daggerBackstab ? 2 : 1) : skill.multiplier,
+            hits: weapon.dual ? 2 : 1, defenseIgnore: 0
+          });
+          this.applyEmedralHit(enemy, weapon);
+          const damage = this.playerDamageAgainstGimmick(enemy, result.damage);
+          enemy.hp -= damage;
+          if (weapon.weaponType === 'greatsword' && !enemy.def.halloweenObject) greatswordHits.add(enemy);
+          if (weapon.weaponType === 'bow' && enemy.hp > 0) {
+            enemy.stunnedTurns = Math.max(enemy.stunnedTurns, 2);
+            paintedStun(this, enemy);
+            this.log(`${enemy.def.name}は2ターンスタンした！`, 'special');
+          }
+          this.afterPlayerHitGimmick(enemy, weapon.element);
+          this.discoverMonster(enemy.def.key);
+          this.hitFx(enemy.x, enemy.y);
+          paintedImpact(this, enemy);
+          this.flashSprite(enemy.sprite);
+          this.log(`${skill.name}：${enemy.def.name}に${damage}ダメージ${result.crit ? '（会心）' : ''}`, result.crit ? 'special' : 'dmg');
+          if (result.drain > 0) this.player.heal(result.drain);
+          if (result.poison && enemy.hp > 0) { enemy.poisonTurns = 3; this.poisonFx(enemy.x, enemy.y); }
+          if (result.freeze && enemy.hp > 0) this.freezeEnemy(enemy, 2);
+          if (enemy.hp <= 0 && enemy.def.gimmick === 'revive' && !enemy.revived) {
+            enemy.revived = true; enemy.hp = Math.max(1, Math.floor(enemy.hpMax * .25));
+            this.log(`${enemy.def.name}が骨を組み直して復活した！`, 'special');
+            this.effectFx(enemy.x, enemy.y, 'fx_levelup', 1.6, 520, 0xc7eaff);
+          } else if (enemy.hp <= 0) this.killEnemy(enemy);
+          if (enemy.alive) {
+            if (weapon.weaponType === 'katana' && !enemy.def.halloweenObject) { const vector = directionVector(direction); if (await this.knockbackEnemy(enemy, vector.x, vector.y)) this.skillChargeSteps = Math.min(this.skillChargeRequired, this.skillChargeSteps + 5); }
+            if (weapon.weaponType === 'greatsword') await this.knockbackEnemy(enemy, Math.sign(enemy.x - origin.x), Math.sign(enemy.y - origin.y));
+            this.drawEnemyHp(enemy);
+          }
+        }
+        if (shot < shots - 1) await new Promise<void>(resolve => this.time.delayedCall(weapon.dual ? 160 : 110, resolve));
+      }
+      for (const enemy of plan.targets) {
+        if (!enemy.alive || enemy.hp <= 0) continue;
+        if (weapon.weaponType === 'handgun') {
+          enemy.skillDefenseDownUntil = this.turn + 3;
+          this.log(`${enemy.def.name}の防御力が3ターン10%低下！`, 'special');
+        } else if (weapon.weaponType === 'lance') {
+          enemy.skillAttackDownUntil = this.turn + 3;
+          this.log(`${enemy.def.name}の攻撃力が3ターン20%低下！`, 'special');
+        }
+      }
+      if (weapon.weaponType === 'longsword') {
+        const hpBefore = this.player.hp;
+        this.player.heal(70);
+        this.healFx(); Audio.playSe('heal');
+        this.log(`扇斬りの光でHPを${this.player.hp - hpBefore}回復した。`, 'special');
+      }
+      if (greatswordHits.size > 0) {
+        const hpBefore = this.player.hp;
+        this.player.heal(greatswordHits.size * 10);
+        this.healFx(); Audio.playSe('heal');
+        this.log(`旋風斬りで${greatswordHits.size}体に命中し、HPを${this.player.hp - hpBefore}回復した。`, 'special');
+      }
+      const wear = consumeWeaponDurability(weapon, maxDefense);
+      if (wear.weaponRevived) this.log('武器のリペア効果が発動！ 壊れずに復活した。', 'special');
+      if (wear.weaponBroke) {
+        this.log(`${weapon.name}は壊れて消滅した…`, 'dmg'); Audio.playSe('weaponBreak');
+        this.player.weapons = this.player.weapons.filter(w => w !== weapon);
+        this.player.weapon = this.player.weapons[0] ?? null;
+        if (isTwoHanded(this.player.weapon)) this.player.shield = null;
+        this.updatePlayerAura();
+      }
+      this.playerAttacking = false;
+      if (!this.gameEnded) {
+        this.setPlayerVisual(this.player.dir, 'idle');
+        if (!daggerFinisher) await this.finishTurn();
+      }
+      return true;
+    } catch (error) {
+      console.error('スキル処理に失敗しました', error);
+      return false;
+    } finally {
+      this.playerAttacking = false;
+      this.busy = false;
+      if (!this.gameEnded) this.setPlayerVisual(this.player.dir, 'idle');
+      this.emitRefresh();
+      this.saveRun();
+    }
+  }
+
+  private drawSkillEffect(type: Weapon['weaponType'], origin: Vec2, dir: Dir, tiles: Vec2[], color: number) {
+    playPaintedSkill(this, type, origin, dir, tiles, this.player.weapon?.starred ? `star_${this.player.weapon.key}` : this.player.weapon?.key ?? 'w_soldier_blade', color);
+  }
+
+  private clearTimeStopEffect() {
+    this.timeStopClock?.remove(false);
+    this.timeStopClock = undefined;
+    // Phaser runtime supports ColorMatrix here; its bundled Controller-only signature is narrower.
+    if (this.timeStopColor) this.cameras.main.postFX.remove(this.timeStopColor as unknown as Phaser.FX.Controller);
+    this.timeStopColor = undefined;
+  }
+
+  private refreshTimeStopEffect() {
+    if (this.timeStopTurns <= 0) { this.clearTimeStopEffect(); return; }
+    if (!this.timeStopColor) {
+      this.timeStopColor = this.cameras.main.postFX.addColorMatrix();
+      this.timeStopColor.negative();
+    }
+    if (!this.timeStopClock) {
+      Audio.playSe('clockTick');
+      this.timeStopClock = this.time.addEvent({ delay: 550, loop: true, callback: () => {
+        if (this.timeStopTurns > 0 && !this.gameEnded) Audio.playSe('clockTick');
+      } });
+    }
+  }
+
+  private timeStopMoveDestination(dir: Dir) {
+    return timeStopDestination(this.player, dir, {
+      blocked: (x, y) => {
+        const tile = this.dungeon.tiles[y]?.[x], entrance = this.dungeon.bossEntrance;
+        return !tile || !isWalkable(tile) || ['pit', 'door', 'roomDoor'].includes(tile)
+          || !!(this.bossEntranceClosed && entrance && entrance.x === x && entrance.y === y)
+          || (this.inBossRoom && !this.isInsideBossCombatFrame(x, y));
+      },
+      enemy: (x, y) => !!this.enemyAt(x, y),
+      object: (x, y) => !!this.dungeonObjectAt(x, y) || !!this.bossObstacleAt(x, y) || !!this.chestAt(x, y)
+    });
+  }
+
+  private async moveDuringTimeStop(dir: Dir) {
+    this.player.dir = dir;
+    const destination = this.timeStopMoveDestination(dir);
+    if (!destination) { this.setPlayerVisual(dir, 'idle'); Audio.playSe('deny'); return; }
+    this.busy = true;
+    try {
+      const origin = { x: this.player.x, y: this.player.y };
+      paintedVanish(this, origin);
+      this.player.x = destination.x; this.player.y = destination.y;
+      this.skillChargeSteps = Math.min(100, this.skillChargeSteps + 1);
+      this.setPlayerVisual(dir, 'walk1');
+      await this.tween(this.playerSprite, { x: (destination.x + .5) * TILE, y: (destination.y + .5) * TILE }, 150, 'Sine.easeInOut');
+      this.setPlayerVisual(dir, 'idle');
+      const item = this.groundAt(destination.x, destination.y);
+      if (item) this.pickUp(item);
+      // Landing hazards, teleport pads and stairs resume with the world, preventing extra actions during a stopped turn.
+      await this.finishTurn();
+    } finally { this.busy = false; }
+  }
+  async playerAct(dir: Dir, options: { moveOnly?: boolean } = {}) {
+    if (this.reviving || this.busy || this.gameEnded) return;
+    if (this.timeStopTurns > 0) { await this.moveDuringTimeStop(dir); return; }
+    if (this.lanceSkillTurns > 0 && this.player.weapon?.weaponType === 'lance' && !options.moveOnly) {
+      const plan = planSkill('lance', this.player, dir, {
+        blocked: (x, y) => this.skillTileBlocked(x, y), enemyAt: (x, y) => this.enemyAt(x, y), canHit: () => true
+      });
+      if (plan.targets.length) { this.player.dir = dir; await this.useWeaponSkill(true); return; }
+    }
+    try {
+      this.player.dir = dir;
+      const [dx, dy] = this.dirVec(dir);
+      const nx = this.player.x + dx;
+      const ny = this.player.y + dy;
+
+      if (this.inBossRoom && !this.isInsideBossCombatFrame(nx, ny)) {
+        this.setPlayerVisual(dir, 'idle');
+        Audio.playSe('deny');
+        return;
+      }
+
+      const dungeonObject = this.dungeonObjectAt(nx, ny);
+      if (dungeonObject) {
+        if (dungeonObject.breakable) {
+          this.busy = true;
+          this.setPlayerVisual(dir, 'atk');
+          Audio.playSe(weaponAttackSe(this.player.weapon?.weaponType));
+          this.chargeTurn();
+          this.breakRoomProp(dungeonObject);
+          await this.finishTurn();
+          this.setPlayerVisual(dir, 'idle');
+          this.busy = false;
+        } else {
+          this.setPlayerVisual(dir, 'idle');
+          if (dungeonObject.kind === 'fountain') this.useHealingObject(dungeonObject);
+          else this.inspectRoomProp(dungeonObject);
+        }
+        return;
+      }
+
+      const obstacle = this.bossObstacleAt(nx, ny);
+      if (obstacle) {
+        this.busy = true;
+        this.setPlayerVisual(dir, 'atk');
+        Audio.playSe(weaponAttackSe(this.player.weapon?.weaponType));
+        this.destroyBossObstacle(obstacle);
+        await this.finishTurn();
+        this.setPlayerVisual(dir, 'idle');
+        this.busy = false;
+        return;
+      }
+
+      const thorn = this.bossHazards.find(h => h.kind === 'slow' && h.x === nx && h.y === ny);
+      if (this.eventMode && thorn && !this.enemyAt(nx, ny)) {
+        this.busy = true; this.setPlayerVisual(dir, 'atk');
+        for (const h of [...this.bossHazards]) if (h.kind === 'slow' && h.x === nx && h.y === ny) { h.sprite.destroy(); this.bossHazards = this.bossHazards.filter(o => o !== h); }
+        this.slashFx(nx, ny, 0x87ffc0); this.log('茨を切り払い、足場を作った！', 'special');
+        await this.finishTurn(); this.setPlayerVisual(dir, 'idle'); this.busy = false; return;
+      }
+      // 敵がいれば攻撃
+      const enemy = this.enemyAt(nx, ny);
+      if (enemy) {
+        if (options.moveOnly) return;
+        this.busy = true;
+        await this.playerAttack(enemy, dir);
+        await this.finishTurn();
+        this.busy = false;
+        return;
+      }
+      // 弓は3マス、ハンドガンは2マス先まで、向いている方向の最初の敵へ射撃する。
+      const rangedDistance = this.player.weapon?.weaponType === 'bow' ? 3
+        : this.player.weapon?.weaponType === 'handgun' ? 2 : 0;
+      if (rangedDistance > 0 && !options.moveOnly) {
+        for (let distance = 2; distance <= rangedDistance; distance++) {
+          const tx = this.player.x + dx * distance;
+          const ty = this.player.y + dy * distance;
+          const tile = this.dungeon.tiles[ty]?.[tx];
+          if (!tile || !isWalkable(tile) || tile === 'pit') break;
+          const rangedEnemy = this.enemyAt(tx, ty);
+          if (rangedEnemy) {
+            this.busy = true;
+            await this.playerAttack(rangedEnemy, dir, true);
+            await this.finishTurn();
+            this.busy = false;
+            return;
+          }
+        }
+      }
+      // 宝箱があれば開ける
+      const chest = this.chestAt(nx, ny);
+      if (chest && !chest.opened) {
+        this.busy = true;
+        this.setPlayerVisual(dir, 'idle');
+        this.chargeTurn();
+        this.openChest(chest);
+        await this.finishTurn();
+        this.busy = false;
+        return;
+      }
+      // 壁など通行不可 → 向きだけ変える（ターン経過なし）
+      const t = this.dungeon.tiles[ny]?.[nx];
+      if (t === 'roomDoor') {
+        const optional = this.optionalRoomAtDoor(nx, ny);
+        if (optional) {
+          this.setPlayerVisual(dir, 'idle');
+          const keyKind = this.eventMode ? 'candykey' : 'floorkey';
+          const keyName = ITEM_DEFS[keyKind].name;
+          const keyIndex = this.player.inventory.findIndex(item => item.kind === keyKind);
+          if (keyIndex < 0) {
+            this.log(`鍵のかかった扉だ。${keyName}が1個必要。`, 'sys');
+            Audio.playSe('deny');
+          } else {
+            this.player.inventory.splice(keyIndex, 1);
+            this.openOptionalRoom(optional);
+            this.log(`${keyName}を1個使って金扉を開けた。`, 'item');
+            this.emitRefresh();
+          }
+          return;
+        }
+      }
+      if (t === 'door' && !this.inBossRoom) {
+        this.setPlayerVisual(dir, 'idle');
+        const isExitDoor = nx === this.dungeon.stairs.x && ny === this.dungeon.stairs.y;
+        if (isExitDoor && this.floorHasGate(this.floor) && (!this.dungeon.bossRoom || this.floorBossDefeated)) {
+          this.enterBossRoom();
+        } else {
+          this.log(isExitDoor
+            ? '中ボスを倒すまで階段の封印は解けない。'
+            : '入口は結界に閉ざされている。魔物を倒して封印を解こう。', 'sys');
+          Audio.playSe('deny');
+        }
+        return;
+      }
+      if (!t || !isWalkable(t) || t === 'pit') {
+        this.setPlayerVisual(dir, 'idle');
+        if (t === 'pit') { this.log('落とし穴だ。ここには進めない。', 'sys'); Audio.playSe('deny'); }
+        if (t === 'door') {
+          this.log(this.floorBossDefeated
+            ? '出口の封印が解けるまで待とう。'
+            : 'ボスを倒すまで出口は開かない。', 'sys');
+          Audio.playSe('deny');
+        }
+        this.emitRefresh();
+        return;
+      }
+
+      if (this.playerRootTurns > 0) {
+        this.busy = true;
+        this.log('足を取られて移動できない！', 'dmg');
+        this.effectFx(this.player.x, this.player.y, 'fx_hit', 0.9, 220, 0x9ad5b0);
+        await this.finishTurn();
+        this.busy = false;
+        return;
+      }
+
+      // Movement and painted animation have independent clocks; no delayed frame callbacks.
+      this.busy = true;
+      Audio.playSe('step');
+      const moveDuration = this.currentMoveDuration();
+      if (this.holdBoostTier > 0) {
+        const trail = this.add.image(
+          this.playerSprite.x,
+          this.playerSprite.y,
+          this.playerSprite.texture.key,
+          this.playerSprite.frame.name
+        )
+          .setDepth(this.playerSprite.depth - 0.08).setScale(this.playerSprite.scaleX, this.playerSprite.scaleY)
+          .setOrigin(this.playerSprite.originX, this.playerSprite.originY)
+          .setFlipX(this.playerSprite.flipX).setAlpha(this.holdBoostTier > 1 ? .38 : .24)
+          .setTint(this.holdBoostTier > 1 ? 0xffd77b : 0x58d9d1);
+        this.tweens.add({
+          targets: trail, alpha: 0, scaleX: trail.scaleX * 1.15, scaleY: trail.scaleY * 1.15,
+          duration: 230, ease: 'Quad.easeOut', onComplete: () => trail.destroy()
+        });
+      }
+      this.stepDust(this.playerSprite.x, this.playerSprite.y + 11, this.holdBoostTier);
+      this.stepToggle = !this.stepToggle;
+      this.playerAnimation.walkFrameMs = Math.max(28, moveDuration / 3);
+      this.setPlayerVisual(dir, 'walk1');
+      this.player.x = nx;
+      this.player.y = ny;
+      this.skillChargeSteps = Math.min(100, this.skillChargeSteps + 1);
+      await this.tween(this.playerSprite, {
+        x: nx * TILE + TILE / 2, y: ny * TILE + TILE / 2
+      }, moveDuration, this.holdBoostTier > 0 ? 'Quad.easeOut' : 'Sine.easeInOut');
+      this.setPlayerVisual(dir, 'idle');
+      this.chargeTurn();
+      this.onEnterTile(nx, ny);
+      const teleported = this.player.x !== nx || this.player.y !== ny;
+      if (!teleported) await this.slidePlayerOnIce(dir, moveDuration);
+      // 階段を踏んだら確認なしで即降りる（doDescendがbusyを管理）
+      if (this.dungeon.tiles[this.player.y]?.[this.player.x] === 'stairs') {
+        this.doDescend();
+        return;
+      }
+      await this.finishTurn();
+      this.busy = false;
+    } catch (error) {
+      console.error('プレイヤー行動の処理に失敗しました', error);
+      this.clearMoveInput();
+      if (!this.gameEnded) this.log('行動を中断しました。もう一度操作できます。', 'sys');
+    } finally {
+      // Floor transitions own the input lock until the camera finishes fading.
+      if (!this.cameras.main.fadeEffect.isRunning) this.busy = false;
+      this.saveRun();
+    }
+  }
+
+  onEnterTile(x: number, y: number) {
+    this.closeBossEntranceOnEntry(x, y);
+    if (this.activateTeleportPad(x, y)) return;
+    if (this.dungeon.bossCompass?.x === x && this.dungeon.bossCompass.y === y) this.inspectBossCompass();
+    const t = this.dungeon.tiles[y][x];
+    if (t === 'poison') {
+      this.player.poisonTurns = Math.max(this.player.poisonTurns, 3);
+      this.log('毒床を踏んだ！ 毒状態になった。', 'dmg');
+    } else if (t === 'rune') {
+      // 癒しの泉：HPを回復（1回使うと枯れて普通の床になる）
+      if (this.player.hp < this.player.hpMax || this.player.poisonTurns > 0) {
+        this.player.heal(30);
+        this.player.poisonTurns = 0;
+        this.log('癒しの泉で回復した。泉は枯れてしまった…', 'item');
+        Audio.playSe('heal');
+        this.healFx();
+        this.dungeon.tiles[y][x] = 'floor';
+        const era = getTheme(this.floor).era;
+        this.applyTileVisual(this.tileSprites[y][x], 'floor', era, x, y);
+      }
+    } else if (t === 'cracked') {
+      if (runRandom() < 0.2) {
+        this.damagePlayer(6, 'ひび割れ床が崩れた！');
+      }
+    } else if (t === 'lava') {
+      this.damagePlayer(5 + Math.floor(this.floor / 8), '灼熱の亀裂を踏んだ！');
+    } else if (t === 'lightning') {
+      this.damagePlayer(4 + Math.floor(this.floor / 10), '通電床から雷が走った！');
+    } else if (t === 'voidRift') {
+      this.damagePlayer(4 + Math.floor(this.floor / 9), '虚無の亀裂に生命力を奪われた！');
+    } else if (t === 'ice') {
+      // Continue in the same direction until leaving the ice or reaching an obstacle.
+    }
+    this.applyBossHazardOnEntry(x, y);
+    // アイテム拾得
+    const gi = this.groundAt(x, y);
+    if (gi) this.pickUp(gi);
+  }
+
+  teleportPadAt(x: number, y: number) {
+    return this.dungeon.teleportPads.find((pad) => pad.x === x && pad.y === y);
+  }
+
+  activateTeleportPad(x: number, y: number): boolean {
+    const source = this.teleportPadAt(x, y);
+    if (!source) return false;
+    const destinations = this.dungeon.teleportPads.filter((pad) => pad !== source);
+    const destination = destinations[Math.floor(runRandom() * destinations.length)];
+    if (!destination) return false;
+
+    this.stopClickPath();
+    this.effectFx(source.x, source.y, 'fx_magic', 1.15, 360, 0x58e7ff);
+    this.player.x = destination.x;
+    this.player.y = destination.y;
+    this.placeSprite(this.playerSprite, destination.x, destination.y);
+    this.effectFx(destination.x, destination.y, 'fx_magic', 1.55, 520, 0xa36cff);
+    Audio.playSe('warp');
+    this.log('転送床が輝き、別の部屋へ飛んだ！', 'special');
+    this.updateVisibility();
+    return true;
+  }
+
+  async slidePlayerOnIce(dir: Dir, moveDuration: number): Promise<boolean> {
+    const [dx, dy] = this.dirVec(dir);
+    let slid = false;
+    while (this.dungeon.tiles[this.player.y]?.[this.player.x] === 'ice'
+      || this.bossHazards.some((hazard) => hazard.kind === 'ice' && hazard.x === this.player.x && hazard.y === this.player.y)) {
+      const nx = this.player.x + dx;
+      const ny = this.player.y + dy;
+      const tile = this.dungeon.tiles[ny]?.[nx];
+      if (!tile || !isWalkable(tile) || tile === 'pit'
+        || (this.inBossRoom && !this.isInsideBossCombatFrame(nx, ny))
+        || this.enemyAt(nx, ny) || this.chestAt(nx, ny) || this.bossObstacleAt(nx, ny)
+        || this.dungeonObjectAt(nx, ny)) {
+        this.log('氷の上で滑ったが、障害物にぶつかった！', 'sys');
+        return slid;
+      }
+      if (!slid) this.log('氷床に乗り、進行方向へ滑り出した！', 'dmg');
+      this.player.x = nx;
+      this.player.y = ny;
+      await this.tween(this.playerSprite, { x: nx * TILE + TILE / 2, y: ny * TILE + TILE / 2 }, moveDuration * 0.5, 'Sine.easeOut');
+      this.onEnterTile(nx, ny);
+      slid = true;
+      if (this.player.x !== nx || this.player.y !== ny || tile === 'stairs') break;
+    }
+    return slid;
+  }
+
+  updateStairsHint() {
+    // 階段は踏んだら即降りるため、ヒント表示は不要
+    this.stairsHint.setVisible(false);
+  }
+
+  pickUp(gi: GroundItem) {
+    if (gi.kind === 'weapon' && gi.weapon) {
+      if (this.receiveWeapon(gi.weapon, '魔物の宝')) {
+        this.log(`ボス武器 ${weaponFullName(gi.weapon)} を拾った！`, 'special');
+      }
+      Audio.playSe('pickup');
+    } else if (gi.kind === 'shield' && gi.shield) {
+      if (this.receiveShield(gi.shield, '魔物の宝')) {
+        this.log(`魔物の宝 ${shieldFullName(gi.shield)} を拾った！`, 'special');
+      }
+      Audio.playSe('pickup');
+    } else if (gi.kind === 'armor' && gi.armor) {
+      if (this.receiveArmor(gi.armor, '魔物の宝')) {
+        this.log(`魔物の宝 ${armorFullName(gi.armor)} を拾った！`, 'special');
+      }
+      Audio.playSe('pickup');
+    } else if (gi.kind === 'coin') {
+      const gold = this.awardGold(gi.value ?? 5);
+      this.log(`コインを拾った (+${gold}G)`, 'gold');
+      Audio.playSe('coin');
+    } else {
+      {
+        const it = makeItem(gi.kind as ItemKind);
+        this.player.inventory.push(it);
+        this.log(`${it.name}を拾った。`, 'item');
+        Audio.playSe('pickup');
+      }
+    }
+    const pickupColor = gi.kind === 'coin' ? 0xffc45a
+      : gi.kind === 'weapon' && gi.weapon ? gradeColor(gi.weapon.grade)
+      : gi.kind === 'shield' && gi.shield ? gradeColor(gi.shield.grade)
+      : gi.kind === 'armor' && gi.armor ? gradeColor(gi.armor.grade)
+      : 0x64e7dc;
+    this.pickupBurst(gi.sprite.x, gi.sprite.y, pickupColor);
+    gi.sprite.destroy();
+    gi.glow?.destroy();
+    this.ground = this.ground.filter((g) => g !== gi);
+  }
+
+  // ============ 戦闘 ============
+  attackSide(e: Enemy): 'front' | 'back' | 'side' {
+    const [fx, fy] = this.dirVec(e.facing);
+    const rx = this.player.x - e.x;
+    const ry = this.player.y - e.y;
+    if (rx === fx && ry === fy) return 'front';
+    if (rx === -fx && ry === -fy) return 'back';
+    return 'side';
+  }
+
+  playerDamageAgainstGimmick(e: Enemy, baseDamage: number): number {
+    let factor = 1;
+    const side = this.attackSide(e);
+    const boss = this.bossStates.get(e);
+    if (boss?.kind === 'mid_hw_ghost' && this.halloweenObjects(e, 'lantern').length) factor *= .5;
+    if (boss?.kind === 'mid_hw_knight') {
+      const [dx, dy] = this.dirVec(e.facing);
+      if (boss.stunned > 0) factor *= 1.5;
+      else if ((this.player.x - e.x) * dx + (this.player.y - e.y) * dy > 0) factor *= .5;
+    }
+    if (boss?.kind === 'hw_king' && e.def.key === 'm_hw_golden_king' && boss.stunned > 0) factor *= 1.5;
+    const dealt = Math.max(1, Math.floor(baseDamage * factor));
+    if (boss?.kind === 'mid_hw_witch' && boss.intent) {
+      boss.castDamage = (boss.castDamage ?? 0) + dealt;
+      if (boss.castDamage >= Math.ceil(e.hpMax * .08)) this.interruptHalloweenCast(e, boss);
+    }
+    switch (e.def.gimmick) {
+      case 'phase':
+        if (e.vulnerableTurns <= 0) factor *= 0.35;
+        break;
+      case 'wraith_phase':
+        if (e.vulnerableTurns <= 0) factor *= 0.12;
+        break;
+      case 'shell_guard':
+        if (side === 'front' && e.guardOpenTurns <= 0) factor *= e.def.key === 'm_bone_hound' ? 0.4 : 0.5;
+        break;
+      case 'knight_guard':
+      case 'golem_guard':
+      case 'guardian':
+        if (side === 'front' && e.guardOpenTurns <= 0) factor *= 0.5;
+        break;
+      case 'rear_weak':
+        if (side === 'front') factor *= 0.5;
+        else if (side === 'back') factor *= 1.5;
+        break;
+      case 'stance':
+        if (e.gimmickPhase === 1) factor *= 0.6;
+        break;
+      case 'statue':
+      case 'ambush':
+        if (!e.awakened) factor *= 0.3;
+        break;
+      case 'stealth':
+        factor *= e.stealthRevealed ? 1.5 : 0.65;
+        break;
+      case 'parry':
+        e.gimmickPhase++;
+        if (side === 'front' && e.gimmickPhase % 3 === 0) {
+          factor *= 0.2;
+          const counter = 2 + Math.floor(this.floor / 8);
+          this.damagePlayer(counter, `${e.def.name}の受け流し反撃！`, e);
+          this.effectFx(this.player.x, this.player.y, 'fx_slash', 1.0, 240, 0xff7548);
+        }
+        break;
+    }
+    if (e.revived) factor *= 1.5;
+    return Math.max(1, Math.floor(baseDamage * factor));
+  }
+
+  afterPlayerHitGimmick(e: Enemy, weaponElement?: Element) {
+    if (e.def.gimmick === 'regen') e.gimmickCounter = 0;
+    if (e.def.gimmick === 'hydra_regen' && weaponElement === 'fire') {
+      e.regenBlockedTurns = 4;
+      this.log(`${e.def.name}の再生を火属性で止めた！`, 'special');
+    }
+    if ((e.def.gimmick === 'mimic' || e.def.gimmick === 'statue' || e.def.gimmick === 'ambush') && !e.awakened) {
+      if (e.def.gimmick === 'mimic') this.revealMimic(e, true);
+      else {
+        e.awakened = true;
+        e.sprite.setAlpha(1).clearTint();
+        e.shadow?.setAlpha(0.55);
+        this.log(`${e.def.name}が攻撃を受けて正体を現した！`, 'dmg');
+      }
+    }
+  }
+
+  async playerAttack(e: Enemy, dir: Dir, ranged = false) {
+    if (this.timeStopTurns > 0) return;
+    if (e.def.isFloorBoss && this.dungeon.bossRoom
+      && (!this.isInsideBossRoom(this.player.x, this.player.y) || !this.isInsideBossRoom(e.x, e.y))) {
+      this.log('魔物に近づくには、扉をくぐって部屋に入ろう。', 'sys');
+      Audio.playSe('deny');
+      return;
+    }
+    this.chargeTurn();
+    this.playerAnimToken++;
+    this.playerAttacking = true;
+    this.playerSprite.setAngle(0).setScale(PLAYER_WORLD_SCALE);
+    const arcadiaAttack = this.player.weapon?.key === 'w_hero_sword';
+    this.setPlayerVisual(dir, 'atkWindup');
+    await new Promise<void>((resolve) => this.time.delayedCall(arcadiaAttack ? 200 : 58, () => resolve()));
+    this.setPlayerVisual(dir, 'atk');
+    const weaponElement = this.player.weapon?.element;
+    Audio.playSe(weaponAttackSe(this.player.weapon?.weaponType));
+    if (weaponElement) {
+      this.time.delayedCall(38, () => Audio.playSe(elementAttackSe(weaponElement)));
+    }
+    // 敵の方向へ踏み込む（前进→戻る）と斬撃エフェクト
+    const [ddx, ddy] = this.dirVec(dir);
+    const homeX = this.playerSprite.x, homeY = this.playerSprite.y;
+    const elementColor = this.player.weapon?.weaponType === 'katana' ? katanaSlashColor(this.player.weapon) : this.player.weapon?.element ? ELEMENT_INFO[this.player.weapon.element].color : 0xdfe7f0;
+    if (ranged) {
+      const bow = this.player.weapon?.weaponType === 'bow';
+      const arrow = this.add.image(this.playerSprite.x, this.playerSprite.y, bow ? weaponAccessoryKey(this.player.weapon)! : 'fx_bolt')
+        .setDepth(20).setDisplaySize(TILE * .9, TILE * (bow ? .9 : .45));
+      if (!bow) arrow.setTint(elementColor);
+      arrow.setRotation(Phaser.Math.Angle.Between(this.playerSprite.x, this.playerSprite.y, e.sprite.x, e.sprite.y) + (bow ? Math.PI / 4 : 0));
+      await this.tween(arrow, { x: e.sprite.x, y: e.sprite.y }, 180, 'Quad.easeIn');
+      arrow.destroy();
+      this.effectFx(e.x, e.y, 'fx_magic', 1.0, 220, elementColor);
+    } else {
+      if (arcadiaAttack) this.arcadiaSlashFx(e.x, e.y, dir);
+      else this.slashFx(e.x, e.y, elementColor);
+    }
+    if (!ranged) {
+      await this.tween(this.playerSprite, { x: homeX + ddx * 10, y: homeY + ddy * 10, yoyo: true },
+        arcadiaAttack ? 130 : ANIM * .45, 'Quad.easeOut');
+      this.playerSprite.setPosition(homeX, homeY);
+    }
+
+    const res = computePlayerAttack(this.player, this.enemyDefenseDefinition(e), !ranged && dir === e.facing);
+    const attackingWeapon = this.player.weapon;
+    let knockbackReady = false;
+    if (attackingWeapon?.passive?.key === 'knockback') {
+      attackingWeapon.specialCounter = (attackingWeapon.specialCounter ?? 0) + 1;
+      knockbackReady = attackingWeapon.specialCounter % 3 === 0;
+    }
+    this.applyEmedralHit(e, attackingWeapon);
+    const dealtDamage = this.playerDamageAgainstGimmick(e, res.damage);
+    e.hp -= dealtDamage;
+    this.afterPlayerHitGimmick(e, weaponElement);
+    this.discoverMonster(e.def.key);
+    // 攻撃音源に命中音を含むため、旧電子ヒット音は重ねない。
+
+    // 二刀流：2撃目の斬撃を少し遅らせて重ねる
+    if (res.hits >= 2) {
+      this.time.delayedCall(130, () => {
+        this.slashFx(e.x, e.y, elementColor);
+      });
+    }
+
+    let msg = `${res.hits >= 2 ? '二連撃！ ' : ''}${e.def.name}に${dealtDamage}ダメージ`;
+    if (res.crit) msg += '（会心！）';
+    this.log(msg, res.crit ? 'special' : 'dmg');
+    this.hitFx(e.x, e.y);
+    this.flashSprite(e.sprite);
+
+    if (knockbackReady && e.hp > 0) {
+      const pushed = await this.knockbackEnemy(e, ddx, ddy);
+      this.log(
+        pushed ? `三撃破砕！ ${e.def.name}を押し戻した！` : `三撃破砕！ ${e.def.name}は壁際で踏みとどまった！`,
+        'special'
+      );
+    }
+
+    if (res.drain > 0) { this.player.heal(res.drain); this.log(`HPを${res.drain}吸収した。`, 'special'); }
+    if (res.poison) { e.poisonTurns = 3; this.log(`${e.def.name}に毒を与えた。`, 'special'); this.poisonFx(e.x, e.y); }
+    if (res.freeze) this.freezeEnemy(e, 2);
+    if (res.weaponRevived) this.log('武器のリペア効果が発動！ 壊れずに復活した。', 'special');
+    if (res.weaponBroke) {
+      // 壊れた武器はその場で消滅し、持っている別の武器に持ち替える
+      const bw = this.player.weapon!;
+      this.log(`${bw.name}は壊れて消滅した…`, 'dmg');
+      Audio.playSe('weaponBreak');
+      this.player.weapons = this.player.weapons.filter((x) => x !== bw);
+      this.player.weapon = this.player.weapons[0] ?? null;
+      if (isTwoHanded(this.player.weapon) && this.player.shield) {
+        this.player.shield = null;
+        this.log('両手で武器を構え、盾を外した。', 'sys');
+      }
+      this.updatePlayerAura();
+    }
+
+    this.playerAttacking = false;
+    this.tweens.killTweensOf(this.playerSprite);
+    this.playerSprite.setAngle(0).setScale(PLAYER_WORLD_SCALE);
+    this.setPlayerVisual(dir, 'idle');
+
+    if (e.hp <= 0 && e.def.gimmick === 'revive' && !e.revived) {
+      e.revived = true;
+      e.hp = Math.max(1, Math.floor(e.hpMax * 0.25));
+      e.sprite.setTint(0xc7eaff);
+      this.effectFx(e.x, e.y, 'fx_levelup', 1.6, 520, 0xc7eaff);
+      this.log(`${e.def.name}が骨を組み直して復活した！ 防御が崩れている。`, 'special');
+      this.drawEnemyHp(e);
+    } else if (e.hp <= 0) {
+      this.killEnemy(e);
+    } else {
+      this.drawEnemyHp(e);
+    }
+    this.emitRefresh();
+  }
+
+  applyEmedralHit(e: Enemy, weapon: Weapon | null) {
+    if (weapon?.passive?.key === 'emedral') {
+      weapon.specialCounter = (weapon.specialCounter ?? 0) + 1;
+      if (weapon.specialCounter % 2 === 0 && !e.emedralAffected) {
+        e.emedralAffected = true; e.emedralWeakUntil = this.turn + 5;
+        e.stunnedTurns = Math.max(e.stunnedTurns, 1);
+        e.emedralStunUntil = this.turn + 1;
+        this.createPaintedFreeze(e, true);
+        const boss = this.bossStates.get(e);
+        if (boss?.kind.includes('hw_') && boss.intent) this.interruptHalloweenCast(e, boss);
+        this.log(`氷翠の封縛！ ${e.def.name}を1ターンスタン、5ターン攻撃力30%低下！`, 'special');
+      }
+    }
+  }
+
+  killEnemy(e: Enemy, options: { quiet?: boolean; obliterate?: boolean } = {}) {
+    if (!this.enemies.includes(e)) return;
+    const def = e.def;
+    if (def.halloweenObject) { this.destroyHalloweenObject(e, true); return; }
+    if (def.isHalloweenRetainer) {
+      const king = this.enemies.find(b => b.def.key === 'm_hw_golden_king' && b.alive);
+      const state = king && this.bossStates.get(king);
+      if (state) { (state.goldenSafe ??= []).push({ x: e.x, y: e.y }); this.effectFx(e.x, e.y, 'fx_magic', 1.7, 800, 0x78ffe0); this.log('近衛兵の跡に黄金爆発の安全地帯が生まれた！', 'special'); }
+    }
+    if (!this.eventMode) this.advanceSecretQuests(e);
+    const leveled = this.player.addExp(def.exp);
+    const gold = this.awardGold(def.gold);
+    this.log(`${def.name}を倒した！ EXP+${def.exp} G+${gold}`, 'gold');
+    if (!options.quiet) Audio.playSe('kill');
+    if (leveled) { this.log(`レベルアップ！ Lv.${this.player.level} になった。`, 'special'); if (!options.quiet) Audio.playSe('levelup'); this.levelupFx(); }
+    if (def.isTreasureRabbit) {
+      const ssElemental = WEAPON_DEFS.filter((weapon) => weaponRarity(weapon) === 'SS' && weapon.element && !weapon.exclusiveLoot);
+      const rewardDef = ssElemental[Math.floor(runRandom() * ssElemental.length)];
+      if (rewardDef) {
+        const reward = makeWeapon(rewardDef.key, []);
+        reward.plus = Math.max(3, reward.plus);
+        this.dropEquipment(e.x, e.y, 'weapon', reward);
+        this.log(`福袋が弾けた！ ${gold}Gと属性付きSS武器 ${weaponFullName(reward)} を獲得！`, 'special');
+      }
+    } else {
+      // 通常MOB（エリート含む）の各ドロップ率を半減。ボスは従来の確率を維持する。
+      const dropRateScale = def.isBoss || def.isFloorBoss ? 1 : 0.5;
+      if (runRandom() < 0.7 * dropRateScale) this.dropItem(e.x, e.y, 'coin', def.gold * 3 + Math.floor(runRandom() * this.floor * 4));
+      // 通常消耗品とは別枠で抽選する。
+      if (runRandom() < 0.4 * dropRateScale) {
+        const pool: ItemKind[] = ['potion', 'torch', 'warp', 'invis'];
+        this.dropItem(e.x, e.y, pool[Math.floor(runRandom() * pool.length)]);
+      }
+      // ボス・敵・宝箱を合わせて2フロアごとに強化スクロールを1枚までに制限する。
+      if (!def.isFloorBoss && runRandom() < SCROLL_DROP_RATE * dropRateScale * this.rareItemDropRate) {
+        const scroll = this.claimRegularEnhancementScroll();
+        if (scroll) this.dropItem(e.x, e.y, scroll);
+      }
+      // エリート/ボスは超レアで復活の種。
+      if ((def.isElite || def.isBoss) && !this.reviveSeedSeen && runRandom() < 0.08 * dropRateScale * this.rareItemDropRate) {
+        this.reviveSeedSeen = true;
+        this.dropItem(e.x, e.y, 'revive');
+        this.log('復活のタネがこぼれ落ちた…！ この冒険で現れるのは一度だけだ。', 'special');
+      }
+    }
+
+    if (!this.eventMode && !def.isBoss && !def.isFloorBoss && !def.isTreasureRabbit && runRandom() < FLOOR_KEY_DROP_RATE * this.rareItemDropRate) {
+      this.dropItem(e.x, e.y, 'floorkey');
+    }
+
+    if (!def.isBoss && !def.isFloorBoss && !def.isTreasureRabbit && runRandom() < DYNAMITE_DROP_RATE * this.rareItemDropRate) {
+      this.dropItem(e.x, e.y, 'dynamite');
+      this.log('ダイナマイトがこぼれ落ちた！', 'special');
+    }
+
+    if (!def.isBoss && !def.isFloorBoss && !def.isTreasureRabbit && runRandom() < SKILL_DRINK_DROP_RATE) this.dropItem(e.x, e.y, 'skill_drink');
+
+    if (!def.isBoss && !def.isFloorBoss && !def.isTreasureRabbit && runRandom() < MYSTERY_BREAD_DROP_RATE * this.rareItemDropRate) {
+      this.dropItem(e.x, e.y, 'mystery_bread');
+      this.log('ふしぎパンがこぼれ落ちた！', 'special');
+    }
+
+    if (this.eventMode) {
+      if (runRandom() < .01 * this.rareItemDropRate) this.dropItem(e.x,e.y,'candykey');
+      if (!def.isFloorBoss && runRandom() < .10) {
+        if (runRandom() < .5) this.dropEquipment(e.x,e.y,'weapon',rollWeapon(this.floor*4));
+        else this.dropEquipment(e.x,e.y,'shield',rollShield(this.floor*4));
+      }
+    }
+
+    if (!this.eventMode && (def.isBoss || def.isFloorBoss) && !def.isTreasureRabbit && runRandom() < ARCADIA_BOSS_DROP_RATE) {
+      this.dropEquipment(e.x, e.y, 'weapon', makeWeapon(runRandom() < .5 ? 'w_hero_sword' : 'w_katana_divine', []));
+      this.log('まばゆい光の中から、覇天剣アルカディアが現れた！', 'special');
+    }
+    if (!this.eventMode && (def.isBoss || def.isFloorBoss) && !def.isTreasureRabbit && runRandom() < ARCADIA_BOSS_DROP_RATE) {
+      this.dropEquipment(e.x, e.y, 'shield', makeShield('s_arcadia_guard'));
+      this.log('黒い羽根が舞い、漆黒の盾ルファルゼント+10が現れた！', 'special');
+    }
+
+    this.enemyDefeatFx(e);
+    this.clearDifficultyWarnings(e);
+    e.challengeWaves = [];
+    const bossState = this.bossStates.get(e);
+    if (bossState) {
+      for (const marker of bossState.intent?.markers ?? []) {
+        this.destroyBossWarningMarker(marker);
+      }
+      bossState?.coreLabel?.destroy();
+      this.bossStates.delete(e);
+    }
+    this.destroyEnemyFreezeFx(e);
+    if (e.aura) { this.tweens.killTweensOf(e.aura); e.aura.destroy(); }
+    e.sprite.destroy();
+    e.hpBar?.destroy();
+    e.shadow?.destroy();
+    this.enemies = this.enemies.filter((x) => x !== e);
+    this.resolveMonsterDeathGimmick(e, options.obliterate);
+
+    if (def.isFloorBoss) {
+      for (const object of [...this.enemies]) if (object.def.halloweenOwner === def.key) this.destroyHalloweenObject(object, false);
+      const guaranteedScroll = this.dropGuaranteedBossScroll(e.x, e.y);
+      if (guaranteedScroll) this.log(`倒れた魔物のそばに、${ITEM_DEFS[guaranteedScroll].name}が残されていた。`, 'special');
+      this.unlockFloorGate(def.name, { x: e.x, y: e.y });
+    }
+  }
+
+  freezeEnemy(e: Enemy, turns: number) {
+    e.freezeTurns = Math.max(e.freezeTurns, turns);
+    this.destroyEnemyFreezeFx(e);
+
+    this.createPaintedFreeze(e, false);
+    this.log(`${e.def.name}が氷像になった！ ${e.freezeTurns}ターン行動不能。`, 'special');
+  }
+
+  createPaintedFreeze(e: Enemy, stun: boolean) {
+    this.destroyEnemyFreezeFx(e);
+    ensureCombatEffectTextures(this);
+    const size = Math.max(TILE * 1.6, Math.min(TILE * 4.2, e.sprite.displayHeight * 1.3));
+    const ice = this.add.image(0, -size * .08, 'fx_hw_freeze').setDisplaySize(size, size).setAlpha(.85).setName('painted-ice');
+    const mist = this.add.image(0, -size * .02, 'fx_hw_aura_b').setDisplaySize(size * 1.15, size * 1.1).setAlpha(.35).setName('painted-frost');
+    const label = this.add.text(0, -size * .47, `${stun ? 'スタン' : '氷結'} ${stun ? 1 : e.freezeTurns}`, {
+      fontFamily: 'Meiryo', fontSize: '12px', color: '#eaffff', stroke: '#073343', strokeThickness: 4, fontStyle: 'bold'
+    }).setName('freeze-turn').setOrigin(.5);
+    const fx = this.add.container(e.sprite.x, e.sprite.y - 3, [mist, ice, label]).setName(stun ? 'emedral-stun' : 'painted-freeze').setDepth(e.sprite.depth + .35).setVisible(e.sprite.visible);
+    e.freezeFx = fx;
+    this.tweens.add({targets:ice,alpha:.65,duration:650,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
+    this.tweens.add({targets:mist,y:-size*.14,alpha:.16,duration:950,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
+    this.tweens.add({targets:ice,scaleX:ice.scaleX*1.09,scaleY:ice.scaleY*1.09,duration:160,yoyo:true});
+  }
+
+  updateEnemyFreezeFx(e: Enemy) {
+    const stun = e.freezeFx?.name === 'emedral-stun';
+    const label = e.freezeFx?.getByName('freeze-turn') as Phaser.GameObjects.Text | null;
+    label?.setText(`${stun ? 'スタン' : '氷結'} ${stun ? Math.min(1, Math.max(0, e.emedralStunUntil - this.turn + 1)) : Math.max(0, e.freezeTurns)}`);
+  }
+
+  destroyEnemyFreezeFx(e: Enemy) {
+    if (!e.freezeFx) return;
+    for (const child of e.freezeFx.getAll()) this.tweens.killTweensOf(child);
+    e.freezeFx.destroy(true);
+    e.freezeFx = undefined;
+    const baseTint = e.frameAnimation ? getMonsterAnimation(e.def.key)?.baseTint : undefined;
+    if (e.def.bossTint !== undefined && e.def.bossTint !== baseTint) e.sprite.setTint(e.def.bossTint);
+    else e.sprite.clearTint();
+  }
+
+  unlockFloorGate(bossName: string, defeatedAt?: Vec2) {
+    if (this.floorBossDefeated) return;
+    const remaining = this.enemies.filter((e) => e.def.isFloorBoss);
+    if (remaining.length > 0) {
+      this.log(`${bossName}を撃破！ あと${remaining.length}体のボスが封印を支えている。`, 'special');
+      return;
+    }
+    this.floorBossDefeated = true;
+    if ((this.inBossRoom || !this.floorHasGate(this.floor)) && this.player.fountainBlessingFloor !== null) {
+      this.player.fountainBlessingFloor = null;
+      this.log('この階のボスを討伐し、噴水の加護が消えた。', 'sys');
+    }
+    this.refreshBossCompassVisual();
+    Audio.playSe('seal');
+    this.setBossEntranceClosed(false);
+    this.dropBossRewards(defeatedAt, bossName);
+    const stairs = this.dungeon.stairs;
+    if (this.inBossRoom || !this.floorHasGate(this.floor)) {
+      const dungeon = this.dungeon;
+      const sprite = this.tileSprites[stairs.y]?.[stairs.x];
+      if (sprite) {
+        this.tweens.add({ targets: sprite, displayWidth: 8, displayHeight: 8, alpha: 0, duration: 240, ease: 'Back.easeIn', onComplete: () => {
+          if (!sprite.active || this.dungeon !== dungeon) return;
+          this.applyTileVisual(sprite, 'stairs', getTheme(this.floor).era, stairs.x, stairs.y);
+          const targetSize = this.eventMode ? TILE * 1.7 : TILE + 10;
+          sprite.setDisplaySize(8, 8).setAlpha(0);
+          this.tweens.add({ targets: sprite, displayWidth: targetSize, displayHeight: targetSize, alpha: 1, duration: 360, ease: 'Back.easeOut' });
+        } });
+      }
+      this.effectFx(stairs.x, stairs.y, 'fx_magic', 2.3, 820, 0xff4b38);
+    }
+    this.log(this.inBossRoom
+      ? `${bossName}を撃破！ 宝が残され、出口の封印が解けた。`
+      : this.floorHasGate(this.floor)
+        ? `${bossName}を撃破！ 宝が残され、奥へ続く階段の封印が解けた。`
+        : `${bossName}を撃破！ 宝が残され、先へ続く階段が現れた。`, 'special');
+    this.updateVisibility();
+    this.emitRefresh();
+  }
+
+  resolveMonsterDeathGimmick(e: Enemy, obliterate = false) {
+    const dist = Math.abs(this.player.x - e.x) + Math.abs(this.player.y - e.y);
+    if (e.def.gimmick === 'lantern') {
+      this.lanternTurns = Math.max(this.lanternTurns, 5);
+      this.updateVisibility();
+      this.effectFx(e.x, e.y, 'fx_magic', 1.4, 420, 0xffc95a);
+      this.log('ランタンの光で5ターンの間、壁の向こうまで明るくなった！', 'special');
+    }
+    if (!obliterate && (e.def.gimmick === 'shatter' || e.def.gimmick === 'death_burst') && dist <= 1) {
+      const fiery = e.def.gimmick === 'death_burst';
+      this.damagePlayer((fiery ? 5 : 3) + Math.floor(this.floor / 10), fiery ? '迷い火の爆発！' : '砕けた氷片が飛び散った！', e);
+      this.effectFx(e.x, e.y, 'fx_magic', 1.5, 360, fiery ? 0xff8b42 : 0x8de9ff);
+    }
+    if (!obliterate && !this.milestoneFloorCleared() && e.def.gimmick === 'split' && e.cloneDepth === 0) {
+      const spots = runShuffle([
+        { x: e.x + 1, y: e.y }, { x: e.x - 1, y: e.y },
+        { x: e.x, y: e.y + 1 }, { x: e.x, y: e.y - 1 }
+      ]);
+      let spawned = 0;
+      for (const spot of spots) {
+        if (spawned >= 2 || !this.validMonsterTile(spot.x, spot.y)) continue;
+        if (this.enemyAt(spot.x, spot.y) || this.player.x === spot.x && this.player.y === spot.y
+          || this.chestAt(spot.x, spot.y) || this.bossObstacleAt(spot.x, spot.y)) continue;
+        const fragmentDef: MonsterDef = {
+          ...e.def,
+          name: 'ミニゼリー',
+          hp: Math.max(4, Math.floor(e.def.hp * 0.35)),
+          atkMin: Math.max(1, Math.floor(e.def.atkMin * 0.65)),
+          atkMax: Math.max(2, Math.floor(e.def.atkMax * 0.65)),
+          exp: Math.max(1, Math.floor(e.def.exp * 0.2)),
+          gold: 0
+        };
+        const fragment = this.addEnemy(fragmentDef, spot.x, spot.y, 1);
+        fragment.cloneDepth = 1;
+        fragment.baseScale *= 0.72;
+        fragment.sprite.setScale(fragment.baseScale);
+        spawned++;
+      }
+      if (spawned > 0) this.log('ゼリークラウンが小型ゼリーへ分裂した！', 'dmg');
+    }
+  }
+
+  async knockbackEnemy(e: Enemy, dx: number, dy: number): Promise<boolean> {
+    const nx = e.x + dx;
+    const ny = e.y + dy;
+    const destinationTile = this.dungeon.tiles[ny]?.[nx];
+    // 壁抜けできる敵でも、ノックバックでは壁や封鎖床の中へ押し込まない。
+    if (!destinationTile || !isWalkable(destinationTile) || destinationTile === 'pit'
+      || !this.passable(e, nx, ny)) return false;
+    e.x = nx;
+    e.y = ny;
+    this.effectFx(nx, ny, 'fx_hit', 1.35, 260, 0xffd477);
+    await this.tween(e.sprite, { x: nx * TILE + TILE / 2, y: ny * TILE + TILE / 2 }, 130, 'Back.easeOut');
+    this.drawEnemyHp(e);
+    return true;
+  }
+
+  dropBossRewards(defeatedAt?: Vec2, bossName?: string) {
+    if (this.eventMode) {
+      const origin = defeatedAt ?? this.dungeon.stairs;
+      const goldenDrops = bossName === GOLDEN_KING.name ? {weapon:runRandom()<.1,shield:runRandom()<.1} : null;
+      const costumeWon = this.floor === 5 && runRandom() < .05;
+      const grade: EquipmentGrade = this.floor >= 5 ? 'S' : this.floor >= 3 ? 'A' : this.floor >= 2 ? 'B' : 'C';
+      this.dropEquipment(origin.x,origin.y,'weapon',rollWeaponByGrade(grade));
+      this.dropEquipment(origin.x,origin.y,'shield',rollShieldByGrade(grade));
+      if (costumeWon) this.dropEquipment(origin.x,origin.y,'armor',makePlayerArmor(this.playerGender === 'male' ? 'pumpkin_male' : 'pumpkin_female'));
+      if (bossName === GOLDEN_KING.name) {
+        if (goldenDrops?.weapon) this.dropEquipment(origin.x, origin.y, 'weapon', makeWeapon('w_hw_emedral', []));
+        if (goldenDrops?.shield) this.dropEquipment(origin.x, origin.y, 'shield', makeShield(GOLDEN_SHIELD.key));
+      }
+      this.dropItem(origin.x, origin.y, 'repair');
+      this.dropItem(origin.x, origin.y, 'potion');
+      this.bossRewardClaimed = true;
+      const {x,y} = this.dungeon.stairs; this.dungeon.tiles[y][x] = 'stairs';
+      this.applyTileVisual(this.tileSprites[y][x], 'stairs', 1, x, y);
+      this.log('🎃 魔物の装備が残された！ 拾ってから、カボチャ灯りの階段へ進もう。', 'special');
+      return;
+    }
+    const room = this.dungeon.bossRoom;
+    const origin = defeatedAt ?? (room ? { x: room.cx, y: room.cy } : { ...this.dungeon.stairs });
+
+    // 中ボス・専用部屋のボスともに、ランダム報酬とは別に1個確定。
+    this.dropItem(origin.x, origin.y, 'repair');
+    this.log('魔物のそばで装備修復石を見つけた！', 'item');
+
+    const bossEquipmentGrade: EquipmentGrade = this.floor >= 25 ? 'S'
+      : this.floor >= 15 ? 'A'
+      : this.floor >= 10 ? 'B'
+      : this.floor >= 5 ? 'C'
+      : 'D';
+    const isMilestoneBoss = this.inBossRoom && this.floor % 5 === 0;
+    if (isMilestoneBoss && [25,30].includes(this.floor) && runRandom() < .2) this.dropEquipment(origin.x,origin.y,'armor',makePlayerArmor('dawn'));
+    if (isMilestoneBoss && this.floor === 30) {
+      for (const armor of ['aqua', 'crimson'] as const) {
+        if (runRandom() < .01) this.dropEquipment(origin.x,origin.y,'armor',makePlayerArmor(armor));
+      }
+    }
+    const forceArmorDrop = localQaEnabled()
+      && new URLSearchParams(location.search).has('qa-boss-armor');
+
+    // 5階刻みの強ボス／超ボスは、武器と服を必ず直接落とす。
+    if (isMilestoneBoss) {
+      const weapon = this.floor === 15 ? rollGlacialBossWeapon() : this.floor === 20 ? rollVolcanicBossWeapon() : rollWeaponByGrade(bossEquipmentGrade);
+      weapon.plus = Math.max(weapon.plus, Math.min(3, Math.floor(this.floor / 10)));
+      this.dropEquipment(origin.x, origin.y, 'weapon', weapon);
+      this.weaponWonThisFloor = true;
+      if (this.floor === 20) this.log(`熔獄竜の討伐報酬！ 火属性の武器「${weapon.name}」が残されていた。`, 'special');
+      if (this.floor === 15) this.log(`氷晶王の討伐報酬！ 氷属性の武器「${weapon.name}」が残されていた。`, 'special');
+    }
+
+    // 5階刻みの強ボスは服を確定、中ボスは5%で服を落とす。
+    if (isMilestoneBoss || (!this.inBossRoom && (forceArmorDrop || runRandom() < 0.05))) {
+      const armorDef = armorForGrade(bossEquipmentGrade);
+      if (!this.ownsArmor(armorDef.key)) {
+        this.dropEquipment(origin.x, origin.y, 'armor', makePlayerArmor(armorDef.key));
+        this.log(isMilestoneBoss
+          ? `魔物の宝として「${armorDef.name}」が残されていた！`
+          : `倒れた魔物のそばに希少な服「${armorDef.name}」が残されていた！`, 'special');
+      }
+    }
+
+    const rewardRoll = runRandom();
+    if (!this.reviveSeedSeen && rewardRoll < 0.06 * this.rareItemDropRate) {
+      this.reviveSeedSeen = true;
+      this.dropItem(origin.x, origin.y, 'revive');
+    } else if (rewardRoll < 0.28) {
+      this.dropEquipment(origin.x, origin.y, 'shield', rollShield(this.floor));
+    } else if (rewardRoll < 0.55) {
+      this.dropItem(origin.x, origin.y, 'potion');
+      this.dropItem(origin.x, origin.y, runRandom() < 0.5 ? 'invis' : 'warp');
+    } else if (rewardRoll < 0.78) {
+      this.dropItem(origin.x, origin.y, 'potion');
+      this.dropItem(origin.x, origin.y, runRandom() < 0.5 ? 'invis' : 'warp');
+    } else {
+      const kinds: ItemKind[] = ['potion', 'warp', 'torch', 'invis'];
+      this.dropItem(origin.x, origin.y, kinds[Math.floor(runRandom() * kinds.length)]);
+      this.dropItem(origin.x, origin.y, kinds[Math.floor(runRandom() * kinds.length)]);
+    }
+    this.dropItem(origin.x, origin.y, 'coin', 80 + this.floor * 18 + Math.floor(runRandom() * 80));
+
+    if (this.inBossRoom || (this.dungeon.bossRoom && !this.floorHasGate(this.floor))) {
+      this.bossRewardClaimed = true;
+      const { x, y } = this.dungeon.stairs;
+      this.dungeon.tiles[y][x] = 'stairs';
+      const sprite = this.tileSprites[y]?.[x];
+      if (sprite) this.applyTileVisual(sprite, 'stairs', getTheme(this.floor).era, x, y);
+      this.effectFx(x, y, 'fx_magic', 2.0, 760, 0x54ff92);
+    } else if (this.dungeon.bossRoom && this.floorHasGate(this.floor)) {
+      this.bossRewardClaimed = true;
+      const { x, y } = this.dungeon.stairs;
+      this.effectFx(x, y, 'fx_magic', 2.0, 760, 0xffd36b);
+    }
+  }
+
+  findGroundDropPosition(x: number, y: number): Vec2 | null {
+    for (let radius = 0; radius <= 4; radius++) {
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
+          const tx = x + dx, ty = y + dy;
+          const tile = this.dungeon.tiles[ty]?.[tx];
+          if (!tile || !isWalkable(tile) || tile === 'pit') continue;
+          if (this.groundAt(tx, ty) || this.chestAt(tx, ty) || this.enemyAt(tx, ty) || this.dungeonObjectAt(tx, ty)) continue;
+          if (this.bossObstacleAt(tx, ty) || (this.player.x === tx && this.player.y === ty)) continue;
+          return { x: tx, y: ty };
+        }
+      }
+    }
+    return null;
+  }
+
+  dropEquipment(x: number, y: number, kind: 'weapon', equipment: Weapon): void;
+  dropEquipment(x: number, y: number, kind: 'shield', equipment: Shield): void;
+  dropEquipment(x: number, y: number, kind: 'armor', equipment: Armor): void;
+  dropEquipment(x: number, y: number, kind: 'weapon' | 'shield' | 'armor', equipment: Weapon | Shield | Armor) {
+    if (kind === 'weapon') rollStarWeapon(equipment as Weapon);
+    const pos = this.findGroundDropPosition(x, y);
+    if (!pos) {
+      if (kind === 'weapon') this.receiveWeapon(equipment as Weapon, '魔物の宝');
+      else if (kind === 'shield') this.receiveShield(equipment as Shield, '魔物の宝');
+      else this.receiveArmor(equipment as Armor, '魔物の宝');
+      this.log('落とせる床がないため、ボス装備を自動回収した。', 'special');
+      return;
+    }
+    const textureKey = kind === 'armor' ? armorTextureKey(equipment.key) : kind === 'weapon' && (equipment as Weapon).starred ? starWeaponKey(equipment.key) : equipment.key;
+    const sprite = this.add.image(0, 0, equipmentIconTexture(textureKey)).setDepth(5).setOrigin(0.5, 0.6).setDisplaySize(24, 24);
+    this.placeSprite(sprite, pos.x, pos.y);
+    sprite.setVisible(this.isTileCurrentlyVisible(pos.x, pos.y));
+    const glow = this.add.image(sprite.x, sprite.y - 2, 'glow').setDepth(4.6)
+      .setBlendMode(Phaser.BlendModes.ADD).setTint(gradeColor(equipment.grade))
+      .setDisplaySize(34, 34).setAlpha(0.32).setVisible(sprite.visible);
+    glow.setDepth(sprite.depth - 0.12);
+    this.ground.push({
+      x: pos.x, y: pos.y, kind, sprite, glow, phase: Math.random() * Math.PI * 2,
+      weapon: kind === 'weapon' ? equipment as Weapon : undefined,
+      shield: kind === 'shield' ? equipment as Shield : undefined,
+      armor: kind === 'armor' ? equipment as Armor : undefined
+    });
+  }
+
+  claimFloorPotion(): boolean {
+    if (this.floorPotionDrops >= 1) return false;
+    this.floorPotionDrops++; return true;
+  }
+
+  grantChestConsumable(kind: ItemKind): boolean {
+    if (kind === 'potion' && !this.claimFloorPotion()) return false;
+    this.player.inventory.push(makeItem(kind)); return true;
+  }
+
+  dropItem(x: number, y: number, kind: ItemKind | 'coin', value?: number) {
+    if (kind === 'potion' && !this.claimFloorPotion()) return;
+    const pos = this.findGroundDropPosition(x, y);
+    if (!pos) {
+      this.collectDropDirectly(kind, value);
+      return;
+    }
+    const { x: tx, y: ty } = pos;
+    const texKey = kind === 'coin' ? 'coin' : `i_${kind}`;
+    const spr = this.add.image(0, 0, texKey).setDepth(5).setOrigin(0.5, 0.6).setDisplaySize(22, 22);
+    this.placeSprite(spr, tx, ty);
+    spr.setVisible(this.isTileCurrentlyVisible(tx, ty));
+    const glow = this.add.image(spr.x, spr.y - 2, 'glow').setDepth(4.6)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setTint(kind === 'coin' || kind === 'mystery_bread' ? 0xffc45a : 0x88dfd4)
+      .setDisplaySize(28, 28).setAlpha(0.18)
+      .setVisible(spr.visible);
+    glow.setDepth(spr.depth - 0.12);
+    this.ground.push({ x: tx, y: ty, kind, sprite: spr, glow, phase: Math.random() * Math.PI * 2, value });
+  }
+
+  collectDropDirectly(kind: ItemKind | 'coin', value?: number) {
+    if (kind === 'coin') {
+      const gold = this.awardGold(value ?? 5);
+      this.log(`届かない場所のコインを自動回収した (+${gold}G)`, 'gold');
+      Audio.playSe('coin');
+      return;
+    }
+    const item = makeItem(kind);
+    this.player.inventory.push(item);
+    this.log(`届かない場所の${item.name}を自動回収した。`, 'item');
+    Audio.playSe('pickup');
+  }
+
+  emeraldGuardActive() { return this.player.shield?.key === 's_hw_emerald' && this.turn < this.emeraldGuardUntil; }
+
+  computeIncomingAttack(e: Enemy, element?: MonsterElement) {
+    if (this.emeraldGuardActive()) return { damage: 0, shieldBroke: false, steps: ['氷翠の王域：無敵結界が有効'] };
+    const result = computeEnemyAttack(this.player, this.enemyAttackDefinition(e), element);
+    const depthBonus = ordinaryMobAttackBonus(e.def, this.floor, this.difficulty, !!this.eventMode);
+    if (depthBonus) { const boosted = ordinaryMobAttackDefinition(e.def, this.floor, this.difficulty, !!this.eventMode); result.steps.unshift(`雑魚の階層補正：${this.floor}層／攻撃力 +${boosted.atkMin-e.def.atkMin}〜${boosted.atkMax-e.def.atkMax}（補正前の攻撃力×1.2が上限）`); }
+    result.steps.unshift(`難易度：${DIFFICULTY_RULES[this.difficulty].name}（敵攻撃 ×${DIFFICULTY_RULES[this.difficulty].attack}を反映済み）`);
+    if (e.emedralAffected && e.emedralWeakUntil >= this.turn) result.steps.unshift('氷翠の効果：敵の攻撃力 ×0.7（切り捨て）を反映済み');
+    if (e.skillAttackDownUntil >= this.turn) result.steps.unshift('槍スキル：敵の攻撃力 ×0.8（切り捨て）を反映済み');
+    return result;
+  }
+
+  enemyDefenseDefinition(e: Enemy): MonsterDef {
+    return e.skillDefenseDownUntil >= this.turn ? { ...e.def, def: Math.floor(e.def.def * .9) } : e.def;
+  }
+
+  enemyAttackDefinition(e: Enemy): MonsterDef {
+    const def = ordinaryMobAttackDefinition(e.def, this.floor, this.difficulty, !!this.eventMode);
+    const rate = Math.min(e.emedralWeakUntil >= this.turn && e.emedralAffected ? .7 : 1, e.skillAttackDownUntil >= this.turn ? .8 : 1);
+    return rate < 1 ? { ...def, atkMin: Math.max(1, Math.floor(def.atkMin * rate)), atkMax: Math.max(1, Math.floor(def.atkMax * rate)) } : def;
+  }
+
+  damagePlayer(dmg: number, reason: string, attacker?: Enemy, calculation?: string[]) {
+    if (this.gameEnded) return;
+    const hpBefore = this.player.hp;
+    const steps = calculation ? [...calculation] : [`固定・特殊ダメージ：${dmg}（通常の攻撃力・防御計算を使わない）`];
+    const entry: DamageEntry = { turn: this.turn, floor: this.floor, source: attacker?.def.name ?? '地形・状態など', reason,
+      damage: 0, hpBefore, hpAfter: hpBefore, lethal: false, steps };
+    if (this.player.hp > this.player.hpMax * .2) this.emeraldGuardArmed = true;
+    if (this.player.shield?.key === 's_hw_emerald' && this.player.hp <= this.player.hpMax * .2 && this.emeraldGuardArmed) this.activateEmeraldGuard();
+    if (this.emeraldGuardActive()) {
+      steps.push('氷翠の王域：無敵結界で最終ダメージ 0');
+      appendJournal(this.damageHistory, entry);
+      this.updateEmeraldGuardFx(); return;
+    }
+    const beforeShield = dmg;
+    const shieldName = this.player.shield?.passive?.name;
+    const shieldResult = this.resolveShieldDefense(dmg, attacker);
+    dmg = shieldResult.damage;
+    if (beforeShield !== dmg) steps.push(`盾の${shieldName ?? '加護'}／${beforeShield} → ${dmg}${shieldResult.message ? `（${shieldResult.message}）` : ''}`);
+    steps.push(`最終ダメージ ${dmg}／HP ${hpBefore} − ${dmg} → ${Math.max(0, hpBefore - dmg)}`);
+    entry.damage = dmg;
+    entry.hpAfter = Math.max(0, hpBefore - dmg);
+    entry.lethal = hpBefore - dmg <= 0;
+    appendJournal(this.damageHistory, entry);
+
+    if (shieldResult.message) this.log(shieldResult.message, 'special');
+    if (dmg > 0) {
+      this.player.hp -= dmg;
+      this.floorDamaged = true;
+      if (reason) this.log(`${reason} ${dmg}ダメージ！`, 'dmg');
+      Audio.playSe('hurt');
+      this.cameras.main.shake(120, 0.008);
+      this.playPlayerHurt();
+    } else {
+      this.effectFx(this.player.x, this.player.y, 'fx_magic', 1.5, 380, 0xbfefff);
+      Audio.playSe('hit');
+    }
+
+    if (shieldResult.heal > 0 && this.player.hp > 0) {
+      this.player.heal(shieldResult.heal);
+      steps.push(`盾の回復 +${shieldResult.heal}／HP → ${this.player.hp}`);
+      entry.hpAfter = this.player.hp;
+      this.log(`${this.player.shield?.passive?.name ?? '盾の加護'}でHPを${shieldResult.heal}回復した。`, 'special');
+      this.effectFx(this.player.x, this.player.y, 'fx_heal', 1.4, 420);
+    }
+
+    if (shieldResult.reflect > 0 && attacker?.alive) {
+      steps.push(`盾の反射：${attacker.def.name}に${shieldResult.reflect}ダメージ`);
+      attacker.hp -= shieldResult.reflect;
+      this.log(`${this.player.shield?.passive?.name ?? '盾の反射'}が${attacker.def.name}へ${shieldResult.reflect}ダメージを返した！`, 'special');
+      this.hitFx(attacker.x, attacker.y);
+      if (attacker.hp <= 0) this.killEnemy(attacker);
+      else this.drawEnemyHp(attacker);
+    }
+
+    if (this.player.shield?.key === 's_hw_emerald' && this.player.hp > 0 && this.player.hp <= this.player.hpMax * .2 && this.emeraldGuardArmed) this.activateEmeraldGuard();
+    if (this.player.hp <= 0) {
+      this.handlePlayerDown();
+      if (!this.gameEnded && this.player.hp > 0) {
+        entry.revived = true;
+        steps.push(`復活のタネ：HP ${this.player.hp}で復活`);
+      }
+    }
+  }
+
+  activateEmeraldGuard() {
+    if (this.turn < this.emeraldGuardReadyTurn) return;
+    this.emeraldGuardReadyTurn = this.turn + 100;
+    this.emeraldGuardArmed = false; this.emeraldGuardUntil = this.turn + 3;
+    this.updateEmeraldGuardFx();
+    this.log('氷翠の王域！ 3ターンの無敵結界が発動！', 'special');
+  }
+
+  updateEmeraldGuardFx() {
+    if (!this.playerSprite) return;
+    if (!this.emeraldGuardActive() || this.gameEnded) {
+      if (this.emeraldGuardFx?.active) { for (const c of this.emeraldGuardFx.getAll()) this.tweens.killTweensOf(c); this.emeraldGuardFx.destroy(true); }
+      this.emeraldGuardFx = undefined; return;
+    }
+    if (!this.emeraldGuardFx?.active) {
+      ensureCombatEffectTextures(this);
+      const shell = this.add.image(0, -8, 'fx_hw_barrier').setDisplaySize(TILE * 2.35, TILE * 2.35).setAlpha(.75).setName('painted-barrier');
+      const mist = this.add.image(0, -10, 'fx_hw_aura_a').setDisplaySize(TILE * 2.6, TILE * 2.6).setAlpha(.4);
+      const label = this.add.text(0, -TILE * 1.25, '', {fontFamily:'Meiryo',fontSize:'12px',color:'#d1fff1',stroke:'#073343',strokeThickness:4,fontStyle:'bold'}).setOrigin(.5).setName('guard-turn');
+      this.emeraldGuardFx = this.add.container(0, 0, [mist, shell, label]).setName('emerald-guard-fx');
+      this.tweens.add({targets:shell,alpha:.5,duration:700,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
+      this.tweens.add({targets:mist,y:-17,alpha:.17,duration:1100,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
+    }
+    const ps = this.playerSprite, fx = this.emeraldGuardFx;
+    fx.setPosition(ps.x, ps.y).setDepth(ps.depth + .4).setVisible(ps.visible);
+    (fx.getByName('guard-turn') as Phaser.GameObjects.Text).setText(`無敵 ${this.emeraldGuardUntil - this.turn}`);
+  }
+
+  resolveShieldDefense(damage: number, attacker?: Enemy): { damage: number; heal: number; reflect: number; message?: string } {
+    if (!attacker) return { damage, heal: 0, reflect: 0 };
+    return resolveShieldHit(this.player.shield, damage, {
+      hp: this.player.hp, hpMax: this.player.hpMax, attackerElement: monsterElement(attacker.def)
+    });
+  }
+
+  handlePlayerDown() {
+    // 復活のタネ所持で自動復活
+    const idx = this.player.inventory.findIndex((i) => i.kind === 'revive');
+    if (idx >= 0 && this.revivesUsed < DIFFICULTY_RULES[this.difficulty].revives) {
+      this.revivesUsed++;
+      this.player.inventory.splice(idx, 1);
+      this.player.hp = Math.floor(this.player.hpMax * 0.6);
+      this.log('復活のタネが芽吹いた！ HPが回復して復活した。', 'special');
+      if (this.playerSprite?.active) {
+        this.reviving = true;
+        this.clearMoveInput();
+        this.scene.pause();
+        const ui = this.scene.get('UIScene');
+        this.revivalPromise = playRevivalPresentation(ui, this.playerSprite, this.player.weapon?.key).finally(() => {
+          this.reviving = false;
+          this.revivalPromise = undefined;
+          if (this.scene.isPaused()) this.scene.resume();
+          this.emitRefresh();
+        });
+      }
+      return;
+    }
+    this.gameOver(false);
+  }
+
+  playPlayerHurt() {
+    if (!this.playerSprite || this.gameEnded) return;
+    const token = ++this.playerAnimToken;
+    const sprite = this.playerSprite;
+    const homeX = this.player.x * TILE + TILE / 2;
+    const homeY = this.player.y * TILE + TILE / 2;
+    this.tweens.killTweensOf(sprite);
+    sprite.setPosition(homeX, homeY).setAngle(0).setScale(PLAYER_WORLD_SCALE);
+    this.setPlayerVisual(this.player.dir, 'hurt');
+    sprite.setTintFill(0xfff0ec);
+    this.tweens.add({
+      targets: sprite,
+      x: homeX + (this.player.dir === 'left' ? 3 : this.player.dir === 'right' ? -3 : 2),
+      angle: this.player.dir === 'left' ? 7 : -7,
+      duration: 58,
+      yoyo: true,
+      ease: 'Sine.easeOut',
+      onComplete: () => {
+        sprite.x = homeX;
+        sprite.setAngle(0).setScale(PLAYER_WORLD_SCALE).clearTint();
+        if (token === this.playerAnimToken && !this.gameEnded && !this.playerAttacking) {
+          this.setPlayerVisual(this.player.dir, 'idle');
+        }
+      }
+    });
+  }
+
+  playPlayerDeath() {
+    const token = ++this.playerAnimToken;
+    const sprite = this.playerSprite;
+    this.tweens.killTweensOf(sprite);
+    sprite.clearTint().setAngle(0).setScale(PLAYER_WORLD_SCALE);
+    this.setPlayerVisual(this.player.dir, 'hurt');
+    this.tweens.add({
+      targets: sprite,
+      angle: this.player.dir === 'left' ? -6 : 6,
+      duration: 130,
+      ease: 'Quad.easeIn',
+      onComplete: () => {
+        if (token !== this.playerAnimToken) return;
+        this.setPlayerVisual(this.player.dir, 'down');
+        sprite.setAngle(0).setScale(PLAYER_WORLD_SCALE);
+        this.tweens.add({ targets: sprite, y: sprite.y + 2, duration: 100, ease: 'Sine.easeOut' });
+      }
+    });
+  }
+
+  // ============ 敵ターン ============
+  async finishTurn() {
+    if (this.gameEnded) { this.turnCharged = false; return; }
+    this.chargeTurn();
+    this.turnCharged = false;
+    if (this.timeStopTurns > 0) {
+      this.timeStopTurns--;
+      this.refreshTimeStopEffect();
+      if (!this.timeStopTurns) {
+        this.log('零刻領域が解け、時が動き出した。', 'special');
+        if (this.player.weapon?.weaponType === 'dagger') {
+          this.busy = false;
+          await this.useWeaponSkill(false, true);
+        }
+      }
+      this.updateVisibility(); this.updateStairsHint(); this.emitRefresh();
+      return;
+    }
+    if (this.lanceSkillTurns > 0) this.lanceSkillTurns--;
+    if (this.player.hp > this.player.hpMax * .2) this.emeraldGuardArmed = true;
+    this.floorTurn++;
+    // Player status duration follows player turns, not the number/type of active enemies.
+    if (this.playerRootTurns > 0) this.playerRootTurns--;
+    if (this.itemSealTurns > 0) this.itemSealTurns--;
+
+    // 毒ダメージ
+    if (this.player.poisonTurns > 0) {
+      this.player.poisonTurns--;
+      this.damagePlayer(3, '毒に侵されている！');
+      if (this.gameEnded) return;
+    }
+    if (this.torchTurns > 0) {
+      this.torchTurns--;
+      if (this.torchTurns === 0) this.log('松明の火が消え、視界が元に戻った。', 'sys');
+    }
+    if (this.lanternTurns > 0) {
+      this.lanternTurns--;
+      if (this.lanternTurns === 0) this.log('ランタンの光が消え、視界が元に戻った。', 'sys');
+    }
+    // 透明化の残りターンを進める
+    if (this.invisTurns > 0) {
+      this.invisTurns--;
+      if (this.invisTurns === 0) {
+        this.log('透明化が解けた。敵に見えるようになった！', 'sys');
+        this.refreshTransformationVisual();
+      }
+    }
+    if (this.transformation) {
+      this.transformation.turns--;
+      if (this.transformation.turns <= 0) this.clearTransformation(true);
+    }
+
+    this.applyLongStay();
+
+    this.tickBossMechanics();
+    if (this.gameEnded) return;
+
+    await this.enemyTurn();
+    if (this.revivalPromise) await this.revivalPromise;
+
+    if (this.gameEnded) return;
+
+    this.updateVisibility();
+    this.updateStairsHint();
+    this.emitRefresh();
+  }
+
+  private milestoneFloorCleared(): boolean {
+    return this.floor % 5 === 0 && this.floorBossDefeated;
+  }
+
+  applyLongStay() {
+    if (this.milestoneFloorCleared()) return;
+    if (this.eventMode) return;
+    if (this.inBossRoom && hasFinalDepthTerrain(this.floor)) return;
+    const f = this.floorTurn;
+    if (f >= 100 && !this.penaltyFlags.p100) { this.penaltyFlags.p100 = true; this.log('空気が重くなってきた…（長居注意）', 'sys'); }
+    if (f >= 150 && !this.penaltyFlags.p150) { this.penaltyFlags.p150 = true; this.log('敵の気配が増している！', 'dmg'); }
+    if (f >= 200 && !this.penaltyFlags.p200) {
+      this.penaltyFlags.p200 = true;
+      this.log('強敵が姿を現した！', 'dmg');
+      this.spawnWanderer(true);
+    }
+    // 150以降、20ターンごとに敵追加（HPが減るペナルティは無し）
+    if (f >= 150 && f % 20 === 0) this.spawnWanderer(false);
+  }
+
+  spawnWanderer(elite: boolean) {
+    if (this.milestoneFloorCleared()) return;
+    if (this.inBossRoom && hasFinalDepthTerrain(this.floor)) return;
+    if (hasFinalDepthTerrain(this.floor) && this.enemies.filter(e => e.alive && !e.def.isFloorBoss).length >= finalDepthMobCount(this.floor, false, 15)) return;
+    const pool = NORMAL_MONSTER_DEFS.filter((m) =>
+      m.minFloor <= this.floor && this.floor <= m.maxFloor && !m.isBoss && !m.isTreasureRabbit
+      && (elite ? m.isElite : true)
+    );
+    const usePool = pool.length ? pool : NORMAL_MONSTER_DEFS.filter((m) => !m.isBoss && !m.isTreasureRabbit);
+    const def = usePool[Math.floor(runRandom() * usePool.length)];
+    const pos = this.inBossRoom
+      ? this.randomBossCombatFloor(this.occupiedPositions())
+      : randomFloor(this.dungeon, [...this.occupiedPositions(), ...(hasFinalDepthTerrain(this.floor) ? this.bossRoomCells() : [])]);
+    if (!pos || this.distToPlayer(pos.x, pos.y) < 5) return;
+    this.addEnemy(def, pos.x, pos.y, 1 + this.floor * 0.05);
+  }
+
+  healEnemyFromGimmick(e: Enemy, amount: number, label?: string) {
+    if (amount <= 0 || e.hp >= e.hpMax) return;
+    const healed = Math.min(amount, e.hpMax - e.hp);
+    e.hp += healed;
+    this.drawEnemyHp(e);
+    this.effectFx(e.x, e.y, 'fx_heal', 0.85, 260, 0x75e89a);
+    if (label) this.log(`${e.def.name}${label}${healed}回復した。`, 'special');
+  }
+
+  summonGimmickMonsters(e: Enemy, key: string, count: number) {
+    if (this.milestoneFloorCleared()) return;
+    const base = (this.eventMode ? HALLOWEEN_MOBS : NORMAL_MONSTER_DEFS).find((monster) => monster.key === key);
+    if (!base) return;
+    const spots = runShuffle([
+      { x: e.x + 1, y: e.y }, { x: e.x - 1, y: e.y },
+      { x: e.x, y: e.y + 1 }, { x: e.x, y: e.y - 1 }
+    ]);
+    let spawned = 0;
+    for (const spot of spots) {
+      if (spawned >= count || !this.validMonsterTile(spot.x, spot.y)) continue;
+      if (this.enemyAt(spot.x, spot.y) || this.bossObstacleAt(spot.x, spot.y)
+        || this.player.x === spot.x && this.player.y === spot.y) continue;
+      const minionDef: MonsterDef = {
+        ...base,
+        name: `${base.name}（召喚）`,
+        hp: Math.max(8, Math.floor(base.hp * 0.65)),
+        exp: Math.max(1, Math.floor(base.exp * 0.4)),
+        gold: Math.max(0, Math.floor(base.gold * 0.25))
+      };
+      const minion = this.addEnemy(minionDef, spot.x, spot.y, 1);
+      minion.cloneDepth = 1;
+      minion.summoned = true;
+      this.effectFx(spot.x, spot.y, 'fx_magic', 1.1, 320, e.def.color);
+      spawned++;
+    }
+  }
+
+  nearbyGimmickDestination(e: Enemy): Vec2 | null {
+    const candidates = runShuffle([
+      { x: this.player.x + 1, y: this.player.y }, { x: this.player.x - 1, y: this.player.y },
+      { x: this.player.x, y: this.player.y + 1 }, { x: this.player.x, y: this.player.y - 1 }
+    ]);
+    return candidates.find((spot) => this.passable(e, spot.x, spot.y)) ?? null;
+  }
+
+  resolveMonsterCharge(e: Enemy, maxSteps: number, factor: number, label: string): Promise<void> | undefined {
+    const dir = e.chargeDir;
+    if (!dir) return undefined;
+    let end = { x: e.x, y: e.y };
+    let hit = false;
+    for (let step = 0; step < maxSteps; step++) {
+      const nx = end.x + dir.x;
+      const ny = end.y + dir.y;
+      if (nx === this.player.x && ny === this.player.y) {
+        this.damagePlayerFromBoss(e, factor, label);
+        hit = true;
+        break;
+      }
+      if (!this.passable(e, nx, ny)) break;
+      end = { x: nx, y: ny };
+    }
+    e.charging = false;
+    e.chargeDir = null;
+    e.sprite.clearTint();
+    if (end.x === e.x && end.y === e.y && !hit) {
+      e.stunnedTurns = Math.max(e.stunnedTurns, 1);
+      this.log(`${e.def.name}は壁際で体勢を崩した！`, 'special');
+      return undefined;
+    }
+    e.x = end.x;
+    e.y = end.y;
+    e.animating = true;
+    return this.tween(e.sprite, { x: end.x * TILE + TILE / 2, y: end.y * TILE + TILE / 2 }, 170, 'Cubic.easeIn').then(() => {
+      e.animating = false;
+      this.effectFx(e.x, e.y, 'fx_hit', 1.3, 300, e.def.color);
+    });
+  }
+
+  handleMonsterGimmickTurn(e: Enemy): { handled: boolean; animation?: Promise<void> } {
+    if (e.def.isFloorBoss) return { handled: false };
+    if (e.vulnerableTurns > 0) {
+      e.vulnerableTurns--;
+      if (e.vulnerableTurns === 0) {
+        if (e.def.gimmick === 'phase') e.sprite.setAlpha(0.68);
+        if (e.def.gimmick === 'wraith_phase') e.sprite.setAlpha(0.42);
+      }
+    }
+    if (e.guardOpenTurns > 0) e.guardOpenTurns--;
+    if (e.regenBlockedTurns > 0) e.regenBlockedTurns--;
+    if (e.stunnedTurns > 0) {
+      e.stunnedTurns--;
+      this.log(`${e.def.name}は体勢を崩して動けない。`, 'special');
+      return { handled: true };
+    }
+
+    const dx = this.player.x - e.x;
+    const dy = this.player.y - e.y;
+    const dist = Math.abs(dx) + Math.abs(dy);
+    e.gimmickCounter++;
+
+    if (e.def.gimmick === 'stance') e.gimmickPhase = (e.gimmickPhase + 1) % 2;
+    if (e.def.gimmick === 'regen' && e.gimmickCounter % 3 === 0) {
+      this.healEnemyFromGimmick(e, Math.max(1, Math.floor(e.hpMax * 0.06)), 'が苔の力で');
+    }
+    if (e.def.gimmick === 'hydra_regen' && e.regenBlockedTurns <= 0) {
+      this.healEnemyFromGimmick(e, Math.max(1, Math.floor(e.hpMax * 0.03)));
+    }
+    if (e.def.gimmick === 'heat_aura' && dist === 1) {
+      this.damagePlayer(2 + Math.floor(this.floor / 10), `${e.def.name}の熱気！`, e);
+    }
+
+    // ミミックは近づいただけでは動かない。宝箱へ触れる（攻撃する）まで完全に擬態する。
+    if (e.def.gimmick === 'mimic' && !e.awakened) return { handled: true };
+    if ((e.def.gimmick === 'statue' || e.def.gimmick === 'ambush') && !e.awakened) {
+      if (dist > 2) return { handled: true };
+      e.awakened = true;
+      e.sprite.setAlpha(1).clearTint();
+      e.shadow?.setAlpha(0.55);
+      this.effectFx(e.x, e.y, 'fx_magic', 1.1, 300, e.def.color);
+      this.log(`${e.def.name}が正体を現した！`, 'dmg');
+      return { handled: true };
+    }
+
+    if (e.def.gimmick === 'burrow') {
+      if (e.charging) {
+        e.charging = false;
+        const destination = this.nearbyGimmickDestination(e);
+        if (destination) this.teleportBoss(e, destination);
+        e.sprite.setAlpha(1);
+        e.shadow?.setAlpha(0.55);
+        this.log(`${e.def.name}が地中から飛び出した！`, 'dmg');
+        return { handled: true };
+      }
+      if (e.gimmickCounter % 3 === 0) {
+        e.charging = true;
+        e.sprite.setAlpha(0.05);
+        e.shadow?.setAlpha(0.03);
+        this.log(`${e.def.name}が地中へ潜った。`, 'sys');
+        return { handled: true };
+      }
+    }
+
+    if (e.def.gimmick === 'warp' && e.gimmickCounter % 4 === 0) {
+      const destination = this.nearbyGimmickDestination(e);
+      if (destination) {
+        this.teleportBoss(e, destination);
+        this.log(`${e.def.name}が空間を越えて接近した！`, 'dmg');
+        return { handled: true };
+      }
+    }
+
+    if (e.def.gimmick === 'summon' && !e.summoned && e.hp <= e.hpMax * 0.5) {
+      e.summoned = true;
+      this.summonGimmickMonsters(e, 'm_horn_demon', 1);
+      this.log(`${e.def.name}が双角デーモンを召喚した！`, 'dmg');
+      return { handled: true };
+    }
+    if (e.def.gimmick === 'necromancy' && !e.summoned && e.hp <= e.hpMax * 0.5) {
+      e.summoned = true;
+      this.summonGimmickMonsters(e, 'm_grave_crawler', 2);
+      this.log(`${e.def.name}が墓這いを呼び起こした！`, 'dmg');
+      return { handled: true };
+    }
+
+    if (e.def.gimmick === 'root' && dist <= 2 && e.gimmickCounter % 3 === 0) {
+      this.playerRootTurns = Math.max(this.playerRootTurns, 1);
+      this.effectFx(this.player.x, this.player.y, 'fx_poison', 1.0, 280, 0x6fc66e);
+      this.log(`${e.def.name}の根が足に絡みついた！`, 'dmg');
+      return { handled: true };
+    }
+
+    if (e.def.gimmick === 'pull' && dist >= 2 && dist <= 4 && (dx === 0 || dy === 0)
+      && this.lineOfSight(e.x, e.y, this.player.x, this.player.y)) {
+      const destination = { x: this.player.x - Math.sign(dx), y: this.player.y - Math.sign(dy) };
+      const tile = this.dungeon.tiles[destination.y]?.[destination.x];
+      if (tile && isWalkable(tile) && tile !== 'pit' && !this.enemyAt(destination.x, destination.y)
+        && (!this.inBossRoom || this.isInsideBossCombatFrame(destination.x, destination.y))
+        && !this.chestAt(destination.x, destination.y) && !this.bossObstacleAt(destination.x, destination.y)) {
+        this.player.x = destination.x;
+        this.player.y = destination.y;
+        this.log(`${e.def.name}の鎖に引き寄せられた！`, 'dmg');
+        const animation = this.tween(this.playerSprite, {
+          x: destination.x * TILE + TILE / 2, y: destination.y * TILE + TILE / 2
+        }, 150, 'Cubic.easeIn').then(() => this.onEnterTile(destination.x, destination.y));
+        return { handled: true, animation };
+      }
+    }
+
+    if (e.def.gimmick === 'rush' && dist >= 2 && dist <= 5 && (dx === 0 || dy === 0)) {
+      const step = { x: Math.sign(dx), y: Math.sign(dy) };
+      let destination = { x: e.x, y: e.y };
+      for (let i = 0; i < Math.min(2, dist - 1); i++) {
+        const next = { x: destination.x + step.x, y: destination.y + step.y };
+        if (!this.passable(e, next.x, next.y)) break;
+        destination = next;
+      }
+      if (destination.x !== e.x || destination.y !== e.y) {
+        e.x = destination.x;
+        e.y = destination.y;
+        this.log(`${e.def.name}が一直線に駆け寄った！`, 'dmg');
+        return { handled: true, animation: this.animateEnemyMove(e, destination) };
+      }
+    }
+
+    const chargeLike = e.def.gimmick === 'charge' || e.def.gimmick === 'bull_charge';
+    if (chargeLike && e.charging) {
+      return {
+        handled: true,
+        animation: this.resolveMonsterCharge(e, e.def.gimmick === 'bull_charge' ? 5 : 3, 1.2, `${e.def.name}の突進！`)
+      };
+    }
+    if (chargeLike && dist >= 2 && dist <= 6 && (dx === 0 || dy === 0)
+      && this.lineOfSight(e.x, e.y, this.player.x, this.player.y)) {
+      e.charging = true;
+      e.chargeDir = { x: Math.sign(dx), y: Math.sign(dy) };
+      e.sprite.setTint(0xffd05a);
+      this.effectFx(e.x, e.y, 'fx_levelup', 0.85, 280, 0xffd05a);
+      this.log(`${e.def.name}が突進の構え！ 横へ避けろ。`, 'dmg');
+      return { handled: true };
+    }
+
+    const laserLike = e.def.gimmick === 'laser_lock' || e.def.gimmick === 'core_laser';
+    if (laserLike && e.charging) {
+      const sameLine = e.def.gimmick === 'core_laser'
+        ? (this.player.x === e.x || this.player.y === e.y)
+        : (e.chargeDir?.x === 0 ? this.player.x === e.x : this.player.y === e.y);
+      if (sameLine && this.lineOfSight(e.x, e.y, this.player.x, this.player.y)) {
+        this.damagePlayerFromBoss(e, e.def.gimmick === 'core_laser' ? 1.35 : 1.05, `${e.def.name}の照準レーザー！`);
+        this.effectFx(this.player.x, this.player.y, 'fx_bolt', 1.5, 360, 0xff4fc8);
+      }
+      e.charging = false;
+      e.chargeDir = null;
+      e.sprite.clearTint();
+      return { handled: true };
+    }
+    if (laserLike && dist <= 6 && (dx === 0 || dy === 0)
+      && this.lineOfSight(e.x, e.y, this.player.x, this.player.y)) {
+      e.charging = true;
+      e.chargeDir = { x: Math.sign(dx), y: Math.sign(dy) };
+      e.sprite.setTint(0xff4fc8);
+      this.log(`${e.def.name}が射線を固定した！ 次のターンにレーザーが来る。`, 'dmg');
+      return { handled: true };
+    }
+
+    return { handled: false };
+  }
+
+  private readonly enemyMoveAnimations = new WeakSet<Promise<void>>();
+
+  async enemyTurn() {
+    const anims: Promise<void>[] = [];
+    // Movement commits tile coordinates before its purely visual tween starts.
+    // Keep damage/casts ordered for replay, but do not serialize walking visuals.
+    const waitForAction = async (animation: Promise<void>) => {
+      if (this.rankedRun?.ticket && !this.enemyMoveAnimations.has(animation)) {
+        await Promise.all(anims);
+        anims.length = 0;
+        await animation;
+      } else anims.push(animation);
+    };
+    for (const e of this.enemies) {
+      if (this.revivalPromise) await this.revivalPromise;
+      if (this.gameEnded) break;
+      if (!e.alive || e.def.halloweenObject) continue;
+      if (e.def.isHalloweenRetainer && this.floor === 5) {
+        const king = this.enemies.find(m => m.def.isFloorBoss);
+        const royalState = king && this.bossStates.get(king);
+        if (royalState?.phaseTwo && (royalState.intent || (royalState.halloweenTurn ?? 0) % 2 === 0)) continue;
+      }
+      const sealedRoom = this.optionalRoomContaining(e.x, e.y);
+      if (sealedRoom && !sealedRoom.opened) continue;
+      // 3歩目に現れた闇忍者は、プレイヤーが1回行動したら再び闇へ溶ける。
+      if (e.def.isDarkNinja && e.stealthRevealed) {
+        e.stealthRevealed = false;
+        e.sprite.setAlpha(0.08);
+        e.shadow?.setAlpha(0.08);
+        e.hpBar?.setAlpha(0.08);
+      }
+      if ((e.def.isFloorBoss || e.def.isHalloweenRetainer) && this.dungeon.bossRoom && !this.isInsideBossRoom(this.player.x, this.player.y)) continue;
+      // Stun also suspends boss intents; the per-target immunity survives saves.
+      if (e.stunnedTurns > 0) { e.stunnedTurns--; continue; }
+      // 状態異常
+      if (e.freezeTurns > 0) {
+        e.freezeTurns--;
+        this.updateEnemyFreezeFx(e);
+        this.effectFx(e.x, e.y, 'fx_magic', 1.05, 260, 0x9deeff);
+        if (e.freezeTurns <= 0) this.destroyEnemyFreezeFx(e);
+        continue;
+      }
+      if (e.sealTurns > 0) { e.sealTurns--; continue; }
+      if (e.poisonTurns > 0) {
+        e.poisonTurns--;
+        e.hp -= 2;
+        if (e.hp <= 0) { this.killEnemy(e); continue; }
+        this.drawEnemyHp(e);
+      }
+      if (this.handleDifficultyBossTurn(e)) continue;
+      const bossTurn = this.handleBossTurn(e);
+      if (bossTurn.handled) {
+        if (bossTurn.animation) await waitForAction(bossTurn.animation);
+        continue;
+      }
+      const gimmickTurn = this.handleMonsterGimmickTurn(e);
+      if (gimmickTurn.handled) {
+        if (gimmickTurn.animation) await waitForAction(gimmickTurn.animation);
+        continue;
+      }
+      // slow：2ターンに1回
+      if (e.def.behavior === 'slow') {
+        e.slowToggle = !e.slowToggle;
+        if (!e.slowToggle) continue;
+      }
+      const p = this.enemyAct(e);
+      if (p) await waitForAction(p);
+    }
+    await Promise.all(anims);
+    for (const enemy of this.enemies) enemy.plannedMove = undefined;
+  }
+
+  enemyAct(e: Enemy): Promise<void> | null {
+    if (e.def.halloweenObject) return null;
+    if ((e.def.isFloorBoss || e.def.isHalloweenRetainer) && this.dungeon.bossRoom && !this.isInsideBossRoom(this.player.x, this.player.y)) return null;
+    const dxp = this.player.x - e.x;
+    const dyp = this.player.y - e.y;
+    const dist = bodyDistance(e, bossBodyRadius(e.def), this.player);
+    // 透明化中は敵から完全に見えない（攻撃されず追跡もされない）
+    const unseen = this.invisTurns > 0;
+
+    // 福袋うさぎは一切攻撃せず、毎ターンできるだけプレイヤーから離れる。
+    if (e.def.isTreasureRabbit) {
+      const escape = this.stepAway(e, this.player.x, this.player.y);
+      if (!escape) return null;
+      const moveDx = escape.x - e.x;
+      const moveDy = escape.y - e.y;
+      if (Math.abs(moveDx) > Math.abs(moveDy)) e.facing = moveDx > 0 ? 'right' : 'left';
+      else if (moveDy !== 0) e.facing = moveDy > 0 ? 'down' : 'up';
+      e.x = escape.x;
+      e.y = escape.y;
+      return this.animateEnemyMove(e, escape);
+    }
+    // 隣接なら攻撃
+    if (dist === 1 && !unseen) {
+      return this.enemyAttack(e);
+    }
+
+    // 遠距離攻撃
+    if (!unseen && e.def.ranged && (dxp === 0 || dyp === 0) && dist <= 5) {
+      if (this.lineOfSight(e.x, e.y, this.player.x, this.player.y)) {
+        return this.enemyRanged(e);
+      }
+    }
+
+    // 行動パターンによる移動
+    let mv: Vec2 | null = null;
+    const aggro = !unseen && dist <= 9;
+    const hasBossRoomPlan = this.inBossRoom && !e.def.isFloorBoss && e.plannedMove !== undefined;
+    if (hasBossRoomPlan) {
+      const planned = e.plannedMove;
+      e.plannedMove = undefined;
+      if (planned && Math.abs(planned.x - e.x) + Math.abs(planned.y - e.y) === 1
+        && this.passable(e, planned.x, planned.y)) {
+        mv = planned;
+      }
+    } else if (e.def.isFloorBoss && !unseen && (this.dungeon.bossRoom || aggro)) {
+      mv = bossApproach(e, this.player, bossBodyRadius(e.def), (x, y) => this.passable(e, x, y)).step;
+    } else {
+      switch (e.def.behavior) {
+        case 'chase':
+        case 'slow':
+        case 'ranged':
+          mv = aggro ? this.stepToward(e, this.player.x, this.player.y) : this.stepRandom(e);
+          break;
+        case 'random':
+          mv = this.stepRandom(e);
+          break;
+        case 'loop':
+          mv = this.stepLoop(e);
+          break;
+        case 'line':
+          mv = this.stepLine(e);
+          break;
+      }
+    }
+    if (mv) {
+      const from = { x: e.x, y: e.y };
+      const moveDx = mv.x - e.x;
+      const moveDy = mv.y - e.y;
+      if (Math.abs(moveDx) > Math.abs(moveDy)) e.facing = moveDx > 0 ? 'right' : 'left';
+      else if (moveDy !== 0) e.facing = moveDy > 0 ? 'down' : 'up';
+      if (e.def.behavior === 'loop') {
+        const loopDirections = [{ x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 0, y: -1 }];
+        const directionIndex = loopDirections.findIndex((direction) => direction.x === moveDx && direction.y === moveDy);
+        if (directionIndex >= 0) e.loopDir = directionIndex;
+      }
+      if (e.def.behavior === 'line') e.lineDir = { x: moveDx, y: moveDy };
+      e.x = mv.x;
+      e.y = mv.y;
+      e.moveSteps++;
+      this.afterEnemyMoved(e, from);
+      return this.animateEnemyMove(e, mv);
+    }
+    return null;
+  }
+
+  animateEnemyMove(e: Enemy, mv: Vec2): Promise<void> {
+    const animation = this.animateEnemyMoveVisual(e, mv);
+    this.enemyMoveAnimations.add(animation);
+    return animation;
+  }
+
+  private animateEnemyMoveVisual(e: Enemy, mv: Vec2): Promise<void> {
+    e.animating = true;
+    if (e.def.isDarkNinja) {
+      e.stealthRevealed = e.moveSteps % 3 === 0;
+      e.sprite.setAlpha(e.stealthRevealed ? 1 : 0.08);
+      e.shadow?.setAlpha(e.stealthRevealed ? 0.55 : 0.08);
+      if (e.stealthRevealed) this.effectFx(mv.x, mv.y, 'fx_magic', 0.8, 220, 0x9e55ff);
+    }
+    const targetX = mv.x * TILE + TILE / 2;
+    const targetY = mv.y * TILE + TILE / 2;
+    if (e.directionArt) {
+      this.updateEnemyDirection(e);
+      const duration = this.currentTurnAnimDuration(ANIM);
+      const [dx, dy] = this.dirVec(e.facing);
+      e.directionMotion = { kind: 'walk', startedAt: this.time.now, duration, dx, dy };
+      return this.tween(e.sprite, { x: targetX, y: targetY }, duration, 'Sine.easeInOut').then(() => {
+        e.animating = false;
+        e.directionMotion = undefined;
+      });
+    }
+    if (e.frameAnimation) {
+      // 4コマを保ちつつ、従来の移動速度と長押し加速に合わせる。
+      const duration = Math.max(80, this.currentTurnAnimDuration(ANIM));
+      this.setEnemyAnimation(e, 'walk', duration);
+      return this.tween(e.sprite, { x: targetX, y: targetY }, duration, 'Linear').then(() => {
+        if (!e.sprite.active) return;
+        e.animating = false;
+        this.setEnemyAnimation(e, 'idle');
+      });
+    }
+    const flying = !!e.def.wallPass || /drake|dragon|wyrm|wyvern|moth|fiend|lich/.test(e.def.key);
+    const rushing = /hound|cerberus|crawler/.test(e.def.key);
+    const lean = Math.sign(targetX - e.sprite.x) * (flying ? -2 : -4);
+    e.sprite.setAngle(lean);
+    if (!flying) this.stepDust(e.sprite.x, e.sprite.y + 10, 0, rushing ? 3 : 2, 0x516b68);
+    this.tweens.add({
+      targets: e.sprite,
+      scaleX: e.baseScale * (rushing ? 1.14 : 1.08),
+      scaleY: e.baseScale * (flying ? 1.04 : 0.9),
+      duration: this.currentTurnAnimDuration(ANIM * 0.5),
+      yoyo: true,
+      ease: 'Sine.easeInOut'
+    });
+    const baseDuration = rushing ? ANIM * 0.76 : e.def.behavior === 'slow' ? ANIM * 1.14 : ANIM;
+    const duration = this.currentTurnAnimDuration(baseDuration);
+    return this.tween(e.sprite, { x: targetX, y: targetY }, duration, flying ? 'Sine.easeOut' : 'Sine.easeInOut').then(() => {
+      e.animating = false;
+      e.sprite.setScale(e.baseScale).setAngle(0);
+    });
+  }
+
+  afterEnemyMoved(e: Enemy, from: Vec2) {
+    if (e.moveSteps % 3 !== 0) return;
+    switch (e.def.gimmick) {
+      case 'vine_trail':
+        this.addBossHazards([from], 'slow', 4, false);
+        this.log(`${e.def.name}が床にツタを残した。`, 'sys');
+        break;
+      case 'web_trail':
+        this.addBossHazards([from], 'web', 5, false);
+        this.log(`${e.def.name}が粘着糸を張った。`, 'sys');
+        break;
+      case 'ice_trail':
+        this.addBossHazards([from], 'ice', 4, false);
+        break;
+      case 'storm_trail':
+        this.addBossHazards([from], 'lightning', 3, false);
+        break;
+    }
+  }
+
+  enemyAttackProfile(e: Enemy): { element: MonsterElement | undefined; factor: number; label: string } {
+    let element = monsterElement(e.def);
+    let factor = 1;
+    let label = '';
+    if (e.def.gimmick === 'element_cycle') {
+      const cycle: Element[] = ['fire', 'ice', 'thunder'];
+      element = cycle[e.gimmickPhase % cycle.length];
+      e.gimmickPhase++;
+      label = `${ELEMENT_INFO[element].name}変換・`;
+    }
+    if (['fire_breath', 'heat', 'multi_bite', 'starfall'].includes(e.def.gimmick ?? '')) {
+      e.gimmickPhase++;
+      if (e.gimmickPhase % 3 === 0) {
+        factor *= e.def.gimmick === 'multi_bite' ? 1.55 : 1.4;
+        label = e.def.gimmick === 'fire_breath' ? '火炎ブレス・'
+          : e.def.gimmick === 'heat' ? '過熱攻撃・'
+          : e.def.gimmick === 'multi_bite' ? '三首連撃・'
+          : '星弾・';
+      }
+    }
+    if (e.def.gimmick === 'enrage' && e.hp <= e.hpMax * 0.5) {
+      factor *= 1.35;
+      label = '怒り・';
+    }
+    if (e.def.gimmick === 'execute' && this.player.hp <= this.player.hpMax * 0.3) {
+      factor *= 1.65;
+      label = '処刑斬り・';
+    }
+    if (e.def.gimmick === 'stance' && e.gimmickPhase === 0) {
+      factor *= 1.25;
+      label = '攻撃姿勢・';
+    }
+    return { element, factor, label };
+  }
+
+  afterEnemyHitGimmick(e: Enemy, damage: number, ranged: boolean) {
+    if (!e.alive || !e.sprite.active || this.emeraldGuardActive()) return;
+    if (e.def.gimmick === 'mud_bind') {
+      this.playerRootTurns = Math.max(this.playerRootTurns, 1);
+      this.log('泥が足に絡み、次の移動が止まる！', 'dmg');
+    }
+    if (e.def.gimmick === 'freeze_shot' && runRandom() < 0.35) {
+      this.playerRootTurns = Math.max(this.playerRootTurns, 1);
+      this.log('氷弾で足が凍りついた！', 'dmg');
+    }
+    if (e.def.gimmick === 'item_seal' && runRandom() < 0.5) {
+      this.itemSealTurns = Math.max(this.itemSealTurns, 2);
+      this.log('仮面の呪いでアイテムを2ターン封じられた！', 'dmg');
+    }
+    if (e.def.gimmick === 'vampire') {
+      this.healEnemyFromGimmick(e, Math.max(1, Math.floor(damage * 0.35)), 'が血を吸って');
+    }
+    if (e.def.gimmick === 'phase' || e.def.gimmick === 'wraith_phase') {
+      e.vulnerableTurns = 2;
+      e.sprite.setAlpha(1);
+      this.log(`${e.def.name}が攻撃直後に実体化した！`, 'special');
+    }
+    if (['shell_guard', 'knight_guard', 'golem_guard', 'guardian'].includes(e.def.gimmick ?? '')) {
+      e.guardOpenTurns = 2;
+      this.log(`${e.def.name}の守りが一時的に開いた！`, 'special');
+    }
+    if (e.def.gimmick === 'sidestep' && ranged) {
+      const options = runShuffle([
+        { x: e.x + 1, y: e.y }, { x: e.x - 1, y: e.y },
+        { x: e.x, y: e.y + 1 }, { x: e.x, y: e.y - 1 }
+      ]).filter((spot) => this.passable(e, spot.x, spot.y));
+      const destination = options[0];
+      if (destination) {
+        e.x = destination.x;
+        e.y = destination.y;
+        this.tween(e.sprite, {
+          x: destination.x * TILE + TILE / 2, y: destination.y * TILE + TILE / 2
+        }, 120, 'Sine.easeOut');
+      }
+    }
+  }
+
+  enemyAttack(e: Enemy): Promise<void> {
+    const profile = this.enemyAttackProfile(e);
+    const res = this.computeIncomingAttack(e, profile.element);
+    const damage = Math.max(1, Math.floor(res.damage * profile.factor));
+    const enemyElement = profile.element;
+    const enemyElementInfo = enemyElement ? ELEMENT_INFO[enemyElement] : { name: '無', color: 0xc7c5d0 };
+    if (e.frameAnimation || e.directionArt) {
+      return this.playDrawnEnemyAttack(e, 'claw', () => {
+        Audio.playSe(elementAttackSe(enemyElement));
+        this.damagePlayer(damage, `${e.def.name}の${profile.label}${enemyElementInfo.name}属性攻撃！`, e, [...res.steps, `技の倍率 ×${profile.factor}／${res.damage} × ${profile.factor} → ${damage}（切り捨て・最低1）`]);
+        this.afterEnemyHitGimmick(e, damage, false);
+        this.effectFx(this.player.x, this.player.y, 'fx_slash', 1.15, 250, enemyElementInfo.color);
+        this.hitFx(this.player.x, this.player.y);
+        this.cameras.main.shake(90, 0.004);
+        if (res.shieldBroke) this.handleShieldBreak();
+        this.flashSprite(this.playerSprite);
+      });
+    }
+    e.animating = true;
+    // 攻撃演出：少し前進
+    const ox = e.sprite.x, oy = e.sprite.y;
+    const px = this.playerSprite.x, py = this.playerSprite.y;
+    this.tweens.add({
+      targets: e.sprite,
+      scaleX: e.baseScale * 1.16,
+      scaleY: e.baseScale * 0.84,
+      duration: this.currentTurnAnimDuration(ANIM / 2),
+      yoyo: true,
+      ease: 'Back.easeInOut'
+    });
+    return this.tween(e.sprite, { x: (ox + px) / 2, y: (oy + py) / 2, yoyo: true },
+      this.currentTurnAnimDuration(ANIM / 2)).then(() => {
+      if (!e.alive || !e.sprite.active || this.gameEnded) return;
+      e.animating = false;
+      e.sprite.setScale(e.baseScale).setAngle(0);
+      Audio.playSe(elementAttackSe(enemyElement));
+      this.damagePlayer(damage, `${e.def.name}の${profile.label}${enemyElementInfo.name}属性攻撃！`, e, [...res.steps, `技の倍率 ×${profile.factor}／${res.damage} × ${profile.factor} → ${damage}（切り捨て・最低1）`]);
+      this.afterEnemyHitGimmick(e, damage, false);
+      this.effectFx(this.player.x, this.player.y, 'fx_magic', 1.4, 360, enemyElementInfo.color);
+      this.hitFx(this.player.x, this.player.y);
+      this.cameras.main.shake(90, 0.004);
+      if (res.shieldBroke) this.handleShieldBreak();
+      this.flashSprite(this.playerSprite);
+    });
+  }
+
+  enemyRanged(e: Enemy): Promise<void> {
+    e.animating = true;
+    const profile = this.enemyAttackProfile(e);
+    const enemyElement = profile.element;
+    const enemyElementInfo = enemyElement ? ELEMENT_INFO[enemyElement] : { name: '無', color: 0xc7c5d0 };
+    if (e.frameAnimation || e.directionArt) {
+      return this.playDrawnEnemyAttack(e, 'cast', async () => {
+        Audio.playSe(elementAttackSe(enemyElement));
+        const [dx, dy] = this.dirVec(e.facing);
+        const bolt = this.add.image(e.sprite.x + dx * 17, e.sprite.y - 5 + dy * 17, 'fx_bolt')
+          .setDepth(20).setTint(enemyElementInfo.color).setDisplaySize(TILE, TILE * .5);
+        bolt.setRotation(Phaser.Math.Angle.Between(bolt.x, bolt.y, this.playerSprite.x, this.playerSprite.y));
+        await this.tween(bolt, { x: this.playerSprite.x, y: this.playerSprite.y }, this.currentTurnAnimDuration(180));
+        bolt.destroy();
+        if (!e.alive || this.gameEnded) return;
+        const res = this.computeIncomingAttack(e, profile.element);
+        const damage = Math.max(1, Math.floor(res.damage * profile.factor));
+        this.damagePlayer(damage, `${e.def.name}の${profile.label}${enemyElementInfo.name}属性遠距離攻撃！`, e, [...res.steps, `技の倍率 ×${profile.factor}／${res.damage} × ${profile.factor} → ${damage}（切り捨て・最低1）`]);
+        this.afterEnemyHitGimmick(e, damage, true);
+        if (res.shieldBroke) this.handleShieldBreak();
+        this.effectFx(this.player.x, this.player.y, 'fx_magic', 1.45, 360, enemyElementInfo.color);
+      });
+    }
+    Audio.playSe(elementAttackSe(enemyElement));
+    this.effectFx(e.x, e.y, 'fx_magic', 2.0, 600, enemyElementInfo.color);
+    this.tweens.add({
+      targets: e.sprite,
+      scaleX: e.baseScale * 0.9,
+      scaleY: e.baseScale * 1.12,
+      duration: this.currentTurnAnimDuration(90),
+      yoyo: true,
+      ease: 'Sine.easeInOut'
+    });
+    const bolt = this.add.image(e.sprite.x, e.sprite.y, 'fx_bolt')
+      .setDepth(20).setTint(enemyElementInfo.color).setDisplaySize(TILE, TILE * .5);
+    bolt.setRotation(Phaser.Math.Angle.Between(bolt.x, bolt.y, this.playerSprite.x, this.playerSprite.y));
+    return this.tween(bolt, { x: this.playerSprite.x, y: this.playerSprite.y }, this.currentTurnAnimDuration(180))
+      .then(() => {
+        bolt.destroy();
+        if (!e.alive || !e.sprite.active || this.gameEnded) return;
+        e.animating = false;
+        e.sprite.setScale(e.baseScale);
+        const res = this.computeIncomingAttack(e, profile.element);
+        const damage = Math.max(1, Math.floor(res.damage * profile.factor));
+        this.damagePlayer(damage, `${e.def.name}の${profile.label}${enemyElementInfo.name}属性遠距離攻撃！`, e, [...res.steps, `技の倍率 ×${profile.factor}／${res.damage} × ${profile.factor} → ${damage}（切り捨て・最低1）`]);
+        this.afterEnemyHitGimmick(e, damage, true);
+        if (res.shieldBroke) this.handleShieldBreak();
+        this.effectFx(this.player.x, this.player.y, 'fx_magic', 1.45, 360, enemyElementInfo.color);
+      });
+  }
+
+  // ============ 敵移動ヘルパー ============
+  passable(e: Enemy, x: number, y: number): boolean {
+    return bodyCells({ x, y }, bossBodyRadius(e.def)).every(p => this.passableBodyCell(e, p.x, p.y));
+  }
+
+  passableBodyCell(e: Enemy, x: number, y: number): boolean {
+    const t = this.dungeon.tiles[y]?.[x];
+    if (!t) return false;
+    if (e.def.isHalloweenRetainer && !this.isInsideBossRoom(x, y)) return false;
+    if (hasFinalDepthTerrain(this.floor) && !this.inBossRoom && !e.def.isFloorBoss && this.dungeon.bossRoom && this.isInsideBossCombatFrame(x, y)) return false;
+    if (this.inBossRoom && !this.isInsideBossCombatFrame(x, y)) return false;
+    if (e.def.isFloorBoss && this.dungeon.bossRoom && !this.isInsideBossCombatFrame(x, y)) return false;
+    if (t === 'wall' && !e.def.wallPass) return false;
+    // Doors and stairs are reserved for the player, including small and wall-passing enemies.
+    if (t === 'pit' || t === 'door' || t === 'roomDoor' || t === 'stairs') return false;
+    if (this.enemyAt(x, y, e)) return false;
+    if (this.player.x === x && this.player.y === y) return false;
+    if (this.chestAt(x, y)) return false;
+    if (this.bossObstacleAt(x, y)) return false;
+    if (this.dungeonObjectAt(x, y)) return false;
+    if (this.dungeon.teleportPads.some((pad) => pad.x === x && pad.y === y)) return false;
+    if (this.dungeon.bossCompass?.x === x && this.dungeon.bossCompass.y === y) return false;
+    return true;
+  }
+
+  stepToward(e: Enemy, tx: number, ty: number): Vec2 | null {
+    const dx = Math.sign(tx - e.x);
+    const dy = Math.sign(ty - e.y);
+    const opts: Vec2[] = [];
+    if (Math.abs(tx - e.x) >= Math.abs(ty - e.y)) {
+      if (dx) opts.push({ x: e.x + dx, y: e.y });
+      if (dy) opts.push({ x: e.x, y: e.y + dy });
+    } else {
+      if (dy) opts.push({ x: e.x, y: e.y + dy });
+      if (dx) opts.push({ x: e.x + dx, y: e.y });
+    }
+    for (const o of opts) if (this.passable(e, o.x, o.y)) return o;
+    return null;
+  }
+
+  stepAway(e: Enemy, tx: number, ty: number): Vec2 | null {
+    const dirs = runShuffle([
+      { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }
+    ]);
+    const choices = dirs
+      .map((dir) => ({ x: e.x + dir.x, y: e.y + dir.y }))
+      .filter((pos) => this.passable(e, pos.x, pos.y))
+      .sort((a, b) => {
+        const da = Math.abs(a.x - tx) + Math.abs(a.y - ty);
+        const db = Math.abs(b.x - tx) + Math.abs(b.y - ty);
+        return db - da;
+      });
+    return choices[0] ?? null;
+  }
+
+  stepRandom(e: Enemy): Vec2 | null {
+    const dirs = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }];
+    runShuffle(dirs);
+    for (const d of dirs) {
+      const nx = e.x + d.x, ny = e.y + d.y;
+      if (this.passable(e, nx, ny)) return { x: nx, y: ny };
+    }
+    return null;
+  }
+
+  stepLoop(e: Enemy): Vec2 | null {
+    const dirs = [{ x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 0, y: -1 }];
+    for (let i = 0; i < 4; i++) {
+      const d = dirs[(e.loopDir + i) % 4];
+      const nx = e.x + d.x, ny = e.y + d.y;
+      if (this.passable(e, nx, ny)) { e.loopDir = (e.loopDir + i) % 4; return { x: nx, y: ny }; }
+    }
+    return null;
+  }
+
+  stepLine(e: Enemy): Vec2 | null {
+    if (!e.lineDir) e.lineDir = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }][Math.floor(runRandom() * 4)];
+    let nx = e.x + e.lineDir.x, ny = e.y + e.lineDir.y;
+    if (this.passable(e, nx, ny)) return { x: nx, y: ny };
+    // 壁に当たったら方向転換
+    e.lineDir = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }][Math.floor(runRandom() * 4)];
+    nx = e.x + e.lineDir.x; ny = e.y + e.lineDir.y;
+    if (this.passable(e, nx, ny)) return { x: nx, y: ny };
+    return null;
+  }
+
+  private stableMoveDirections(e: Enemy): Vec2[] {
+    const directions = [{ x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 0, y: -1 }];
+    const keyHash = [...e.def.key].reduce((sum, character) => sum + character.charCodeAt(0), 0);
+    const offset = Math.abs(keyHash + e.x * 7 + e.y * 11 + this.turn * 13) % directions.length;
+    return directions.map((_, index) => directions[(index + offset) % directions.length]);
+  }
+
+  private previewBossMinionMove(e: Enemy, reserved: Set<string>): Vec2 | null {
+    if (!this.inBossRoom || e.def.isFloorBoss || !e.alive || !this.isInsideBossCombatFrame(e.x, e.y)) return null;
+    if (e.freezeTurns > 0 || e.sealTurns > 0 || e.stunnedTurns > 0 || e.charging) return null;
+    if (e.def.behavior === 'slow' && e.slowToggle) return null;
+
+    const dx = this.player.x - e.x;
+    const dy = this.player.y - e.y;
+    const dist = Math.abs(dx) + Math.abs(dy);
+    const unseen = this.invisTurns > 0;
+    if (!unseen && dist === 1) return null;
+    if (!unseen && e.def.ranged && (dx === 0 || dy === 0) && dist <= 5
+      && this.lineOfSight(e.x, e.y, this.player.x, this.player.y)) return null;
+
+    const available = (position: Vec2) => this.passable(e, position.x, position.y)
+      && !reserved.has(`${position.x},${position.y}`);
+    const directions = this.stableMoveDirections(e);
+    let move: Vec2 | null = null;
+
+    if (e.def.isTreasureRabbit) {
+      move = directions
+        .map((direction) => ({ x: e.x + direction.x, y: e.y + direction.y }))
+        .filter(available)
+        .sort((a, b) => (Math.abs(b.x - this.player.x) + Math.abs(b.y - this.player.y))
+          - (Math.abs(a.x - this.player.x) + Math.abs(a.y - this.player.y)))[0] ?? null;
+    } else if (['chase', 'slow', 'ranged'].includes(e.def.behavior) && !unseen && dist <= 9) {
+      const toward = this.stepToward(e, this.player.x, this.player.y);
+      move = toward && available(toward) ? toward : null;
+    } else if (e.def.behavior === 'loop') {
+      const loopDirections = [{ x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 0, y: -1 }];
+      for (let index = 0; index < loopDirections.length; index++) {
+        const direction = loopDirections[(e.loopDir + index) % loopDirections.length];
+        const candidate = { x: e.x + direction.x, y: e.y + direction.y };
+        if (available(candidate)) { move = candidate; break; }
+      }
+    } else if (e.def.behavior === 'line' && e.lineDir) {
+      const candidate = { x: e.x + e.lineDir.x, y: e.y + e.lineDir.y };
+      move = available(candidate) ? candidate : null;
+    }
+
+    if (!move) {
+      for (const direction of directions) {
+        const candidate = { x: e.x + direction.x, y: e.y + direction.y };
+        if (available(candidate)) { move = candidate; break; }
+      }
+    }
+    if (move) reserved.add(`${move.x},${move.y}`);
+    return move;
+  }
+
+  private refreshBossMinionMovePlans() {
+    const reserved = new Set<string>();
+    for (const e of this.enemies) {
+      if (!this.inBossRoom || e.def.isFloorBoss || !e.alive) {
+        e.plannedMove = undefined;
+        continue;
+      }
+      if (e.plannedMove === undefined) {
+        e.plannedMove = this.previewBossMinionMove(e, reserved);
+      } else if (e.plannedMove) {
+        reserved.add(`${e.plannedMove.x},${e.plannedMove.y}`);
+      }
+    }
+  }
+
+  terrainDetailHash(floor: number, x: number, y: number, salt: number) {
+    let value = Math.imul(x + 37, 73856093) ^ Math.imul(y + 71, 19349663)
+      ^ Math.imul(floor + salt, 83492791);
+    value = Math.imul(value ^ (value >>> 13), 1274126177);
+    return (value >>> 0) / 0xffffffff;
+  }
+
+  roomContainingTile(x: number, y: number): Room | undefined {
+    return this.dungeon.rooms.find((room) => x >= room.x && x < room.x + room.w
+      && y >= room.y && y < room.y + room.h);
+  }
+
+  createTerrainDetails(floor: number) {
+    if (this.eventMode) return;
+    // Painted floors already contain wear; keep their broad quiet surfaces readable.
+    if (this.inBossRoom || hasRuinTerrain(floor) || hasVolcanoTerrain(floor) || hasWaterTerrain(floor) || hasThunderTerrain(floor) || hasFinalDepthTerrain(floor)) return;
+    const d = this.dungeon;
+    const layout = getFloorLayoutProfile(floor);
+    const reserved = new Set<string>([
+      `${d.start.x},${d.start.y}`,
+      `${d.stairs.x},${d.stairs.y}`,
+      ...(d.bossCompass ? [`${d.bossCompass.x},${d.bossCompass.y}`] : []),
+      ...(d.bossEntrance ? [`${d.bossEntrance.x},${d.bossEntrance.y}`] : []),
+      ...(d.bossEntry ? [`${d.bossEntry.x},${d.bossEntry.y}`] : []),
+      ...d.teleportPads.map((pad) => `${pad.x},${pad.y}`)
+    ]);
+    const insideBossRoom = (x: number, y: number, padding = 0) => !!d.bossRoom
+      && x >= d.bossRoom.x - padding && x < d.bossRoom.x + d.bossRoom.w + padding
+      && y >= d.bossRoom.y - padding && y < d.bossRoom.y + d.bossRoom.h + padding;
+    const addDetail = (
+      x: number,
+      y: number,
+      key: string,
+      angle: number,
+      size: number,
+      alpha: number,
+      wall: boolean
+    ) => {
+      const sprite = this.add.image(x * TILE + TILE / 2, y * TILE + TILE / 2, key)
+        .setAngle(angle)
+        .setDisplaySize(size, size)
+        .setAlpha(alpha)
+        .setDepth(wall ? .44 : .22);
+      if (wall) sprite.setTint(this.themeTileTint);
+      this.terrainDetails.push({ x, y, wall, alpha, sprite });
+    };
+
+    for (let y = 1; y < d.h - 1; y++) {
+      for (let x = 1; x < d.w - 1; x++) {
+        if (d.tiles[y][x] !== 'floor' || reserved.has(`${x},${y}`) || insideBossRoom(x, y)
+          || this.optionalRoomContaining(x, y)?.kind === 'diamond') continue;
+        const room = this.roomContainingTile(x, y);
+        const random = this.terrainDetailHash(floor + layout.seed, x, y, 11);
+        const secondary = this.terrainDetailHash(floor + layout.seed, x, y, 29);
+        let key: string | undefined;
+        let angle = secondary < .5 ? 0 : secondary < .75 ? 90 : secondary < .875 ? 180 : 270;
+        let size = TILE + 1;
+        let alpha = .58;
+
+        if (!room) {
+          if (random < layout.detailDensity * .34) key = 'terrain_detail_floor_wear';
+          else if (layout.floorPattern === 'patchwork' && random < layout.detailDensity * .44) {
+            key = 'terrain_detail_floor_repair';
+            size = TILE - 5;
+            alpha = .48;
+          }
+        } else {
+          const onHorizontalEdge = y === room.y || y === room.y + room.h - 1;
+          const onVerticalEdge = x === room.x || x === room.x + room.w - 1;
+          const onHorizontalRunner = y === room.cy;
+          const onVerticalRunner = x === room.cx;
+          switch (layout.floorPattern) {
+            case 'border':
+              if ((onHorizontalEdge || onVerticalEdge) && random < layout.trimCoverage) {
+                key = 'terrain_detail_floor_trim';
+                angle = onVerticalEdge && !onHorizontalEdge ? 90 : 0;
+                size = TILE + 2;
+                alpha = .66;
+              } else if (random < layout.detailDensity * .42) key = 'terrain_detail_floor_wear';
+              break;
+            case 'runner':
+              if (onHorizontalRunner && onVerticalRunner) {
+                key = 'terrain_detail_floor_repair';
+                size = TILE - 4;
+                alpha = .50;
+              } else if ((onHorizontalRunner || onVerticalRunner) && random < layout.trimCoverage) {
+                key = 'terrain_detail_floor_trim';
+                angle = onVerticalRunner ? 90 : 0;
+                size = TILE + 2;
+                alpha = .68;
+              } else if (random < layout.detailDensity * .36) key = 'terrain_detail_floor_wear';
+              break;
+            case 'mosaic':
+              if ((x + y + layout.seed) % 4 === 0 && random < layout.trimCoverage * .62) {
+                key = 'terrain_detail_floor_repair';
+                size = TILE - 5;
+                alpha = .48;
+              } else if (random < layout.detailDensity * .48) key = 'terrain_detail_floor_wear';
+              break;
+            case 'patchwork':
+              if (random < layout.detailDensity * .48) {
+                key = 'terrain_detail_floor_repair';
+                size = TILE - 5;
+                alpha = .48;
+              } else if (random < layout.detailDensity) key = 'terrain_detail_floor_wear';
+              break;
+            case 'fractured':
+              if (random < layout.detailDensity * 1.18) {
+                key = 'terrain_detail_floor_wear';
+                alpha = .67;
+              } else if (random < layout.detailDensity * 1.34) {
+                key = 'terrain_detail_floor_repair';
+                size = TILE - 6;
+                alpha = .44;
+              }
+              break;
+            default:
+              if (random < layout.detailDensity) key = 'terrain_detail_floor_wear';
+              break;
+          }
+        }
+        if (key) addDetail(x, y, key, angle, size, alpha, false);
+      }
+    }
+
+    // Painted low walls have their own faces; tall stone buttresses would cover them.
+    if (this.usesGlacialTerrain() || hasRuinTerrain(this.floor) || hasVolcanoTerrain(this.floor) || hasWaterTerrain(this.floor) || hasThunderTerrain(this.floor) || hasFinalDepthTerrain(this.floor)) return;
+
+    for (let y = 1; y < d.h - 1; y++) {
+      for (let x = 1; x < d.w - 1; x++) {
+        if (d.tiles[y][x] !== 'wall' || insideBossRoom(x, y, 1)) continue;
+        const northOpen = d.tiles[y - 1]?.[x] !== 'wall';
+        const southOpen = d.tiles[y + 1]?.[x] !== 'wall';
+        const westOpen = d.tiles[y]?.[x - 1] !== 'wall';
+        const eastOpen = d.tiles[y]?.[x + 1] !== 'wall';
+        if (!northOpen && !southOpen && !westOpen && !eastOpen) continue;
+        const random = this.terrainDetailHash(floor + layout.seed, x, y, 71);
+        const densityScale = layout.wallPattern === 'sparse' ? .58
+          : layout.wallPattern === 'rhythm' ? .86
+            : layout.wallPattern === 'recessed' ? 1
+              : layout.wallPattern === 'broken' ? .72 : 1.22;
+        const rhythmic = (x * 3 + y * 5 + layout.seed) % layout.wallDetailStep === 0;
+        if (!rhythmic && random >= densityScale / layout.wallDetailStep) continue;
+        const angle = !northOpen && !southOpen && (westOpen || eastOpen) ? 90 : 0;
+        const alpha = layout.wallPattern === 'broken' ? .58 : layout.wallPattern === 'fortified' ? .82 : .70;
+        addDetail(x, y, 'terrain_detail_wall_buttress', angle, TILE - 2, alpha, true);
+      }
+    }
+  }
+
+  lineOfSight(x0: number, y0: number, x1: number, y1: number): boolean {
+    // 直線上に壁がないか（水平/垂直のみ）
+    if (x0 === x1) {
+      const step = Math.sign(y1 - y0);
+      for (let y = y0 + step; y !== y1; y += step) if (this.dungeon.tiles[y][x0] === 'wall') return false;
+      return true;
+    }
+    if (y0 === y1) {
+      const step = Math.sign(x1 - x0);
+      for (let x = x0 + step; x !== x1; x += step) if (this.dungeon.tiles[y0][x] === 'wall') return false;
+      return true;
+    }
+    return false;
+  }
+
+  // ============ 可視範囲 ============
+  blocksVisionAt(x: number, y: number) {
+    const tile = this.dungeon.tiles[y]?.[x];
+    return !tile || tile === 'wall' || tile === 'door' || tile === 'roomDoor';
+  }
+
+  hasVisionLine(x0: number, y0: number, x1: number, y1: number) {
+    if (x0 === x1 && y0 === y1) return true;
+    const dx = Math.abs(x1 - x0);
+    const dy = Math.abs(y1 - y0);
+    const stepX = Math.sign(x1 - x0);
+    const stepY = Math.sign(y1 - y0);
+    let x = x0;
+    let y = y0;
+    let movedX = 0;
+    let movedY = 0;
+
+    // Supercover式で視線が触れる全マスをたどる。壁そのものは見えるが、その先は通さない。
+    while (movedX < dx || movedY < dy) {
+      const decision = (1 + 2 * movedX) * dy - (1 + 2 * movedY) * dx;
+      if (decision === 0) {
+        // 壁角のすき間から斜め奥が漏れて見える「角抜け」も遮断する。
+        const nextIsTarget = x + stepX === x1 && y + stepY === y1;
+        const targetIsWall = nextIsTarget && this.blocksVisionAt(x1, y1);
+        if (!targetIsWall && (this.blocksVisionAt(x + stepX, y) || this.blocksVisionAt(x, y + stepY))) return false;
+        x += stepX;
+        y += stepY;
+        movedX++;
+        movedY++;
+      } else if (decision < 0) {
+        x += stepX;
+        movedX++;
+      } else {
+        y += stepY;
+        movedY++;
+      }
+      if (x === x1 && y === y1) return true;
+      if (this.blocksVisionAt(x, y)) return false;
+    }
+    return true;
+  }
+
+  updateVisibility() {
+    const d = this.dungeon;
+    const wallPiercingLight = this.torchTurns > 0 || this.lanternTurns > 0;
+    const radius = wallPiercingLight ? 10 : this.lightRadius;
+    const playerInsideBossRoom = this.isInsideBossRoom(this.player.x, this.player.y);
+    if (this.eventMode && !this.gameEnded) Audio.playBgm(this.floorBgm(false));
+    const bossRoomConcealed = !!d.bossRoom && !!d.bossEntry && !playerInsideBossRoom;
+    const isConcealedBossCell = (x: number, y: number) => bossRoomConcealed && !!d.bossRoom
+      && x >= d.bossRoom.x && x < d.bossRoom.x + d.bossRoom.w
+      && y >= d.bossRoom.y && y < d.bossRoom.y + d.bossRoom.h;
+    const isSealedOptionalCell = (x: number, y: number) => d.optionalRooms.some((optional) => !optional.opened
+      && x >= optional.room.x && x < optional.room.x + optional.room.w
+      && y >= optional.room.y && y < optional.room.y + optional.room.h);
+    const visible: boolean[][] = [];
+    for (let y = 0; y < d.h; y++) {
+      visible[y] = [];
+      for (let x = 0; x < d.w; x++) visible[y][x] = false;
+    }
+
+    for (let y = 0; y < d.h; y++) {
+      for (let x = 0; x < d.w; x++) {
+        const cheb = Math.max(Math.abs(x - this.player.x), Math.abs(y - this.player.y));
+        let vis = cheb <= radius && (wallPiercingLight || this.hasVisionLine(this.player.x, this.player.y, x, y));
+        const insideConcealedRoom = isConcealedBossCell(x, y);
+        const isEntryDoor = !!d.bossEntry && x === d.bossEntry.x && y === d.bossEntry.y;
+        if (insideConcealedRoom && !isEntryDoor) vis = false;
+        if (isSealedOptionalCell(x, y)) vis = false;
+        if (vis) {
+          visible[y][x] = true;
+          this.explored[y][x] = true;
+        }
+      }
+    }
+
+    // 視界内の床に接する最初の壁面は表示する。壁の先の床へは視界を伝播させない。
+    const treasury = this.optionalRoomContaining(this.player.x, this.player.y);
+    if (treasury?.kind === 'diamond' && treasury.opened) {
+      const r = treasury.room;
+      for (let y = r.y - 1; y <= r.y + r.h; y++) {
+        for (let x = r.x - 1; x <= r.x + r.w; x++) {
+          visible[y][x] = true;
+          this.explored[y][x] = true;
+        }
+      }
+    }
+    // 中ボス部屋と描き直した専用部屋では、入室後に床の縁と封印も見せる。
+    if (playerInsideBossRoom && d.bossRoom && (d.glacialArena || d.volcanoArena || d.waterArena || d.thunderArena || d.finalDepthArena || !this.inBossRoom || this.floor === 5)) {
+      for (let y = d.bossRoom.y; y < d.bossRoom.y + d.bossRoom.h; y++) {
+        for (let x = d.bossRoom.x; x < d.bossRoom.x + d.bossRoom.w; x++) {
+          visible[y][x] = true;
+          this.explored[y][x] = true;
+        }
+      }
+    }
+
+    for (let y = 0; y < d.h; y++) {
+      for (let x = 0; x < d.w; x++) {
+        if (!visible[y][x] || this.blocksVisionAt(x, y)) continue;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            if (dx === 0 && dy === 0) continue;
+            const wallX = x + dx;
+            const wallY = y + dy;
+            const wallTile = d.tiles[wallY]?.[wallX];
+            if (wallTile !== 'wall' && wallTile !== 'door' && wallTile !== 'roomDoor') continue;
+            if (wallPiercingLight
+              && Math.max(Math.abs(wallX - this.player.x), Math.abs(wallY - this.player.y)) > radius) continue;
+            const isEntryDoor = !!d.bossEntry && wallX === d.bossEntry.x && wallY === d.bossEntry.y;
+            if (isConcealedBossCell(wallX, wallY) && !isEntryDoor) continue;
+            if (isSealedOptionalCell(wallX, wallY)) continue;
+            visible[wallY][wallX] = true;
+            this.explored[wallY][wallX] = true;
+          }
+        }
+      }
+    }
+    if (playerInsideBossRoom && (d.volcanoArena || d.waterArena || d.thunderArena || d.finalDepthArena) && d.bossRoom) {
+      const r = d.bossRoom;
+      for (let y = Math.max(0, r.y - 3); y < Math.min(d.h, r.y + r.h + 3); y++) {
+        for (let x = Math.max(0, r.x - 3); x < Math.min(d.w, r.x + r.w + 3); x++) {
+          if (d.tiles[y][x] === 'wall') { visible[y][x] = true; this.explored[y][x] = true; }
+        }
+      }
+    }
+    this.visibleTiles = visible;
+
+    // 現在の視界外は、探索済みであっても完全に隠す。
+    for (let y = 0; y < d.h; y++) {
+      for (let x = 0; x < d.w; x++) {
+        const spr = this.tileSprites[y][x];
+        const isWall = d.tiles[y][x] === 'wall';
+        const room = d.bossRoom;
+        const isBossRoomFloor = !!room && x >= room.x && x < room.x + room.w && y >= room.y && y < room.y + room.h;
+        const visionState = visible[y][x] ? 'visible' : 'hidden';
+        const previousState = spr.getData('visionState') as string | undefined;
+        if (previousState !== visionState) {
+          this.tweens.killTweensOf(spr);
+          spr.setData('visionState', visionState);
+        }
+        if (visible[y][x]) {
+          spr.setVisible(true);
+          spr.setTint(this.eventMode || spr.texture.key.startsWith('terrain_treasury_') || this.usesGlacialTerrain() || hasRuinTerrain(this.floor) || hasVolcanoTerrain(this.floor) || hasWaterTerrain(this.floor) || hasThunderTerrain(this.floor) || hasFinalDepthTerrain(this.floor) ? 0xffffff : isWall ? WALL_VISIBLE_TINT : isBossRoomFloor ? BOSS_ROOM_FLOOR_TINT : this.themeTileTint);
+          if (previousState !== 'visible') {
+            spr.setAlpha(.16);
+            this.tweens.add({ targets: spr, alpha: 1, duration: 260, ease: 'Quad.easeOut' });
+          } else spr.setAlpha(1);
+        } else {
+          spr.setVisible(false);
+        }
+      }
+    }
+    for (const facade of this.wallFacades) {
+      const active = !!visible[facade.y]?.[facade.x];
+      facade.sprite.setVisible(active);
+      if (active) facade.sprite.setTint(WALL_VISIBLE_TINT).setAlpha(1);
+    }
+    for (const detail of this.terrainDetails) {
+      const tile = d.tiles[detail.y]?.[detail.x];
+      const active = !!visible[detail.y]?.[detail.x]
+        && (detail.underlay ? tile !== 'wall' && tile !== 'pit' : detail.wall ? tile === 'wall' : tile === 'floor');
+      detail.sprite.setVisible(active).setAlpha(active ? detail.alpha : 0);
+    }
+    if (d.bossRoom) {
+      let roomFullyVisible = true;
+      for (let y = d.bossRoom.y; y < d.bossRoom.y + d.bossRoom.h && roomFullyVisible; y++) {
+        for (let x = d.bossRoom.x; x < d.bossRoom.x + d.bossRoom.w; x++) {
+          if (!visible[y]?.[x]) { roomFullyVisible = false; break; }
+        }
+      }
+      this.bossFloorDecor?.setVisible(roomFullyVisible);
+      this.bossRoomBackdrop?.setVisible(roomFullyVisible).setAlpha(roomFullyVisible ? 1 : 0).clearTint();
+      for (const sprite of this.bossRoomDecorSprites) {
+        const tileX = Math.floor(sprite.x / TILE);
+        const tileY = Math.floor(sprite.y / TILE);
+        const active = !!visible[tileY]?.[tileX];
+        sprite.setVisible(active).setAlpha(active ? 1 : 0);
+      }
+    }
+    // 敵・宝箱・アイテム表示
+    for (const e of this.enemies) {
+      const concealedMidBoss = bossRoomConcealed && e.def.isFloorBoss && this.isInsideBossRoom(e.x, e.y);
+      const v = !concealedMidBoss && !!visible[e.y]?.[e.x];
+      e.sprite.setVisible(v);
+      e.shadow?.setVisible(v);
+      e.aura?.setVisible(v);
+      e.freezeFx?.setVisible(v);
+      if (e.hpBar) e.hpBar.setVisible(v && !(e.def.gimmick === 'mimic' && !e.awakened)).setAlpha(1);
+      if (this.torchRevealsEnemy(e)) {
+        e.sprite.setAlpha(v ? 1 : 0);
+        e.shadow?.setAlpha(v ? .55 : 0);
+      } else if (e.def.isDarkNinja) {
+        e.sprite.setAlpha(v ? (e.stealthRevealed ? 1 : .08) : 0);
+        e.shadow?.setAlpha(v ? (e.stealthRevealed ? .55 : .08) : 0);
+        if (e.hpBar) e.hpBar.setAlpha(e.stealthRevealed ? 1 : 0.08);
+      } else if (e.def.gimmick === 'burrow' && e.charging) {
+        e.sprite.setAlpha(v ? .05 : 0);
+        e.shadow?.setAlpha(v ? .03 : 0);
+        e.hpBar?.setAlpha(.05);
+      } else e.sprite.setAlpha(v ? 1 : 0);
+    }
+    for (const c of this.chests) {
+      const v = !!visible[c.y]?.[c.x];
+      c.sprite.setVisible(v).setAlpha(v ? 1 : 0);
+      c.glow?.setVisible(v);
+    }
+    for (const g of this.ground) {
+      const v = !!visible[g.y]?.[g.x];
+      g.sprite.setVisible(v).setAlpha(v ? 1 : 0);
+      g.glow?.setVisible(v);
+    }
+    for (const pad of this.teleportPadVisuals) {
+      const v = !!visible[pad.y]?.[pad.x];
+      pad.sprite.setVisible(v).setAlpha(v ? 1 : 0);
+    }
+    const compass = this.bossCompassVisual;
+    if (compass) {
+      const v = !!visible[compass.y]?.[compass.x];
+      compass.base.setVisible(v);
+      const active = v && !!this.bossCompassDirection() && !this.floorBossDefeated;
+      compass.glow.setVisible(active);
+      compass.arrow.setVisible(active);
+    }
+    for (const object of this.dungeonObjects) {
+      const room = this.dungeon.optionalRooms.find((optional) => object.x >= optional.room.x
+        && object.x < optional.room.x + optional.room.w && object.y >= optional.room.y
+        && object.y < optional.room.y + optional.room.h);
+      const left = object.x - Math.floor((object.w - 1) / 2);
+      const top = object.y - Math.floor((object.h - 1) / 2);
+      let anyVisible = false;
+      for (let y = top; y < top + object.h && !anyVisible; y++) {
+        for (let x = left; x < left + object.w; x++) {
+          if (visible[y]?.[x]) { anyVisible = true; break; }
+        }
+      }
+      const v = (!room || room.opened) && anyVisible;
+      object.sprite.setVisible(v).setAlpha(v ? (object.used && object.kind === 'fountain' ? 0.72 : 1) : 0);
+      object.waterFx?.setVisible(v && !object.used);
+    }
+    for (const m of this.ambientMotes) m.sprite.setVisible(!!visible[m.y]?.[m.x]);
+    for (const state of this.bossStates.values()) {
+      for (const marker of state.intent?.markers ?? []) {
+        const v = !!visible[marker.y]?.[marker.x];
+        marker.plate.setVisible(v);
+        marker.label.setVisible(v);
+      }
+    }
+    for (const markers of this.difficultyWarnings.values()) for (const marker of markers) {
+      marker.plate.setVisible(!!visible[marker.y]?.[marker.x]);
+      marker.label.setVisible(!!visible[marker.y]?.[marker.x]);
+    }
+    for (const hazard of this.bossHazards) hazard.sprite.setVisible(!!visible[hazard.y]?.[hazard.x]);
+    for (const obstacle of this.bossObstacles) {
+      const v = !!visible[obstacle.y]?.[obstacle.x];
+      obstacle.sprite.setVisible(v).setAlpha(v ? 1 : 0);
+    }
+    this.refreshBossMinionMovePlans();
+  }
+
+  isTileCurrentlyVisible(x: number, y: number) {
+    return !!this.visibleTiles[y]?.[x];
+  }
+
+  // ============ 宝箱 ============
+  openChest(c: Chest) {
+    if (c.opened) return;
+    if (c.diamond && this.optionalRoomContaining(c.x,c.y)?.opened === false) { this.log('金扉を開けてから宝箱を開封しよう。','sys');return; }
+    c.opened = true;
+    c.sprite.setTexture(c.diamond ? 'chest_diamond_open' : this.eventMode ? 'hw_chest_open' : c.rare ? 'chest_rare_open' : 'chest_common_open');
+    c.sprite.clearTint();
+    c.glow?.setAlpha(c.rare ? 0.46 : 0.18);
+    this.tweens.add({
+      targets: c.sprite,
+      scaleX: c.baseScale * 1.2,
+      scaleY: c.baseScale * 0.82,
+      duration: 110,
+      yoyo: true,
+      ease: 'Back.easeOut'
+    });
+    const chestColor = c.rare ? 0xffcf52 : 0xcbd0d6;
+    this.pickupBurst(c.sprite.x, c.sprite.y - 4, chestColor, c.rare ? 9 : 6);
+    Audio.playSe('chest');
+
+    if (this.eventMode && c.diamond) {
+      const pool = HALLOWEEN_WEAPONS.filter(w=>w.grade!=='SSS');
+      const weapon = makeWeapon(pool[Math.floor(runRandom()*pool.length)].key,[]);
+      this.log(`ダイヤモンドの宝箱！ ${weaponFullName(weapon)}を発見！`, 'special');
+      this.receiveWeapon(weapon,'収穫城のダイヤモンド宝箱');
+      this.effectFx(c.x,c.y,'fx_levelup',2,700,0xa8efff);this.emitRefresh();return;
+    }
+    if (this.eventMode) {
+      if (runRandom() < .3) {
+        if (runRandom() < .5) this.receiveWeapon(rollWeapon(this.floor*4),'収穫城の宝箱');
+        else this.receiveShield(rollShield(this.floor*4),'収穫城の宝箱');
+      }
+      const rewards: string[] = [];
+      if (this.grantChestConsumable('potion')) rewards.push('回復ポーション');
+      const bonus = c.rare ? 'repair' : runRandom() < .5 ? 'torch' : 'potion';
+      if (this.grantChestConsumable(bonus)) rewards.push(ITEM_DEFS[bonus].name);
+      const gold = this.awardGold(15 + this.floor * 5);
+      this.log(`🎃 収穫城の宝箱！ ${rewards.length ? rewards.join("と") + "、" : ""}${gold}Gを見つけた。`, 'item');
+      this.emitRefresh();
+      return;
+    }
+
+    if (c.diamond) {
+      const { gold, weapon } = rollTreasuryReward();
+      this.player.gold += gold;
+      this.log(`ダイヤモンドの宝箱！ ${gold}Gと${weaponFullName(weapon)}を発見！`, 'special');
+      this.receiveWeapon(weapon, 'ダイヤモンドの宝箱');
+      this.effectFx(c.x, c.y, 'fx_levelup', 2.0, 700, 0xa8efff);
+      this.emitRefresh();
+      this.saveRun();
+      return;
+    }
+
+    if (c.rare) {
+      // 金の宝箱：レア確定＋大量ゴールド
+      this.log('★金の宝箱だ！ レアなお宝が眠っている！', 'special');
+      // 武器はガチャ限定。金の宝箱は上位素材・盾・服・復活アイテムを抽選する。
+      const rr = runRandom();
+      if (rr < 0.15 * this.rareItemDropRate && !this.reviveSeedSeen) {
+        this.reviveSeedSeen = true;
+        this.player.inventory.push(makeItem('revive'));
+        this.log('超レア！ この冒険で一度だけの復活のタネが入っていた！', 'special');
+      } else if (rr < 0.32) {
+        const scroll = this.grantRegularEnhancementScroll();
+        if (scroll) this.log(`レア！ ${ITEM_DEFS[scroll].name}が入っていた！`, 'special');
+        else {
+          if (this.grantChestConsumable('potion')) this.log('このマップの強化スクロールは出現済み。代わりに回復ポーションが入っていた。', 'item');
+        }
+      } else if (rr < 0.50) {
+        const s = rollShield(Math.max(8, this.floor));
+        if (this.receiveShield(s, '金の宝箱')) this.log(`さらに「${s.name}」も入っていた！`, 'item');
+      } else if (rr < 0.68) {
+        const candidates = this.availableArmorDefs(Math.max(8, this.floor));
+        const def = candidates[Math.floor(runRandom() * candidates.length)];
+        if (def) {
+          const armor = makePlayerArmor(def.key);
+          if (this.receiveArmor(armor, '金の宝箱')) this.log(`さらに「${armor.name}」も入っていた！`, 'item');
+        } else {
+          if (this.grantChestConsumable('potion')) this.log('入手できる新しい服がないため、代わりに回復ポーションが入っていた。', 'item');
+        }
+      } else {
+        const scroll = this.grantRegularEnhancementScroll();
+        if (scroll) this.log(`${ITEM_DEFS[scroll].name}も入っていた！`, 'item');
+        else {
+          this.player.inventory.push(makeItem('torch'));
+          this.log('このマップの強化スクロールは出現済み。代わりに松明が入っていた。', 'item');
+        }
+      }
+      // 大量ゴールド
+      const gold = this.awardGold(80 + Math.floor(runRandom() * this.floor * 20));
+      this.log(`さらに${gold}Gを入手！`, 'gold');
+      this.effectFx(c.x, c.y, 'fx_levelup', 2.0, 700);
+    } else {
+      // 通常宝箱は50%で空。各報酬の確率は従来の半分、当選時の数量は維持する。
+      const roll = runRandom();
+      if (roll < 0.3) {
+        const eq = runRandom();
+        if (this.floor >= 8 && eq < 0.28) {
+          const s = rollShield(this.floor);
+          if (this.receiveShield(s, '宝箱')) this.log(`宝箱から「${s.name}」を発見！`, 'item');
+        } else if (this.floor >= 5 && eq < 0.43) {
+          const candidates = this.availableArmorDefs(this.floor);
+          const def = candidates[Math.floor(runRandom() * candidates.length)];
+          if (def) {
+            const armor = makePlayerArmor(def.key);
+            if (this.receiveArmor(armor, '宝箱')) this.log(`宝箱から「${armor.name}」を発見！`, 'item');
+          } else {
+            if (this.grantChestConsumable('potion')) this.log('入手できる新しい服がないため、宝箱から回復ポーションを入手。', 'item');
+          }
+        } else {
+          const consumableKinds: ItemKind[] = ['potion', 'torch', 'warp', 'invis'];
+          const regularScroll = runRandom() < SCROLL_DROP_RATE * this.rareItemDropRate ? this.grantRegularEnhancementScroll() : null;
+          const k = regularScroll ?? consumableKinds[Math.floor(runRandom() * consumableKinds.length)];
+          if (regularScroll || this.grantChestConsumable(k)) this.log(`宝箱から「${makeItem(k).name}」を入手。`, 'item');
+        }
+      } else if (roll < 0.5) {
+        const gold = this.awardGold(40 + Math.floor(runRandom() * this.floor * 12));
+        this.log(`宝箱から${gold}Gを入手！`, 'gold');
+      } else {
+        this.log('宝箱の中は空だった。', 'sys');
+      }
+    }
+    this.emitRefresh();
+  }
+
+  // ============ アイテム使用（UIから呼ばれる）============
+  async useItem(index: number) {
+    if (this.reviving || this.busy || this.gameEnded) return;
+    if (this.timeStopTurns > 0) {
+      this.log('零刻領域では移動だけできる。アイテムは時が動いてから使おう。', 'sys');
+      Audio.playSe('deny'); return;
+    }
+    if (this.itemSealTurns > 0) {
+      this.log(`仮面の呪いでアイテムを使えない！ 残り${this.itemSealTurns}ターン`, 'dmg');
+      Audio.playSe('deny');
+      return;
+    }
+    const item = this.player.inventory[index];
+    if (!item) return;
+    let consumed = true;
+    let passTurn = true;
+
+    if (['potion','mystery_bread','dynamite','skill_drink','seal'].includes(item.kind)) this.chargeTurn();
+    switch (item.kind) {
+      case 'potion': {
+        const amount=40+armorTraitValue(this.player.armor,'potion');
+        this.player.heal(amount); this.log(`回復ポーションでHPを${amount}回復した。`, 'item'); Audio.playSe('heal'); this.healFx(); break;
+      }
+      case 'stone': consumed = this.useStone(); passTurn = false; break;
+      case 'shieldstone': consumed = this.useShieldStone(); passTurn = false; break;
+      case 'repair': {
+        const ui = this.scene.get('UIScene') as { setOverlay?: (mode: 'repair') => void };
+        ui.setOverlay?.('repair');
+        consumed = false;
+        passTurn = false;
+        break;
+      }
+      case 'slime_scroll': this.startTransformation('slime'); passTurn = false; break;
+      case 'boss5_scroll': this.startTransformation('boss5'); passTurn = false; break;
+      case 'torch': {
+        this.torchTurns = 10;
+        this.effectFx(this.player.x, this.player.y, 'fx_magic', 1.45, 460, 0xffa52f);
+        this.log('松明に火を灯した！ 10ターンの間、壁の向こうまで明るくなり、範囲内の隠れた敵も見える。', 'item');
+        Audio.playSe('pickup');
+        passTurn = false;
+        break;
+      }
+      case 'mystery_bread': this.useMysteryBread(); break;
+      case 'dynamite': this.useDynamite(); break;
+      case 'skill_drink': this.skillChargeSteps = this.skillChargeRequired; this.log('スキルドリンクでスキルがチャージ完了！', 'special'); this.effectFx(this.player.x, this.player.y, 'fx_magic', 1.4, 500, 0x62dfff); Audio.playSe('pickup'); break;
+      case 'warp': consumed = this.useWarp(); passTurn = false; break;
+      case 'seal': this.useSeal(); break;
+      case 'revive': this.log('復活のタネは倒れた時に自動で使われる。', 'sys'); Audio.playSe('deny'); consumed = false; passTurn = false; break;
+      case 'candykey':
+      case 'floorkey': {
+        if ((item.kind === 'candykey') !== !!this.eventMode) { this.log('このダンジョンの金扉には使えないカギだ。','sys');consumed=false;passTurn=false;break; }
+        const room = this.dungeon.optionalRooms.find(optional => optional.kind === 'diamond' && !optional.opened
+          && Math.abs(optional.door.x - this.player.x) + Math.abs(optional.door.y - this.player.y) === 1);
+        if (room) {
+          this.openOptionalRoom(room);
+          this.log(`${item.name}で金扉を開けた。`, 'item');
+        } else {
+          this.log('隣接する鍵のかかった金扉がない。', 'sys');
+          Audio.playSe('deny'); consumed = false; passTurn = false;
+        }
+        break;
+      }
+      case 'invis': {
+        // 20ターンの間、敵から完全に見えなくなる
+        this.invisTurns = 20;
+        this.playerSprite.setAlpha(0.4);
+        this.weaponSprite?.setAlpha(0.4);
+        this.transformationSprite?.setAlpha(0.4);
+        this.effectFx(this.player.x, this.player.y, 'fx_magic', 1.6, 500, 0x9fe8ff);
+        Audio.playSe('warp');
+        this.log('透明ポーションで姿を消した！ 20ターンの間、敵に見つからない。', 'item');
+        passTurn = false;
+        break;
+      }
+    }
+
+    if (consumed) this.player.inventory.splice(index, 1);
+    this.updateVisibility();
+    this.emitRefresh();
+    if (passTurn && consumed) {
+      this.busy = true;
+      try { await this.finishTurn(); } finally { this.busy = false; }
+    }
+  }
+
+  private useMysteryBread() {
+    this.player.hp = this.player.hpMax;
+    const targets = new Set<Weapon | Shield>();
+    const weaponPool = [...new Set<Weapon>([...this.player.weapons, ...(this.player.weapon ? [this.player.weapon] : [])])];
+    const shieldPool = [...new Set<Shield>([...this.player.shields, ...(this.player.shield ? [this.player.shield] : [])])];
+    if (usesLegacyBread()) {
+      for (const pool of [weaponPool, shieldPool]) {
+        if (pool.length) targets.add(pool[Math.floor(runRandom() * pool.length)]);
+      }
+    } else {
+      if (this.player.weapon) targets.add(this.player.weapon);
+      if (this.player.shield) targets.add(this.player.shield);
+      for (const pool of [weaponPool.filter(item => item !== this.player.weapon), shieldPool.filter(item => item !== this.player.shield)]) {
+        for (let count = 0; count < 2 && pool.length; count++) {
+          targets.add(pool.splice(Math.floor(runRandom() * pool.length), 1)[0]);
+        }
+      }
+    }
+    for (const item of targets) { item.dur = item.durMax; item.plus = (item.plus ?? 0) + 1; }
+    this.updatePlayerAura();
+    this.healFx();
+    this.effectFx(this.player.x, this.player.y, 'fx_magic', 1.4, 500, 0xffd17d);
+    Audio.playSe('heal');
+    this.log(usesLegacyBread() ? 'ふしぎパンを食べた！ HP全回復！ 所持している武器と盾をランダムで1個ずつ修復し、+1強化した。'
+      : 'ふしぎパンを食べた！ HP全回復！ 装備中の武器・盾と、予備からランダムで武器最大2本・盾最大2個を全修復し、それぞれ+1強化した。', 'special');
+  }
+
+  startTransformation(kind: TransformationKind) {
+    const transformation: PlayerTransformation = kind === 'slime'
+      ? { kind, turns: 30, name: 'スライム', textureKey: 'm_jelly', displaySize: 35, attackRate: 1.05, defenseBonus: 1 }
+      : { kind, turns: 30, name: '封印王アウレリウス', textureKey: AURELIUS_DIRECTIONS.textureKey, displaySize: 40 * MILESTONE_BOSSES[5].scale, attackRate: 1.1, defenseBonus: 3 };
+    this.transformation = transformation;
+    this.player.transformationAttackRate = transformation.attackRate;
+    this.player.transformationDefBonus = transformation.defenseBonus;
+    this.refreshTransformationVisual();
+    this.effectFx(this.player.x, this.player.y, 'fx_magic', 1.9, 650, kind === 'slime' ? 0x70e2c2 : 0xffc96b);
+    Audio.playSe('warp');
+    const attackBonus = Math.round((transformation.attackRate - 1) * 100);
+    this.log(`${transformation.name}へ変身した！ 装備効果を引き継ぎ、30ターンの間は攻撃力+${attackBonus}%・防御力+${transformation.defenseBonus}。`, 'special');
+  }
+
+  clearTransformation(announce = false) {
+    const previous = this.transformation;
+    this.transformation = null;
+    this.player.transformationAttackRate = 1;
+    this.player.transformationDefBonus = 0;
+    this.transformationSprite?.destroy();
+    this.transformationSprite = undefined;
+    this.transformationBaseScale = 1;
+    if (this.playerSprite) this.playerSprite.setAlpha(this.invisTurns > 0 ? 0.4 : 1);
+    this.updatePlayerAura();
+    this.weaponSprite?.setAlpha(this.invisTurns > 0 ? 0.4 : 1);
+    if (announce && previous) this.log(`${previous.name}の変身が解け、元の姿に戻った。`, 'sys');
+  }
+
+  refreshTransformationVisual() {
+    if (!this.playerSprite) return;
+    if (!this.transformation) {
+      this.playerSprite.setAlpha(this.invisTurns > 0 ? 0.4 : 1);
+      this.transformationSprite?.setVisible(false);
+      this.updatePlayerAura();
+      this.weaponSprite?.setAlpha(this.invisTurns > 0 ? 0.4 : 1);
+      return;
+    }
+
+    // Old run saves may still reference the single-direction portrait and 43px size.
+    if (this.transformation.kind === 'boss5') {
+      this.transformation.textureKey = AURELIUS_DIRECTIONS.textureKey;
+      this.transformation.displaySize = 40 * MILESTONE_BOSSES[5].scale;
+    }
+    const { textureKey, displaySize, kind } = this.transformation;
+    if (!this.transformationSprite || !this.transformationSprite.scene) {
+      this.transformationSprite = this.add.image(this.playerSprite.x, this.playerSprite.y, textureKey)
+        .setOrigin(0.5, 0.62)
+        .setDepth(this.playerSprite.depth + 0.05);
+    }
+    this.transformationSprite.setTexture(textureKey, kind === 'boss5' ? MONSTER_DIRECTION_FRAME[this.player.dir] : undefined).setVisible(true)
+      .setOrigin(.5, kind === 'boss5' ? BOSS_GROUND_ORIGIN_Y : .62);
+    const source = this.textures.get(textureKey).getSourceImage() as { width?: number; height?: number };
+    const maxEdge = Math.max(1, source?.width ?? displaySize, source?.height ?? displaySize);
+    this.transformationBaseScale = displaySize / (kind === 'boss5' ? AURELIUS_DIRECTIONS.artSize : maxEdge);
+    this.transformationSprite
+      .setScale(this.transformationBaseScale)
+      .setFlipX(kind !== 'boss5' && this.player.dir === 'left')
+      .setAlpha(this.invisTurns > 0 ? 0.4 : 1)
+      .clearTint();
+    if (kind === 'boss5') this.transformationSprite.setTint(MILESTONE_BOSSES[5].tint);
+    this.playerSprite.setAlpha(0);
+    this.weaponSprite?.setVisible(false);
+  }
+
+  useDynamite() {
+    const origin = { x: this.player.x, y: this.player.y };
+    this.clearMoveInput();
+    this.log('ダイナマイトが大爆発！ 周囲を激しい爆風が包み込んだ！', 'special');
+    this.dynamiteExplosionFx(origin.x, origin.y);
+    for (const enemy of [...this.enemies]) {
+      const radius = bossBodyRadius(enemy.def);
+      if (!enemy.alive || Math.max(0, Math.abs(enemy.x-origin.x)-radius) > DYNAMITE_RADIUS
+        || Math.max(0, Math.abs(enemy.y-origin.y)-radius) > DYNAMITE_RADIUS) continue;
+      const boss = !!(enemy.def.isBoss || enemy.def.isFloorBoss || enemy.def.isHalloweenRetainer);
+      const damage = boss ? Math.max(1, Math.ceil(enemy.hp * .1)) : enemy.hp;
+      enemy.hp -= damage;
+      this.discoverMonster(enemy.def.key);
+      this.hitFx(enemy.x, enemy.y);
+      this.log(boss ? `${enemy.def.name}に${damage}の爆発ダメージ！（残りHPの10%）`
+        : `${enemy.def.name}を爆風で一撃撃破！`, 'dmg');
+      if (enemy.hp <= 0) this.killEnemy(enemy, { quiet: true, obliterate: true });
+      else { this.flashSprite(enemy.sprite); this.drawEnemyHp(enemy); }
+    }
+    Audio.playSe('dynamite');
+  }
+
+  private dynamiteExplosionFx(x: number, y: number) {
+    const cx = (x+.5)*TILE, cy = (y+.5)*TILE;
+    this.cameras.main.shake(320, .012);
+    const area = this.add.graphics().setDepth(2);
+    area.fillStyle(0xffa02d, .3).fillRect((x-DYNAMITE_RADIUS)*TILE, (y-DYNAMITE_RADIUS)*TILE,
+      TILE*(DYNAMITE_RADIUS*2+1), TILE*(DYNAMITE_RADIUS*2+1));
+    this.tweens.add({targets:area,alpha:0,duration:380,onComplete:()=>area.destroy()});
+    const shock = this.add.graphics().setPosition(cx,cy).setDepth(24).setBlendMode(Phaser.BlendModes.ADD);
+    shock.lineStyle(4,0xffcb72,.9).strokeCircle(0,0,TILE*.5);
+    this.tweens.add({targets:shock,scale:5,alpha:0,duration:330,ease:'Quad.easeOut',onComplete:()=>shock.destroy()});
+    for (let dy=-DYNAMITE_RADIUS;dy<=DYNAMITE_RADIUS;dy++) for (let dx=-DYNAMITE_RADIUS;dx<=DYNAMITE_RADIUS;dx++) {
+      const delay = Math.hypot(dx,dy)*24;
+      const px=(x+dx+.5)*TILE, py=(y+dy+.5)*TILE;
+      const fire = this.add.circle(px,py,TILE*.38,(dx+dy)%2 ? 0xff812b : 0xffd077,.8)
+        .setDepth(24).setScale(.1).setBlendMode(Phaser.BlendModes.ADD);
+      this.tweens.add({targets:fire,scale:1.35,alpha:0,delay,duration:330,ease:'Quad.easeOut',onComplete:()=>fire.destroy()});
+      const smoke = this.add.circle(px,py,TILE*.3,0x42342c,.5).setDepth(23).setScale(.3);
+      this.tweens.add({targets:smoke,y:py-TILE*.5,scale:1.35,alpha:0,delay:delay+100,duration:700,onComplete:()=>smoke.destroy()});
+    }
+    for(let i=0;i<28;i++) {
+      const angle=runRandom()*Math.PI*2, distance=TILE*(.6+runRandom()*1.8);
+      const spark=this.add.rectangle(cx,cy,3,6,i%2?0xffcc64:0xff6a28,.95)
+        .setAngle(angle*180/Math.PI).setDepth(25).setBlendMode(Phaser.BlendModes.ADD);
+      this.tweens.add({targets:spark,x:cx+Math.cos(angle)*distance,y:cy+Math.sin(angle)*distance,alpha:0,
+        duration:220+runRandom()*260,ease:'Cubic.easeOut',onComplete:()=>spark.destroy()});
+    }
+  }
+
+  repairEquipment(kind: 'weapon' | 'shield', equipment: Weapon | Shield): boolean {
+    if (this.reviving || this.busy || this.gameEnded || this.itemSealTurns > 0) return false;
+    const stoneIndex = this.player.inventory.findIndex(item => item.kind === 'repair');
+    const owned: (Weapon | Shield)[] = kind === 'weapon' ? this.player.weapons : this.player.shields;
+    if (stoneIndex < 0 || !owned.includes(equipment)) return false;
+    const restored = Math.min(50, equipment.durMax - equipment.dur);
+    if (restored <= 0) {
+      this.log('この装備の耐久はすでに最大です。修復石は消費しません。', 'sys');
+      Audio.playSe('deny');
+      return false;
+    }
+    equipment.dur += restored;
+    this.player.inventory.splice(stoneIndex, 1);
+    this.log(`装備修復石で${equipment.name}の耐久を${restored}回復した（${equipment.dur}/${equipment.durMax}）。`, 'item');
+    Audio.playSe('heal');
+    this.emitRefresh();
+    return true;
+  }
+
+  useWarp(): boolean {
+    const pos = this.dungeon.start;
+    if (this.player.x === pos.x && this.player.y === pos.y) {
+      this.log('すでにこの階のスタート位置です。リコールベルは消費しません。', 'sys');
+      return false;
+    }
+    if (this.enemyAt(pos.x, pos.y) || this.chestAt(pos.x, pos.y) || this.dungeonObjectAt(pos.x, pos.y) || this.bossObstacleAt(pos.x, pos.y)) {
+      this.log('スタート位置がふさがっています。リコールベルは消費しません。', 'sys');
+      Audio.playSe('deny');
+      return false;
+    }
+    this.clearMoveInput();
+    this.clickPathToken++;
+    this.clickPathActive = false;
+    this.player.x = pos.x; this.player.y = pos.y;
+    this.player.dir = 'down';
+    this.setPlayerVisual('down', 'idle');
+    this.placeSprite(this.playerSprite, pos.x, pos.y);
+    this.playerShadow?.setPosition(this.playerSprite.x, this.playerSprite.y + 13);
+    this.updatePlayerAura();
+    this.refreshTransformationVisual();
+    this.setBossEntranceClosed(false);
+    this.log('リコールベルでこの階のスタート位置へ戻った。', 'item');
+    Audio.playSe('warp');
+    this.updateVisibility();
+    this.updateStairsHint();
+    return true;
+  }
+
+  useSeal() {
+    let n = 0;
+    for (const e of this.enemies) {
+      if (e.def.isFloorBoss && this.dungeon.bossRoom
+        && (!this.isInsideBossRoom(this.player.x, this.player.y) || !this.isInsideBossRoom(e.x, e.y))) continue;
+      const dist = Math.abs(e.x - this.player.x) + Math.abs(e.y - this.player.y);
+      if (dist <= 4) { e.sealTurns = 4; n++; this.magicFx(e.x, e.y); }
+    }
+    this.magicFx(this.player.x, this.player.y);
+    this.log(`封印の魔導書で周囲の敵${n}体を止めた。`, 'special');
+    Audio.playSe('seal');
+  }
+
+  enhanceChance(plus: number): number {
+    return enhancementChance(plus);
+  }
+
+  // 強化成功率：90%から2ポイントずつ低下。失敗でも装備は残る。
+  enhanceSuccess(plus: number): boolean {
+    return runRandom() < this.enhanceChance(plus);
+  }
+
+  // 武器強化スクロールを使う。スクロールは成否にかかわらず消費。
+  useStone(): boolean {
+    const w = this.player.weapon;
+    if (!w) { this.log('強化する武器を装備していない。', 'sys'); Audio.playSe('deny'); return false; }
+    if ((w.plus ?? 0) >= MAX_ENHANCEMENT) { this.log('武器は最大強化+15です。巻物は消費しません。', 'sys'); return false; }
+    if (this.enhanceSuccess(w.plus ?? 0)) {
+      // 成功
+      w.plus = (w.plus ?? 0) + 1;
+      this.log(`強化成功！ ${weaponFullName(w)}（次回${Math.round(this.enhanceChance(w.plus) * 100)}%）`, 'special');
+      Audio.playSe('levelup');
+      this.magicFx(this.player.x, this.player.y);
+      this.updatePlayerAura();
+      // 強化色の閃光
+      this.effectFx(this.player.x, this.player.y, 'fx_levelup', 1.8, 650);
+    } else {
+      this.log(`強化失敗… ${w.name}と強化値はそのまま。巻物だけを消費した。`, 'sys');
+      Audio.playSe('deny');
+    }
+    this.emitRefresh();
+    return true;
+  }
+
+  // 盾も武器と同じ成功率カーブを使う。
+  useShieldStone(): boolean {
+    const s = this.player.shield;
+    if (!s) { this.log('強化する盾を装備していない。', 'sys'); Audio.playSe('deny'); return false; }
+    if ((s.plus ?? 0) >= MAX_ENHANCEMENT) { this.log('盾は最大強化+15です。巻物は消費しません。', 'sys'); return false; }
+    if (this.enhanceSuccess(s.plus ?? 0)) {
+      s.plus = (s.plus ?? 0) + 1;
+      this.log(`盾の強化成功！ +${s.plus} ${s.name}（次回${Math.round(this.enhanceChance(s.plus) * 100)}%）`, 'special');
+      Audio.playSe('levelup');
+      this.magicFx(this.player.x, this.player.y);
+      this.effectFx(this.player.x, this.player.y, 'fx_levelup', 1.8, 650);
+    } else {
+      this.log(`盾の強化失敗… ${s.name}と強化値はそのまま。巻物だけを消費した。`, 'sys');
+      Audio.playSe('deny');
+    }
+    this.emitRefresh();
+    return true;
+  }
+
+  private showForcedEquipmentSale() {
+    this.time.delayedCall(0, () => {
+      const ui = this.scene.get('UIScene') as { showForcedEquipmentSale?: () => void } | undefined;
+      ui?.showForcedEquipmentSale?.();
+    });
+  }
+
+  receiveWeapon(weapon: Weapon, source: string): boolean {
+    rollStarWeapon(weapon);
+    if (this.player.weapons.length < EQUIPMENT_LIMIT) {
+      this.player.weapons.push(weapon);
+      this.recordOwnedEquipment();
+      return true;
+    }
+    this.pendingEquipment = { kind: 'weapon', item: weapon, source };
+    this.log(`武器は${EQUIPMENT_LIMIT}本まで。${weaponFullName(weapon)}を受け取るには、武器を1本売却してください。`, 'special');
+    this.emitRefresh();
+    this.showForcedEquipmentSale();
+    return false;
+  }
+
+  claimSecretQuest(weaponKey: string): boolean {
+    if (this.reviving || this.gameEnded || this.busy || this.pendingEquipment) return false;
+    if (!claimQuest(this.secretQuests, weaponKey)) return false;
+    const reward = makeWeapon(weaponKey, []);
+    this.receiveWeapon(reward, '秘密クエスト');
+    this.log(`秘密クエストの報酬：${weaponFullName(reward)}を獲得！`, 'special');
+    Audio.playSe('pickup');
+    this.emitRefresh();
+    this.saveRun();
+    return true;
+  }
+
+  private advanceSecretQuests(enemy: Enemy) {
+    const result = recordQuestKill(this.secretQuests, enemy.def.key);
+    if (result.fragment) {
+      this.log(`紙の切れ端を発見！ 手帳へ自動回収（${this.secretQuests.fragments}/5）`, 'special');
+      const scrap = this.add.image((enemy.x + .5) * TILE, (enemy.y + .5) * TILE, 'quest_fragment').setDisplaySize(26, 26).setDepth(26);
+      this.tweens.add({ targets: scrap, y: scrap.y - 30, angle: 15, duration: 600, ease: 'Cubic.out' });
+      this.tweens.add({ targets: scrap, alpha: 0, duration: 300, delay: 650, onComplete: () => scrap.destroy() });
+    }
+    if (result.revealed) {
+      this.log('5枚の切れ端がつながり、秘密クエスト開始！ ここから討伐数をカウントします。', 'special');
+      this.events.emit('quest-notice', { title: '秘密が、いま明かされる', detail: '5枚の切れ端を解読。秘密クエスト開始！\nここから対象の魔物を各20体討伐しよう。' });
+    }
+    for (const quest of result.completed) {
+      this.log(`秘密クエスト達成「${quest.title}」！（${completedQuestCount(this.secretQuests)}/5）`, 'special');
+    }
+    if (result.rewardReady) {
+      this.log('秘密クエストを5つすべて達成！ メニューから属性武器を1本選べます。', 'special');
+      this.events.emit('quest-notice', { title: '秘密クエスト 全達成', detail: '5つの依頼をすべて達成！\nメニューから属性武器を1本選べます。' });
+    } else if (result.completed.length) {
+      this.events.emit('quest-notice', { title: `秘密クエスト達成（${completedQuestCount(this.secretQuests)}/5）`, detail: this.secretQuests.claimed.length ? '達成を手帳に記録しました。' : '5つすべて達成すると、属性武器を1本選べます。' });
+    }
+  }
+
+  receiveShield(shield: Shield, source: string): boolean {
+    if (this.player.shields.length < EQUIPMENT_LIMIT) {
+      this.player.shields.push(shield);
+      this.recordOwnedEquipment();
+      return true;
+    }
+    this.pendingEquipment = { kind: 'shield', item: shield, source };
+    this.log(`盾は${EQUIPMENT_LIMIT}個まで。${shieldFullName(shield)}を受け取るには、盾を1個売却してください。`, 'special');
+    this.emitRefresh();
+    this.showForcedEquipmentSale();
+    return false;
+  }
+
+  ownsArmor(key: string): boolean {
+    return this.player.armors.some((armor) => armor.key === key)
+      || (this.pendingEquipment?.kind === 'armor' && this.pendingEquipment.item.key === key);
+  }
+
+  availableArmorDefs(maxFloor: number) {
+    return Object.values(PLAYER_ARMOR_DEFS)
+      .filter((armor) => !armor.exclusiveLoot && armor.minFloor <= maxFloor && !this.ownsArmor(armor.key));
+  }
+
+  receiveArmor(armor: Armor, source: string): boolean {
+    if (this.player.armors.length < EQUIPMENT_LIMIT) {
+      this.player.armors.push(armor);
+      this.recordOwnedEquipment();
+      return true;
+    }
+    this.pendingEquipment = { kind: 'armor', item: armor, source };
+    this.log(`服は${EQUIPMENT_LIMIT}着まで。${armorFullName(armor)}を受け取るには、服を1着売却してください。`, 'special');
+    this.emitRefresh();
+    this.showForcedEquipmentSale();
+    return false;
+  }
+
+  private acceptPendingEquipment(kind: 'weapon' | 'shield' | 'armor') {
+    const pending = this.pendingEquipment;
+    if (!pending || pending.kind !== kind) return;
+    if (kind === 'weapon' && pending.kind === 'weapon') this.player.weapons.push(pending.item);
+    if (kind === 'shield' && pending.kind === 'shield') this.player.shields.push(pending.item);
+    if (kind === 'armor' && pending.kind === 'armor') this.player.armors.push(pending.item);
+    const name = pending.kind === 'weapon' ? weaponFullName(pending.item)
+      : pending.kind === 'shield' ? shieldFullName(pending.item)
+        : armorFullName(pending.item);
+    this.pendingEquipment = null;
+    this.log(`${pending.source}の${name}を所持装備に入れた。`, 'special');
+  }
+
+  unlockDualWieldSecret(): boolean {
+    if (this.rankedRun?.ticket) { this.log('ランキング参加中は特別コードを利用できません。', 'sys'); return false; }
+    invalidateRun(this.rankedRun, '特別コードを使用した冒険はランキング対象外です。');
+    if (this.secretDualUnlocked) return false;
+    this.secretDualUnlocked = true;
+    const weapon = makeWeapon('w_dual_sword_thunder', []);
+    const added = this.receiveWeapon(weapon, '隠し操作');
+    this.log(added
+      ? '隠し装備「デュアルソード（二刀流）」を所持装備に追加した！'
+      : '隠し装備「デュアルソード（二刀流）」を発見した！ 売却後に受け取れます。', 'special');
+    Audio.playSe('levelup');
+    this.emitRefresh();
+    return true;
+  }
+
+  redeemCode(code: string): boolean {
+    if (this.rankedRun?.ticket) { this.log('ランキング参加中は特別コードを利用できません。', 'sys'); return false; }
+    invalidateRun(this.rankedRun, '特別コードを使用した冒険はランキング対象外です。');
+    if (code === '11111111') {
+      if (this.reviving || this.busy || this.gameEnded) return false;
+      this.skillChargeSteps = 100;
+      this.log('スキルのクールダウンをリセットした！', 'special');
+      Audio.playSe('click');
+      this.emitRefresh();
+      this.saveRun();
+      return true;
+    }
+    const mode = difficultyFromCode(code);
+    if (mode) {
+      if (this.reviving || this.busy || this.gameEnded) return false;
+      if (mode !== this.difficulty) {
+        this.difficulty = mode;
+        this.difficultyClearEligible = false;
+        for (const enemy of this.enemies) {
+          if (!enemy.alive) continue;
+          const next = difficultyEnemy(enemy.def, mode);
+          const ratio = enemy.hp / enemy.hpMax;
+          enemy.hpMax = Math.max(1, Math.round(enemy.hpMax * next.hp / enemy.def.hp));
+          enemy.hp = Math.max(1, Math.min(enemy.hpMax, Math.round(enemy.hpMax * ratio)));
+          enemy.def = next;
+          this.clearDifficultyWarnings(enemy);
+          enemy.challengeWaves = [];
+          enemy.challengeTurn = 0;
+          this.drawEnemyHp(enemy);
+        }
+      }
+      document.body.dataset.difficulty = mode;
+      this.log(`${DIFFICULTY_RULES[mode].name}へ切り替えました。現在の階・装備を引き継ぎます。`, 'special');
+      if (!this.difficultyClearEligible) this.log('途中で難易度を変更した冒険は、次の難易度の解放対象外です。', 'sys');
+      Audio.playSe('levelup');
+      this.saveRun();
+      // Rebuild every panel after the input handler has finished using its overlay.
+      this.time.delayedCall(0, () => { this.scene.stop('UIScene'); this.scene.launch('UIScene'); });
+      return true;
+    }
+    if (code !== ITEM_CATALOG_CODE) {
+      this.log('コードが違うようだ。', 'sys');
+      Audio.playSe('deny');
+      return false;
+    }
+    this.itemCatalogUnlocked = true;
+    this.log('全アイテム一覧を開いた。選ぶとアイテムを取得できます。', 'sys');
+    Audio.playSe('click');
+    return true;
+  }
+
+  claimCatalogItem(key: string, starred = false): CatalogClaimResult {
+    if (this.rankedRun?.ticket) return {status:'unavailable',message:'ランキング参加中は装備カタログを利用できません。'};
+    invalidateRun(this.rankedRun, '装備カタログを使用した冒険はランキング対象外です。');
+    if (!this.itemCatalogUnlocked || this.gameEnded) {
+      return { status: 'unavailable', message: 'コードを入力して一覧を開いてください。' };
+    }
+    // 所持上限で保留中の装備を、次の選択で上書きしない。
+    if (this.pendingEquipment) {
+      this.showForcedEquipmentSale();
+      return { status: 'pending', message: '装備を売却すると受け取れます。' };
+    }
+    const entry = ITEM_CATALOG.find((item) => item.key === key);
+    if (!entry) return { status: 'unavailable', message: 'アイテムが見つかりません。' };
+    let received: boolean;
+    if (entry.category === 'weapon') {
+      const weapon = makeWeapon(entry.key, []);
+      weapon.variantRolled = true;
+      if (starred) { weapon.starred = true; weapon.name += '★'; }
+      received = this.receiveWeapon(weapon, 'アイテム一覧');
+    } else if (entry.category === 'shield') {
+      received = this.receiveShield(makeShield(entry.key), 'アイテム一覧');
+    } else if (entry.category === 'armor') {
+      const armorKey = entry.key.slice('armor_'.length);
+      if (!isPlayerArmor(armorKey)) return { status: 'unavailable', message: '服が見つかりません。' };
+      if (this.ownsArmor(armorKey)) return { status: 'unavailable', message: 'この服はすでに所持しています。' };
+      received = this.receiveArmor(makePlayerArmor(armorKey), 'アイテム一覧');
+    } else {
+      this.player.inventory.push(makeItem(entry.key as ItemKind));
+      received = true;
+    }
+    if (!received) return { status: 'pending', message: '装備を売却すると受け取れます。' };
+    this.log(`アイテム一覧から「${entry.name}${starred && entry.category === 'weapon' ? '★' : ''}」を1個取得した！`, 'item');
+    Audio.playSe('coin');
+    this.emitRefresh();
+    return { status: 'received', message: '1個取得しました。所持品に追加しました。' };
+  }
+
+  // ============ ガチャ ============
+  // 500Gで1回。武器と防具（盾・服）を別々に抽選する。
+  // 戻り値は実際の装備の等級・色・名前・アイコン。ゴールド不足はnull。
+  gachaPull(pool: GachaPool = 'weapon'): GachaResult | null {
+    if (this.reviving || this.gameEnded || this.busy || this.pendingEquipment) return null;
+    if (pool === 'weapon' && this.weaponWonThisFloor) {
+      this.log('この階の武器は取得済みです。防具ガチャは利用できます。', 'sys');
+      Audio.playSe('deny');
+      return null;
+    }
+    if (this.player.gold < 500) {
+      this.log('ゴールドが足りない。（ガチャは500G）', 'sys');
+      Audio.playSe('deny');
+      return null;
+    }
+    this.player.gold -= 500;
+
+    // Ordinary SSS equipment is exclusive to normal runs, including the gacha.
+    // Each normal pool has its own 0.01% legendary chance before the armor category roll.
+    const legendaryWon = !this.eventMode && runRandom() < ARCADIA_GACHA_RATE;
+    const arcadiaWon = pool === 'weapon' && legendaryWon;
+    const arcadiaShieldWon = pool === 'armor' && legendaryWon;
+
+    // 内部の抽選区分。画面には入手した装備の等級だけを表示する。
+    const forcedRank = localQaEnabled()
+      ? new URLSearchParams(location.search).get('qa-gacha-rank')
+      : null;
+    const forcedCategory = localQaEnabled()
+      ? new URLSearchParams(location.search).get('qa-gacha-category')
+      : null;
+    const r = runRandom();
+    const rank: 'SSS' | 'SS' | 'S' | 'A' | 'B' | 'C' =
+      legendaryWon ? 'SSS' : forcedRank && ['SS', 'S', 'A', 'B', 'C'].includes(forcedRank)
+        ? forcedRank as 'SS' | 'S' | 'A' | 'B' | 'C'
+        : r < 0.03 ? 'SS' : r < 0.15 ? 'S' : r < 0.40 ? 'A' : r < 0.75 ? 'B' : 'C';
+
+    const gradeByRank: Record<typeof rank, EquipmentGrade> = {
+      SSS: 'SSS', SS: 'S', S: 'A', A: 'B', B: 'C', C: 'D'
+    };
+    const grade = gradeByRank[rank];
+    let equipmentGrade: GachaResult['grade'];
+    let name = '';
+    let texKey = '';
+    let hasEffect = false;
+    let elementColor: number | undefined;
+    let tintIcon = false;
+    let category: '武器' | '服' | '盾' = '盾';
+    let elementName: string | undefined;
+    let feature: string | undefined;
+
+    // 武器は必ず武器、防具は盾80%・服20%。QA指定も選択したプール内に限定。
+    const categoryRoll = runRandom();
+    let prizeCategory: 'weapon' | 'shield' | 'armor' =
+      pool === 'weapon' ? 'weapon' : arcadiaShieldWon ? 'shield'
+        : forcedCategory === 'shield' || forcedCategory === 'armor' ? forcedCategory
+          : categoryRoll < 0.8 ? 'shield' : 'armor';
+    if (prizeCategory === 'armor') {
+      const armor = armorForGrade(rank === 'SS' ? 'SS' : grade);
+      const item = makePlayerArmor(armor.key);
+      this.receiveArmor(item, 'ガチャ');
+      name = armorFullName(item);
+      equipmentGrade = item.grade;
+      texKey = armorTextureKey(armor.key);
+      category = '服';
+      hasEffect = true;
+      elementName = '無属性';
+      feature = `防御力 +${armor.defBonus} / ${armorTraitDescription(item)}`;
+    } else if (prizeCategory === 'weapon') {
+      const eventPool = HALLOWEEN_WEAPONS.filter(w=>w.grade!=='SSS');
+      const w = arcadiaWon ? makeWeapon(runRandom() < .5 ? 'w_hero_sword' : 'w_katana_divine', []) : this.eventMode && runRandom()<.05 ? makeWeapon(eventPool[Math.floor(runRandom()*eventPool.length)].key,[]) : rollWeaponByGrade(grade);
+      if (rank === 'SS') w.plus = Math.max(w.plus, 3);
+      else if (rank === 'S') w.plus = Math.max(w.plus, 1);
+      this.receiveWeapon(w, 'ガチャ');
+      this.weaponWonThisFloor = true;
+      name = weaponFullName(w);
+      equipmentGrade = weaponRarity(w);
+      texKey = w.starred ? starWeaponKey(w.key) : w.key;
+      category = '武器';
+      hasEffect = !!w.passive;
+      elementColor = w.element ? ELEMENT_INFO[w.element].color : undefined;
+      elementName = w.element ? `${ELEMENT_INFO[w.element].name}属性` : '無属性';
+      feature = w.starred ? '装備中の最大HP+50' : w.passive?.name ?? (w.magics.length ? `魔法刻印 ${w.magics.map((magic) => magic.label).join('')}` : undefined);
+    } else {
+      const eventPool = HALLOWEEN_SHIELDS.filter(s=>s.grade!=='SSS');
+      const s = arcadiaShieldWon ? makeShield('s_arcadia_guard') : this.eventMode && runRandom()<.05 ? makeShield(eventPool[Math.floor(runRandom()*eventPool.length)].key) : rollShieldByGrade(grade);
+      if (rank === 'SS') s.plus = Math.max(s.plus, 2);
+      else if (rank === 'S') s.plus = Math.max(s.plus, 1);
+      this.receiveShield(s, 'ガチャ');
+      name = shieldFullName(s);
+      equipmentGrade = s.grade;
+      texKey = s.key;
+      elementColor = s.element ? ELEMENT_INFO[s.element].color : undefined;
+      hasEffect = !!s.passive;
+      category = '盾';
+      elementName = s.element ? `${ELEMENT_INFO[s.element].name}属性` : '無属性';
+      feature = s.passive?.name;
+    }
+
+    this.log(`${pool === 'weapon' ? '武器' : '防具'}ガチャ：${name}を引き当てた！`, ['SSS', 'SS', 'S', 'A'].includes(equipmentGrade) ? 'special' : 'item');
+    this.emitRefresh();
+    return {
+      color: equipmentGrade === 'SS' ? 0xffe48a : gradeColor(equipmentGrade), name, texKey, hasEffect, elementColor, tintIcon,
+      category, grade: equipmentGrade, elementName, feature
+    };
+  }
+
+  shopRemaining(kind: ShopItemKind): number {
+    const limit = kind === 'potion' ? 5 : 1;
+    return Math.max(0, limit - this.shopPurchases[kind]);
+  }
+
+  buyItem(kind: ShopItemKind): boolean {
+    const price = SHOP_PRICES[kind];
+    if (this.gameEnded) return false;
+    if (this.shopRemaining(kind) <= 0) {
+      this.log(`この階の${ITEM_DEFS[kind].name}は売り切れだ。`, 'sys');
+      Audio.playSe('deny');
+      return false;
+    }
+    if (this.player.gold < price) {
+      this.log(`${ITEM_DEFS[kind].name}を買うゴールドが足りない。`, 'sys');
+      Audio.playSe('deny');
+      return false;
+    }
+    this.player.gold -= price;
+    this.player.inventory.push(makeItem(kind));
+    this.shopPurchases[kind]++;
+    this.log(`${ITEM_DEFS[kind].name}を${price}Gで購入した。`, 'item');
+    Audio.playSe('coin');
+    this.emitRefresh();
+    return true;
+  }
+
+  itemSellPrice(kind: ItemKind): number {
+    return ITEM_SELL_PRICES[kind];
+  }
+
+  sellItem(kind: ItemKind): boolean {
+    if (this.reviving || this.busy || this.gameEnded) return false;
+    const index = this.player.inventory.findIndex((item) => item.kind === kind);
+    if (index < 0) return false;
+    const item = this.player.inventory[index];
+    const price = this.itemSellPrice(kind);
+    this.player.inventory.splice(index, 1);
+    this.player.gold += price;
+    this.log(`${item.name}を1個、${price}Gで売却した。`, 'gold');
+    Audio.playSe('coin');
+    this.emitRefresh();
+    return true;
+  }
+
+  equipArmor(index: number) {
+    if (this.busy || this.gameEnded || this.reviving) return;
+    const armor = this.player.armors[index];
+    if (!armor || !isPlayerArmor(armor.key)) return;
+    const gender = PLAYER_ARMOR_DEFS[armor.key].gender;
+    if (gender && gender !== this.playerGender) { this.log('このかぼちゃ服は性別が異なるため着用できない。','sys');return; }
+    this.player.armor = armor;
+    this.playerArmor = armor.key;
+    if (this.playerSprite) this.setPlayerVisual(this.player.dir, 'idle');
+    this.log(`${armorFullName(armor)}に着替えた。`, 'sys');
+    Audio.playSe('pickup');
+    this.emitRefresh();
+  }
+
+  // 装備切替（UIから）
+  unequipEquipment(kind: 'weapon' | 'shield') {
+    if (this.busy || this.gameEnded || this.reviving) return;
+    const equipment = this.player[kind];
+    if (!equipment) return;
+    this.player[kind] = null;
+    this.log(`${kind === 'weapon' ? weaponFullName(equipment as Weapon) : equipment.name}を外した。`, 'sys');
+    Audio.playSe('pickup'); this.updatePlayerAura(); this.updateEmeraldGuardFx(); this.emitRefresh();
+    this.saveRun();
+  }
+
+  equipWeapon(i: number) {
+    if (this.busy || this.gameEnded || this.reviving) return;
+    const w = this.player.weapons[i];
+    if (!w) return;
+    this.player.weapon = w;
+    this.log(`${weaponFullName(w)}を装備した。`, 'sys');
+    // 二刀流は両手がふさがるので盾を外す
+    if (isTwoHanded(w) && this.player.shield) {
+      this.player.shield = null;
+      this.log('両手で武器を構え、盾を外した。', 'sys');
+    }
+    Audio.playSe('pickup'); this.updatePlayerAura(); this.emitRefresh();
+  }
+  equipShield(i: number) {
+    if (this.busy || this.gameEnded || this.reviving) return;
+    const s = this.player.shields[i];
+    if (!s) return;
+    if (isTwoHanded(this.player.weapon)) {
+      this.log('両手武器の装備中は盾を持てない。（武器を持ち替えれば装備できる）', 'sys');
+      Audio.playSe('deny');
+      return;
+    }
+    this.player.shield = s; this.log(`${s.name}を装備した。`, 'sys'); Audio.playSe('pickup'); this.updatePlayerAura(); this.emitRefresh();
+  }
+
+  equipmentSellBase(grade: EquipmentGrade): number {
+    return { D: 20, C: 45, B: 90, A: 160, S: 280, SS: 420, SSS: 560 }[grade];
+  }
+
+  weaponSellPrice(weapon: Weapon): number {
+    const condition = 0.4 + 0.6 * Math.max(0, weapon.dur / Math.max(1, weapon.durMax));
+    return Math.max(5, Math.round((this.equipmentSellBase(weapon.grade) + weapon.plus * 30 + weapon.magics.length * 18) * condition));
+  }
+
+  shieldSellPrice(shield: Shield): number {
+    const condition = 0.4 + 0.6 * Math.max(0, shield.dur / Math.max(1, shield.durMax));
+    return Math.max(5, Math.round((this.equipmentSellBase(shield.grade) * 0.8 + shield.plus * 25) * condition));
+  }
+
+  armorSellPrice(armor: Armor): number {
+    return Math.max(5, this.equipmentSellBase(armor.grade) + armor.plus * 25);
+  }
+
+  sellWeapon(index: number): boolean {
+    const weapon = this.player.weapons[index];
+    if (!weapon) return false;
+    if (weapon === this.player.weapon) {
+      this.log('装備中の武器は売れない。先に別の武器へ持ち替えよう。', 'sys');
+      Audio.playSe('deny');
+      return false;
+    }
+    const price = this.weaponSellPrice(weapon);
+    this.player.weapons.splice(index, 1);
+    this.player.gold += price;
+    this.log(`${weaponFullName(weapon)}を${price}Gで売却した。`, 'gold');
+    this.acceptPendingEquipment('weapon');
+    Audio.playSe('coin');
+    this.emitRefresh();
+    return true;
+  }
+
+  sellShield(index: number): boolean {
+    const shield = this.player.shields[index];
+    if (!shield) return false;
+    if (shield === this.player.shield) {
+      this.log('装備中の盾は売れない。先に別の盾へ持ち替えよう。', 'sys');
+      Audio.playSe('deny');
+      return false;
+    }
+    const price = this.shieldSellPrice(shield);
+    this.player.shields.splice(index, 1);
+    this.player.gold += price;
+    this.log(`${shieldFullName(shield)}を${price}Gで売却した。`, 'gold');
+    this.acceptPendingEquipment('shield');
+    Audio.playSe('coin');
+    this.emitRefresh();
+    return true;
+  }
+
+  sellArmor(index: number): boolean {
+    const armor = this.player.armors[index];
+    if (!armor) return false;
+    if (armor === this.player.armor) {
+      this.log('装備中の服は売れない。先に別の服へ着替えよう。', 'sys');
+      Audio.playSe('deny');
+      return false;
+    }
+    const price = this.armorSellPrice(armor);
+    this.player.armors.splice(index, 1);
+    this.player.gold += price;
+    this.log(`${armorFullName(armor)}を${price}Gで売却した。`, 'gold');
+    this.acceptPendingEquipment('armor');
+    Audio.playSe('coin');
+    this.emitRefresh();
+    return true;
+  }
+
+  // ============ 階段 ============
+  floorDisplayLabel(): string {
+    return `${this.floor}${this.inBossRoom ? '.5' : ''}F`;
+  }
+
+  enterBossRoom() {
+    if (this.timeStopTurns > 0) { this.log('時が動いてから次の部屋へ進もう。', 'sys'); return; }
+    if (this.reviving || this.busy || this.gameEnded || this.inBossRoom) return;
+    this.chargeTurn();
+    this.turnCharged = false;
+    this.busy = true;
+    this.clickPathToken++;
+    Audio.playSe('seal');
+    const cam = this.cameras.main;
+    cam.fadeOut(260, 24, 75, 62);
+    cam.once('camerafadeoutcomplete', async () => {
+      await this.buildFloor(this.floor, true);
+      cam.fadeIn(340, 0, 0, 0);
+      this.emitRefresh();
+      this.busy = false;
+    });
+  }
+
+  tryDescend() {
+    if (this.timeStopTurns > 0) { this.log('時が動いてから階段を使おう。', 'sys'); return; }
+    if (this.reviving || this.busy || this.gameEnded) return;
+    if (this.player.x !== this.dungeon.stairs.x || this.player.y !== this.dungeon.stairs.y) return;
+    this.doDescend();
+  }
+
+  // 実際の降下処理（busyガードなし。移動から即呼ばれる）
+  doDescend() {
+    if (this.gameEnded) return;
+    if (this.floor === 30 && !this.inBossRoom) {
+      this.busy = false;
+      this.enterBossRoom();
+      return;
+    }
+    if (!this.inBossRoom && this.dungeon.bossRoom && !this.floorBossDefeated) {
+      this.log('出口はまだ封印されている。番人を倒して道を開こう。', 'sys');
+      Audio.playSe('deny');
+      this.busy = false;
+      return;
+    }
+    if (this.inBossRoom && (!this.floorBossDefeated || !this.bossRewardClaimed)) {
+      this.log('出口はまだ封印されている。魔物を倒して道を開こう。', 'sys');
+      Audio.playSe('deny');
+      this.busy = false;
+      return;
+    }
+    // Stair movement consumes a turn even though no enemy phase runs on the old floor.
+    this.chargeTurn();
+    this.turnCharged = false;
+    this.log(`${this.floor}F クリア！`, 'special');
+    Audio.playSe('stairs');
+
+    if (this.floor >= (this.eventMode ? 5 : 30)) {
+      this.gameOver(true);
+      return;
+    }
+
+    // 暗転して次の階へ
+    const nextFloor = this.floor + 1;
+    this.busy = true;
+    const cam = this.cameras.main;
+    cam.fadeOut(280, 0, 0, 0);
+    cam.once('camerafadeoutcomplete', async () => {
+      await this.buildFloor(nextFloor, false);
+      cam.fadeIn(300, 0, 0, 0);
+      this.emitRefresh();
+      this.busy = false;
+    });
+  }
+
+  // ============ 冒険の終了 ============
+  awardGold(amount: number): number {
+    const gold = difficultyGold(amount, this.difficulty);
+    this.player.gold += gold;
+    return gold;
+  }
+
+  gameOver(cleared: boolean) {
+    if (this.gameEnded) return;
+    this.clearTimeStopEffect();
+    this.gameEnded = true;
+    this.finalStanding = this.standing(cleared);
+    if (isReplay()) { window.__RANKING_REPLAY__!.result = this.finalStanding; }
+    else if (this.rankedRun?.eligible && this.rankedRun.ticket) {
+      try { enqueueSubmission({ run: this.rankedRun, result: this.finalStanding }); }
+      catch { this.rankingSaveError = true; }
+    }
+    for (const enemy of this.difficultyWarnings.keys()) this.clearDifficultyWarnings(enemy);
+    const difficultyResult = cleared && !this.eventMode && this.floor === 30 && this.difficultyClearEligible ? recordDifficultyClear(this.difficulty) : undefined;
+    if (this.runSaveEnabled()) {
+      writeCodexSave(this.discovered);
+      if (!this.eventMode) writeQuestJournal(this.rankedRun?.ticket ? mergeQuests(readQuestJournal(), this.secretQuests) : this.secretQuests);
+      if (!this.rankingSaveError) clearRunSave(this.eventMode === 'halloween');
+    }
+
+    if (cleared) {
+      this.log(this.eventMode ? '★呪われた収穫城・全5層を制覇！★' : '★30Fを制覇！ ダンジョンコアに到達した！★', 'special');
+      Audio.playBgm('clear'); // 勝利ジングル
+    } else {
+      this.log('チャリは力尽きた…', 'dmg');
+      this.clearTransformation(false);
+      this.playerAttacking = false;
+      this.playPlayerDeath();
+      this.weaponSprite?.setVisible(false);
+      this.playerAura?.setVisible(false);
+      this.enhancementAura?.setVisible(false);
+      Audio.playBgm('gameover'); // 敗北ジングル
+    }
+
+    const stats = {
+      cleared,
+      rankedRun: this.rankedRun,
+      standing: this.finalStanding,
+      rankingSaveError: this.rankingSaveError,
+      floorArrivalTurns: this.floorArrivalTurns,
+      eventMode: this.eventMode,
+      eventStartingWeapon: this.eventStartingWeapon,
+      difficulty: this.difficulty,
+      difficultyChanged: !this.difficultyClearEligible,
+      unlockedDifficulty: difficultyResult?.unlocked,
+      difficultySaveFailed: !!difficultyResult && !difficultyResult.saved && this.runSaveEnabled(),
+      playerGender: this.playerGender,
+      floor: this.floor,
+      level: this.player.level,
+      gold: this.player.gold,
+
+      turns: this.turn,
+      hp: this.player.hp,
+      hpMax: this.player.hpMax,
+      discovered: this.discovered.size,
+      totalMonsters: MONSTER_DEFS.length,
+      damageHistory: this.damageHistory,
+      adventureHistory: this.adventureHistory
+    };
+    if (isReplay()) return;
+    this.time.delayedCall(cleared ? 800 : 1000, () => {
+      this.scene.stop('UIScene');
+      this.scene.start('EndScene', stats);
+    });
+  }
+
+  // ============ エフェクト ============
+  stepDust(x: number, y: number, boost = 0, count = 3, color = 0x57706e) {
+    const total = count + boost * 2;
+    for (let i = 0; i < total; i++) {
+      const dot = this.add.circle(
+        x + Phaser.Math.Between(-6, 6), y + Phaser.Math.Between(-1, 3),
+        Phaser.Math.FloatBetween(0.7, 1.6),
+        boost > 1 ? 0xffd77b : boost > 0 ? 0x58d9d1 : color,
+        boost > 0 ? 0.7 : 0.4
+      ).setDepth(14).setBlendMode(boost > 0 ? Phaser.BlendModes.ADD : Phaser.BlendModes.NORMAL);
+      this.tweens.add({
+        targets: dot,
+        x: dot.x + Phaser.Math.Between(-8, 8),
+        y: dot.y - Phaser.Math.Between(3, 9),
+        alpha: 0,
+        scale: 0.25,
+        duration: Phaser.Math.Between(180, 320),
+        ease: 'Quad.easeOut',
+        onComplete: () => dot.destroy()
+      });
+    }
+  }
+
+  pickupBurst(x: number, y: number, color: number, count = 6) {
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2 + Math.random() * 0.25;
+      const spark = this.add.circle(x, y, i % 3 === 0 ? 1.8 : 1.1, color, 0.9)
+        .setDepth(24).setBlendMode(Phaser.BlendModes.ADD);
+      this.tweens.add({
+        targets: spark,
+        x: x + Math.cos(angle) * Phaser.Math.Between(10, 22),
+        y: y + Math.sin(angle) * Phaser.Math.Between(8, 18) - 4,
+        alpha: 0,
+        scale: 0.25,
+        duration: Phaser.Math.Between(260, 430),
+        ease: 'Cubic.easeOut',
+        onComplete: () => spark.destroy()
+      });
+    }
+  }
+
+  enemyDefeatFx(e: Enemy) {
+    const echo = this.add.image(e.sprite.x, e.sprite.y, e.sprite.texture.key, e.sprite.frame.name)
+      .setDepth(19).setOrigin(e.sprite.originX, e.sprite.originY)
+      .setScale(e.sprite.scaleX, e.sprite.scaleY)
+      .setFlipX(e.sprite.flipX)
+      .setTint(0x9ff8ef)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setAlpha(0.72);
+    this.tweens.add({
+      targets: echo,
+      alpha: 0,
+      scaleX: echo.scaleX * 1.35,
+      scaleY: echo.scaleY * 1.35,
+      angle: Phaser.Math.Between(-10, 10),
+      y: echo.y - 10,
+      duration: 360,
+      ease: 'Cubic.easeOut',
+      onComplete: () => echo.destroy()
+    });
+    this.pickupBurst(e.sprite.x, e.sprite.y - 4, e.def.color || 0x58d9d1, e.def.isBoss ? 14 : 8);
+  }
+
+  arcadiaSlashFx(x: number, y: number, dir: Dir) {
+    const fx = this.add.image(x * TILE + TILE / 2, y * TILE + TILE / 2, 'fx_arcadia', 0)
+      .setDepth(22).setDisplaySize(TILE * 2.3, TILE * 2.3)
+      .setRotation({down:0,left:Math.PI/2,right:-Math.PI/2,up:Math.PI}[dir]);
+    for (const [frame, delay] of [[1,55],[2,110],[3,180]]) {
+      this.time.delayedCall(delay, () => { if (fx.active) fx.setFrame(frame); });
+    }
+    this.time.delayedCall(210, () => {
+      if (fx.active) this.tweens.add({targets:fx,alpha:0,duration:100,onComplete:()=>fx.destroy()});
+    });
+  }
+
+  slashFx(x: number, y: number, tint?: number) {
+    const fx = this.add.image(x * TILE + TILE / 2, y * TILE + TILE / 2, 'fx_slash').setDepth(20).setDisplaySize(40,40);
+    if (tint !== undefined && tint !== 0xdfe7f0) fx.setTint(tint);
+    this.tweens.add({ targets: fx, alpha: 0, displayWidth: 56, displayHeight: 56, duration: 220, onComplete: () => fx.destroy() });
+  }
+  hitFx(x: number, y: number) {
+    const fx = this.add.image(x * TILE + TILE / 2, y * TILE + TILE / 2, 'fx_hit').setDepth(21).setDisplaySize(32,32);
+    this.tweens.add({ targets: fx, alpha: 0, displayWidth: 48, displayHeight: 48, duration: 260, onComplete: () => fx.destroy() });
+  }
+  // 汎用エフェクト（効果シートの画像を表示。tint指定で色を変えられる）
+  effectFx(x: number, y: number, key: string, scale = 1.5, dur = 500, tint?: number) {
+    if (!this.textures.exists(key)) return;
+    const fx = this.add.image(x * TILE + TILE / 2, y * TILE + TILE / 2, key).setDepth(22);
+    // World dimensions stay independent of the illustration's resolution.
+    const [width, height] = effectWorldSize(key);
+    fx.setDisplaySize(width * .8, height * .8);
+    if (tint !== undefined) fx.setTint(tint);
+    this.tweens.add({ targets: fx, alpha: 0, displayWidth: width * scale, displayHeight: height * scale,
+      duration: dur, onComplete: () => fx.destroy() });
+  }
+  healFx() { this.effectFx(this.player.x, this.player.y, 'fx_heal', 1.6, 550); }
+  levelupFx() { this.effectFx(this.player.x, this.player.y, 'fx_levelup', 1.8, 700); }
+  magicFx(x: number, y: number) { this.effectFx(x, y, 'fx_magic', 2.0, 600); }
+  poisonFx(x: number, y: number) { this.effectFx(x, y, 'fx_poison', 1.5, 500); }
+
+  // 両手武器は武器のみ、それ以外は武器と盾の低い強化値で体のオーラを判定。
+  updatePlayerAura() {
+    const weapon = this.player.weapon;
+    const enhancementPlus = isTwoHanded(weapon)
+      ? weapon.plus : Math.min(weapon?.plus ?? 0, this.player.shield?.plus ?? 0);
+    const auraColor = enhancementPlus >= 15 ? 0xffcf58 : enhancementPlus >= 10 ? 0xff5263 : 0x55baff;
+    if (enhancementPlus >= 5 && this.textures.exists('fx_shadow')) {
+      if (!this.enhancementAura?.active) {
+        this.enhancementAura = this.add.container(0, 0, Array.from({ length: 3 }, () =>
+          this.add.image(0, 0, 'fx_shadow')
+        ));
+      }
+      for (const child of this.enhancementAura.list) (child as Phaser.GameObjects.Image).setTintFill(auraColor);
+      this.enhancementAura.setVisible(true);
+    } else this.enhancementAura?.setVisible(false);
+    // The colored smoke supplies the whole body aura; avoid mixing in the old grade glow.
+    this.playerAura?.setVisible(false);
+    this.updateHeldEquipment();
+  }
+
+  updateHeldEquipment() {
+    if (!this.playerSprite) return;
+    this.equipmentRenderer?.update(this.playerSprite,this.player.weapon,this.player.shield,this.player.dir,
+      this.playerVisualFrame,this.playerGender,this.time.now-this.playerVisualSince,
+      !this.transformation && !(this.gameEnded && this.player.hp <= 0));
+  }
+
+  // 矢印キーのホールド処理：押した瞬間に1歩、押しっぱなしで歩き続ける
+  // （スマホ用十字ボタンの touchDir も同じ仕組みで処理）
+  async attackTarget(x: number, y: number) {
+    if (this.busy || this.gameEnded || this.reviving || this.timeStopTurns > 0) return;
+    const enemy = this.enemyAt(x, y);
+    if (!enemy || !this.isTileCurrentlyVisible(x, y)) return;
+    const dx = x - this.player.x, dy = y - this.player.y;
+    const adjacent = bodyDistance(enemy, bossBodyRadius(enemy.def), this.player) <= 1;
+    const reach = this.player.weapon?.weaponType === 'bow' ? 3 : this.player.weapon?.weaponType === 'handgun' ? 2 : 0;
+    const ranged = reach > 0 && (dx === 0 || dy === 0) && Math.abs(dx) + Math.abs(dy) <= reach && this.lineOfSight(this.player.x, this.player.y, x, y);
+    if (!adjacent && !ranged) return;
+    const dir: Dir = Math.abs(dx) > Math.abs(dy) ? dx > 0 ? 'right' : 'left' : dy > 0 ? 'down' : 'up';
+    this.busy = true;
+    try { await this.playerAttack(enemy, dir, ranged && !adjacent); await this.finishTurn(); }
+    finally { this.busy = false; }
+  }
+
+  async handleMapClick(pointer: Phaser.Input.Pointer, clickedObjectsOrEnemy?: Phaser.GameObjects.GameObject[] | Enemy) {
+    if (this.assetsLoading || pointer.button !== 0 || this.gameEnded) return;
+    if (pointer.x < MAP_X || pointer.x >= MAP_X + MAP_W || pointer.y < MAP_Y || pointer.y >= MAP_Y + MAP_H) return;
+    const ui = this.scene.get('UIScene') as any;
+    if (ui?.isSkillPointer?.(pointer.x, pointer.y)) return;
+    if (ui?.overlayMode && ui.overlayMode !== 'none') return;
+
+    const clickedAt = pointer.downTime || this.time.now;
+    if (this.clickPathActive && clickedAt - this.lastMapClickAt <= 360) {
+      this.lastMapClickAt = 0;
+      this.stopClickPath();
+      this.effectFx(this.player.x, this.player.y, 'fx_move_v3', 0.72, 180, 0xffd36b);
+      return;
+    }
+    this.lastMapClickAt = clickedAt;
+    if (this.reviving || this.busy) return;
+
+    const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+    const target = { x: Math.floor(world.x / TILE), y: Math.floor(world.y / TILE) };
+    const concealedEnemy = this.enemies.find(enemy => enemy.alive && !this.canClickEnemy(enemy)
+      && this.isTileCurrentlyVisible(enemy.x, enemy.y)
+      && bodyContains(enemy, bossBodyRadius(enemy.def), target));
+    if (concealedEnemy) {
+      this.log('何かいるようだ…', 'sys');
+      return;
+    }
+    const explicitEnemy = clickedObjectsOrEnemy && !Array.isArray(clickedObjectsOrEnemy) ? clickedObjectsOrEnemy : undefined;
+    // Art may cover several empty tiles. Only the enemy's occupied cells are attack targets.
+    const ownsTarget = (enemy: Enemy) => this.canClickEnemy(enemy)
+      && bodyContains(enemy, bossBodyRadius(enemy.def), target);
+    const clickedEnemy = explicitEnemy && ownsTarget(explicitEnemy) ? explicitEnemy
+      : this.enemies.find(ownsTarget);
+    const clickedChest = !clickedEnemy ? this.chests.find(c => !c.opened && c.sprite.active
+      && c.sprite.visible && c.sprite.alpha > .1 && c.sprite.getBounds().contains(world.x,world.y)) : undefined;
+    if (clickedChest) { target.x=clickedChest.x; target.y=clickedChest.y; }
+    if (clickedEnemy) { target.x=clickedEnemy.x; target.y=clickedEnemy.y; }
+    const tile = this.dungeon.tiles[target.y]?.[target.x];
+    const doorTarget = tile === 'roomDoor' || (tile === 'door' && !this.inBossRoom);
+    if (!tile || (!isWalkable(tile) && !doorTarget && !(clickedEnemy && tile === 'wall')) || tile === 'pit'
+      || (this.inBossRoom && !this.isInsideBossCombatFrame(target.x, target.y))) {
+      Audio.playSe('deny');
+      return;
+    }
+    if (!this.isTileCurrentlyVisible(target.x, target.y)) {
+      Audio.playSe('deny');
+      this.log('暗闇の先へは自動移動できない。', 'sys');
+      return;
+    }
+    if (this.timeStopTurns > 0) {
+      const dx = target.x - this.player.x, dy = target.y - this.player.y;
+      if (!dx && !dy) return;
+      this.stopClickPath();
+      const dir: Dir = Math.abs(dx) > Math.abs(dy) ? dx > 0 ? 'right' : 'left' : dy > 0 ? 'down' : 'up';
+      await this.playerAct(dir, { moveOnly: true });
+      return;
+    }
+
+    const token = ++this.clickPathToken;
+    this.clickPathActive = true;
+    this.clickPathQuick = Math.abs(target.x - this.player.x) + Math.abs(target.y - this.player.y) >= 2;
+    this.setBoostTier(0);
+    this.clickDestinationRing?.destroy();
+    const destinationRing = this.add.graphics().setPosition((target.x + .5) * TILE, (target.y + .5) * TILE)
+      .setDepth(9).setName('click-destination-ring');
+    destinationRing.lineStyle(5, 0xffdc70, .18).strokeEllipse(0, 0, 29, 18);
+    destinationRing.lineStyle(1.6, 0xffef9a, 1).strokeEllipse(0, 0, 29, 18);
+    for (const [x,y,dx,dy] of [[-16,0,5,0],[16,0,-5,0],[0,-11,0,4],[0,11,0,-4]]) {
+      destinationRing.lineBetween(x,y,x+dx,y+dy);
+    }
+    this.clickDestinationRing = destinationRing;
+    this.tweens.add({targets:destinationRing,alpha:.65,duration:450,yoyo:true,repeat:-1,ease:'Sine.inOut'});
+
+    const visited = new Set<string>([`${this.player.x},${this.player.y}`]);
+    let actions = 0;
+    const maxActions = 24;
+    try {
+      while (token === this.clickPathToken && !this.gameEnded && !this.busy && actions < maxActions) {
+        if (clickedEnemy) {
+          if (!clickedEnemy.alive || !this.enemies.includes(clickedEnemy)) break;
+          target.x=clickedEnemy.x; target.y=clickedEnemy.y;
+          const dx=clickedEnemy.x-this.player.x,dy=clickedEnemy.y-this.player.y;
+          const reach=this.player.weapon?.weaponType==='bow'?3:this.player.weapon?.weaponType==='handgun'?2:0;
+          const adjacent=bodyDistance(clickedEnemy,bossBodyRadius(clickedEnemy.def),this.player)<=1;
+          const ranged=reach>0 && (dx===0||dy===0) && Math.abs(dx)+Math.abs(dy)<=reach
+            && this.lineOfSight(this.player.x,this.player.y,clickedEnemy.x,clickedEnemy.y);
+          if (adjacent || ranged) {
+            const dir: Dir=Math.abs(dx)>Math.abs(dy)?dx>0?'right':'left':dy>0?'down':'up';
+            if (this.lanceSkillTurns > 0 && this.player.weapon?.weaponType === 'lance') {
+              await this.playerAct(dir); break;
+            }
+            await this.attackTarget(clickedEnemy.x, clickedEnemy.y);
+            break;
+          }
+        }
+        if (this.player.x === target.x && this.player.y === target.y) break;
+        if (!this.isTileCurrentlyVisible(target.x, target.y)) break;
+        let path = this.findClickPath(target.x, target.y);
+        if (!path.length) path = this.findClickPath(target.x, target.y, true);
+        if (!path.length) break;
+        const dir = path[0];
+        const [dx, dy] = this.dirVec(dir);
+        const nextX = this.player.x + dx;
+        const nextY = this.player.y + dy;
+        const blockingEnemy = this.enemyAt(nextX, nextY);
+        if (blockingEnemy) {
+          if (!this.canClickEnemy(blockingEnemy)) this.log('何かいるようだ…', 'sys');
+          break;
+        }
+        const encounteredEnemy = !!this.bossObstacleAt(nextX, nextY);
+        const hpBefore = this.player.hp;
+        const positionBefore = `${this.player.x},${this.player.y}`;
+        actions++;
+        await this.playerAct(dir, { moveOnly: true });
+        const positionAfter = `${this.player.x},${this.player.y}`;
+        // Ice can carry us past the clicked cell. Stop at the landing point instead
+        // of planning a return trip onto the ice and sliding back again.
+        if (this.player.x !== nextX || this.player.y !== nextY) break;
+        // Continue toward the destination in boss rooms too; stop on contact, damage or blocked movement.
+        if (encounteredEnemy || this.player.hp !== hpBefore || positionAfter === positionBefore) break;
+        // 引き寄せやノックバックで同じ場所を循環した場合は即停止する。
+        if (visited.has(positionAfter)) break;
+        visited.add(positionAfter);
+        if (this.reviving || this.busy) break;
+      }
+    } catch (error) {
+      console.error('タッチ自動移動を安全停止しました:', error);
+      this.log('タッチ自動移動を停止した。もう一度タップして操作できます。', 'sys');
+    } finally {
+      destinationRing.destroy();
+      if (this.clickDestinationRing === destinationRing) this.clickDestinationRing = undefined;
+      if (token === this.clickPathToken) {
+        this.clickPathActive = false;
+        this.setBoostTier(0);
+      }
+    }
+  }
+
+  stopClickPath() {
+    this.clickDestinationRing?.destroy();
+    this.clickDestinationRing = undefined;
+    this.clickPathToken++;
+    this.clickPathActive = false;
+    this.setBoostTier(0);
+  }
+
+  findClickPath(targetX: number, targetY: number, stopAtEnemy = false): Dir[] {
+    const targetObject = this.dungeonObjectAt(targetX, targetY);
+    const dirs: { dir: Dir; dx: number; dy: number }[] = [
+      { dir: 'up', dx: 0, dy: -1 }, { dir: 'down', dx: 0, dy: 1 },
+      { dir: 'left', dx: -1, dy: 0 }, { dir: 'right', dx: 1, dy: 0 }
+    ];
+    const queue: { x: number; y: number; path: Dir[] }[] = [{ x: this.player.x, y: this.player.y, path: [] }];
+    const visited = new Set<string>([`${this.player.x},${this.player.y}`]);
+    while (queue.length) {
+      const cur = queue.shift()!;
+      for (const step of dirs) {
+        const nx = cur.x + step.dx, ny = cur.y + step.dy;
+        const key = `${nx},${ny}`;
+        if (visited.has(key)) continue;
+        const tile = this.dungeon.tiles[ny]?.[nx];
+        // Large fountains are interacted with at their nearest edge, even when their center is clicked.
+        const isTarget = nx === targetX && ny === targetY
+          || !!targetObject && this.dungeonObjectAt(nx, ny) === targetObject;
+        const doorTarget = isTarget && (tile === 'roomDoor' || (tile === 'door' && !this.inBossRoom));
+        if (!this.isTileCurrentlyVisible(nx, ny)) continue;
+        if (!tile || (!isWalkable(tile) && !doorTarget && !(isTarget && tile === 'wall' && this.enemyAt(nx, ny))) || tile === 'pit') continue;
+        if (this.inBossRoom && !this.isInsideBossCombatFrame(nx, ny)) continue;
+        const path = [...cur.path, step.dir];
+        if (!isTarget && this.enemyAt(nx, ny)) {
+          if (stopAtEnemy) return path;
+          continue;
+        }
+        const object = this.dungeonObjectAt(nx, ny);
+        if (!isTarget && (this.chestAt(nx, ny) || this.bossObstacleAt(nx, ny) || object)) continue;
+        if (object && (!isTarget || (!object.breakable && object.kind !== 'fountain'))) continue;
+        if (isTarget) return path;
+        visited.add(key);
+        queue.push({ x: nx, y: ny, path });
+      }
+    }
+    return [];
+  }
+
+  handleMoveKeys(time: number) {
+    const ui = this.scene.get('UIScene') as { overlayMode?: string } | undefined;
+    if (this.gameEnded || (ui?.overlayMode && ui.overlayMode !== 'none')) {
+      this.clearMoveInput();
+      return;
+    }
+    const entries: [Phaser.Input.Keyboard.Key, Dir][] = [
+      [this.keys.up, 'up'], [this.keys.down, 'down'],
+      [this.keys.left, 'left'], [this.keys.right, 'right']
+    ];
+    // 最後に押されたキーを優先（斜め同時押しでも自然に）
+    let best: [Phaser.Input.Keyboard.Key, Dir] | null = null;
+    for (const [k, d] of entries) {
+      if (k.isDown && (!best || k.timeDown > best[0].timeDown)) best = [k, d];
+    }
+    const dir = best ? best[1] : this.touchDir;
+    if (!dir) {
+      this.heldDir = null;
+      this.holdStartedAt = 0;
+      if (!this.clickPathActive) this.setBoostTier(0);
+    }
+    // busy中もキーを離した事実は反映する。予約は行動可能になるまで保持。
+    if (this.reviving || this.busy) return;
+    if (this.queuedMove) {
+      const queued = this.queuedMove;
+      this.queuedMove = null;
+      this.heldDir = dir === queued ? queued : null;
+      this.holdStartedAt = time;
+      this.holdRepeatAt = time + HOLD_FIRST_REPEAT_MS;
+      this.setBoostTier(0);
+      this.playerAct(queued);
+      return;
+    }
+    if (!dir) return;
+    if (this.clickPathActive) {
+      this.clickPathToken++;
+      this.clickPathActive = false;
+      this.setBoostTier(0);
+    }
+    if (this.heldDir !== dir) {
+      // 押した瞬間：即1歩（向き変えも含む）
+      this.heldDir = dir;
+      this.holdStartedAt = time;
+      this.setBoostTier(0);
+      this.holdRepeatAt = time + HOLD_FIRST_REPEAT_MS;
+      this.playerAct(dir);
+    } else if (time >= this.holdRepeatAt) {
+      const heldFor = time - this.holdStartedAt;
+      this.setBoostTier(heldFor >= HOLD_MAX_BOOST_MS ? 2 : heldFor >= HOLD_BOOST_MS ? 1 : 0);
+      // 長押し中：進める時だけ歩く（壁に向かってのログ連打を防ぐ）
+      if (this.canMoveInto(dir)) {
+        this.playerAct(dir);
+        this.holdRepeatAt = time + (this.holdBoostTier === 2 ? 44 : this.holdBoostTier === 1 ? 62 : 96);
+      }
+    }
+  }
+
+  currentMoveDuration(): number {
+    if (this.clickPathActive) return 40;
+    if (this.holdBoostTier === 2) return 44;
+    if (this.holdBoostTier === 1) return 62;
+    return 104;
+  }
+
+  currentTurnAnimDuration(base: number): number {
+    const scale = this.clickPathActive ? 0.48 : this.holdBoostTier === 2 ? 0.44 : this.holdBoostTier === 1 ? 0.64 : 1;
+    return Math.max(28, Math.round(base * scale));
+  }
+
+  setBoostTier(tier: number) {
+    if (this.holdBoostTier === tier) return;
+    this.holdBoostTier = tier;
+    this.events.emit('refresh');
+    if (!this.boostBadge) return;
+    if (tier === 0) {
+      this.boostBadge.setVisible(false);
+      return;
+    }
+    this.boostBadge
+      .setText(tier === 2 ? '⚡ 最大加速' : '⚡ 加速')
+      .setBackgroundColor(tier === 2 ? '#e7b85e' : '#58d9d1')
+      .setVisible(true)
+      .setScale(.75);
+    this.tweens.add({ targets: this.boostBadge, scale: 1, duration: 190, ease: 'Back.easeOut' });
+  }
+
+  // その方向に「移動 or 攻撃 or 宝箱」できるか（長押しリピート用）
+  canMoveInto(dir: Dir): boolean {
+    const [dx, dy] = this.dirVec(dir);
+    const nx = this.player.x + dx, ny = this.player.y + dy;
+    if (this.enemyAt(nx, ny)) return true;
+    if (this.bossObstacleAt(nx, ny)) return true;
+    const object = this.dungeonObjectAt(nx, ny);
+    if (object) return object.breakable || (object.kind === 'fountain' && !object.used);
+    const c = this.chestAt(nx, ny);
+    if (c && !c.opened) return true;
+    const t = this.dungeon.tiles[ny]?.[nx];
+    if (t === 'roomDoor') return true;
+    if (t === 'door' && !this.inBossRoom && nx === this.dungeon.stairs.x && ny === this.dungeon.stairs.y
+      && this.floorHasGate(this.floor) && (!this.dungeon.bossRoom || this.floorBossDefeated)) return true;
+    return !!t && isWalkable(t) && t !== 'pit';
+  }
+
+  // 毎フレーム：影の追従・アイドルの呼吸・オーラ＆武器の追従
+  update(time: number) {
+    if (this.assetsLoading) return;
+    if (this.savePending && !this.busy) this.saveRun();
+    const ps = this.playerSprite;
+    if (!ps) return;
+    this.updateEmeraldGuardFx();
+    this.updateCursorTile();
+    const entrance = this.dungeon?.bossEntrance;
+    if (entrance) {
+      const gate = this.tileSprites[entrance.y]?.[entrance.x];
+      if (gate?.visible) {
+        const nearby = Math.max(Math.abs(ps.x / TILE - .5 - entrance.x),
+          Math.abs(ps.y / TILE - .5 - entrance.y)) < 1.5;
+        // Keep the traversable opening legible when the foreground stonework covers the player.
+        gate.setAlpha(nearby ? .48 : 1).setTint(this.bossEntranceClosed ? 0xff796f : 0xffffff);
+      }
+    }
+
+    // 矢印長押しで連続移動
+    this.handleMoveKeys(time);
+
+    this.drawPlayerFrame(this.player.dir, this.playerAnimation.sample(this.time.now));
+    ps.setDepth(this.worldDepth(ps.y, 13));
+    if (this.enemies.some(e => e.alive && bossBodyRadius(e.def) && Math.abs(ps.x - e.sprite.x) < TILE * 5 && Math.abs(ps.y - e.sprite.y) < TILE * 5)) ps.setDepth(40);
+    if (this.transformationSprite?.visible && this.transformation) {
+      const pulse = this.transformation.kind === 'boss5' ? 0 : Math.sin(time * 0.004);
+      this.transformationSprite
+        .setPosition(ps.x, ps.y)
+        .setScale(
+          this.transformationBaseScale * (1 - pulse * 0.018),
+          this.transformationBaseScale * (1 + pulse * 0.045)
+        )
+        .setFlipX(this.transformation.kind !== 'boss5' && this.player.dir === 'left')
+        .setAlpha(this.invisTurns > 0 ? 0.4 : 1)
+        .setDepth(ps.depth + 0.05);
+      if (this.transformation.kind === 'boss5') this.transformationSprite.setFrame(MONSTER_DIRECTION_FRAME[this.player.dir]);
+    }
+    // 足元の影
+    if (this.playerShadow) {
+      this.playerShadow.x = ps.x;
+      this.playerShadow.y = ps.y + 13;
+      this.playerShadow.setScale(1 + Math.sin(time * 0.004) * 0.035, 1 - Math.sin(time * 0.004) * 0.02);
+      this.playerShadow.setAlpha(0.62 - Math.sin(time * 0.004) * 0.05);
+      this.playerShadow.setVisible(!this.gameEnded);
+      this.playerShadow.setDepth(ps.depth - 0.22);
+    }
+
+    if (this.enhancementAura?.visible) {
+      this.enhancementAura.setPosition(ps.x, ps.y - 6).setDepth(ps.depth - .18);
+      this.enhancementAura.list.forEach((child, i) => {
+        const cloud = child as Phaser.GameObjects.Image;
+        // Same rising, rotating, fading smoke cycle as Rufalzent, kept close to the body.
+        const phase = (time / 2400 + i / 3) % 1;
+        cloud.setPosition(Math.sin(time / 650 + i * 2) * 1.5, -phase * 5)
+          .setDisplaySize(23 + phase * 6, 30 + phase * 8)
+          .setRotation(time * .00015 * (i % 2 ? -1 : 1) + i * 2)
+          .setAlpha(Math.sin(phase * Math.PI) * .42 * ps.alpha);
+      });
+    }
+    if (this.playerAura && this.playerAura.visible) {
+      this.playerAura.x = ps.x;
+      this.playerAura.y = ps.y - 14;
+      const pulse = 0.9 + Math.sin(time * 0.006) * 0.15;
+      this.playerAura.setScale(pulse);
+      this.playerAura.setDepth(ps.depth - 0.16);
+    }
+    this.updateHeldEquipment();
+
+    // 敵：ゆらゆらした待機モーション＋影の追従
+    for (const e of this.enemies) {
+      if (!e.sprite || !e.sprite.visible) continue;
+      if (this.timeStopTurns > 0) continue;
+      if (e.directionArt) {
+        // No animation state or frame cycling: swap only when the direction changes.
+        this.updateEnemyDirection(e);
+        this.updateDirectionalEnemyPose(e, time);
+      } else if (e.frameAnimation) {
+        this.updateEnemyAnimation(e, time);
+      } else if (!e.animating) {
+        if (e.def.gimmick === 'mimic' && !e.awakened) {
+          // 敵用baseScaleで宝箱が縮まないよう、擬態中は本物と同じ固定サイズにする。
+          e.sprite.setDisplaySize(26, 26).setAngle(0);
+        } else {
+          const flying = !!e.def.wallPass || /drake|dragon|wyrm|wyvern|moth|fiend|lich/.test(e.def.key);
+          const bony = ['m_bone_dragon', 'm_death_knight', 'm_grave_crawler', 'm_lich'].includes(e.def.key);
+          const pulse = Math.sin(time * (flying ? 0.0052 : 0.004) + e.bobPhase);
+          e.sprite.scaleX = e.baseScale * (1 - pulse * (bony ? 0.01 : 0.018));
+          e.sprite.scaleY = e.baseScale * (1 + pulse * (flying ? 0.065 : 0.045));
+          const rattle = bony ? Math.sin(time * 0.012 + e.bobPhase) * 0.55 : 0;
+          e.sprite.angle = Math.sin(time * 0.0027 + e.bobPhase) * (flying ? 1.9 : 1.3) + rattle;
+        }
+      }
+      e.sprite.setDepth(this.worldDepth(e.sprite.y, 12));
+      if (bossBodyRadius(e.def) && e.alive) {
+        const coreLabel = this.bossStates.get(e)?.coreLabel;
+        coreLabel?.setPosition(e.sprite.x, e.sprite.y - TILE * 3.5).setVisible(e.sprite.visible);
+      }
+      this.updateEnemyShadow(e);
+      if (e.aura) {
+        e.aura.x = e.sprite.x;
+        e.aura.y = e.sprite.y - 6;
+        e.aura.setDepth(e.sprite.depth - 0.16);
+      }
+      if (e.freezeFx?.name === 'emedral-stun' && (e.emedralStunUntil < this.turn || !e.alive)) this.destroyEnemyFreezeFx(e);
+      if (e.freezeFx) {
+        this.updateEnemyFreezeFx(e);
+        e.freezeFx.setPosition(e.sprite.x, e.sprite.y - 3).setDepth(e.sprite.depth + 0.35);
+      }
+      const debuffKey = `${e.skillAttackDownUntil >= this.turn}:${e.skillDefenseDownUntil >= this.turn}`;
+      if (e.skillDebuffVisualKey !== debuffKey) this.drawEnemyHp(e);
+      e.hpBar?.setPosition(e.sprite.x, e.sprite.y).setDepth(e.sprite.depth + 0.45);
+    }
+
+    for (const c of this.chests) {
+      if (!c.sprite.visible) continue;
+      c.sprite.setDepth(this.worldDepth(c.sprite.y, 11));
+      const pulse = Math.sin(time * 0.003 + c.phase);
+      if (!c.opened) c.sprite.setScale(c.baseScale * (1 + pulse * 0.018), c.baseScale * (1 - pulse * 0.012));
+      if (c.glow) {
+        c.glow.setPosition(c.sprite.x, c.sprite.y - 4);
+        c.glow.setAlpha((c.opened ? 0.2 : 0.28) + pulse * 0.08);
+        c.glow.setScale(0.92 + pulse * 0.1);
+        c.glow.setDepth(c.sprite.depth - 0.12);
+      }
+    }
+
+    for (const g of this.ground) {
+      if (!g.sprite.visible) continue;
+      const pulse = Math.sin(time * 0.0042 + g.phase);
+      g.sprite.y = g.y * TILE + TILE / 2 - 2 + pulse * 2.2;
+      g.sprite.angle = Math.sin(time * 0.002 + g.phase) * 2.5;
+      g.sprite.setDepth(this.worldDepth(g.sprite.y, 7));
+      if (g.glow) {
+        g.glow.setPosition(g.sprite.x, g.sprite.y + 1);
+        g.glow.setAlpha((g.kind === 'mystery_bread' ? 0.24 : 0.16) + pulse * 0.06).setScale(0.9 + pulse * 0.08);
+        if (g.kind === 'mystery_bread') g.glow.setDisplaySize(30 + pulse * 2, 30 + pulse * 2);
+        g.glow.setDepth(g.sprite.depth - 0.12);
+      }
+    }
+
+    for (const pad of this.teleportPadVisuals) {
+      if (!pad.sprite.visible) continue;
+      const pulse = Math.sin(time * 0.004 + pad.phase);
+      pad.sprite.setScale(pad.baseScale * (1 + pulse * 0.035));
+      pad.sprite.setAlpha(0.9 + pulse * 0.1);
+    }
+
+    const compass = this.bossCompassVisual;
+    const direction = this.bossCompassDirection();
+    if (compass && direction && !this.floorBossDefeated && compass.base.visible) {
+      const pulse = (Math.sin(time * 0.006) + 1) * 0.5;
+      compass.glow.setScale(0.9 + pulse * 0.2).setAlpha(0.14 + pulse * 0.2);
+      compass.arrow.setAlpha(0.76 + pulse * 0.24).setScale(0.96 + pulse * 0.08);
+    }
+
+    for (const object of this.dungeonObjects) {
+      if (!object.sprite.visible) continue;
+      object.sprite.setDepth(this.worldDepth(object.sprite.y + object.h * TILE / 2, 10));
+      if (object.waterFx?.visible && object.waterDrops && object.waterRipples) {
+        object.waterFx.setPosition(object.sprite.x, object.sprite.y).setDepth(object.sprite.depth + 0.12);
+        for (const drop of object.waterDrops) {
+          const travel = (time * 0.032 + drop.phase) % 23;
+          drop.sprite.x = drop.x;
+          drop.sprite.y = Math.floor(-17 + travel);
+          drop.sprite.setAlpha(0.35 + (1 - travel / 23) * 0.62);
+        }
+        for (const ripple of object.waterRipples) {
+          const progress = (time * 0.00145 + ripple.phase) % 1;
+          ripple.sprite.setScale(0.55 + progress * 0.72, 1).setAlpha((1 - progress) * 0.62);
+        }
+      }
+    }
+
+    for (const m of this.ambientMotes) {
+      if (!m.sprite.visible) continue;
+      const pulse = Math.sin(time * 0.0018 + m.phase);
+      m.sprite.y = m.baseY - ((time * 0.006 + m.phase * 8) % 14);
+      m.sprite.x += Math.sin(time * 0.001 + m.phase) * 0.015;
+      m.sprite.setAlpha(0.12 + (pulse + 1) * 0.13);
+    }
+    this.updateEnemyHover();
+    this.updateFountainHover();
+  }
+  flashSprite(spr: Phaser.GameObjects.Image) {
+    if (!spr.active || !spr.scene) return;
+    spr.setTintFill(0xffffff);
+    this.time.delayedCall(90, () => {
+      if (spr.active && spr.scene) spr.clearTint();
+    });
+  }
+  drawEnemyHp(e: Enemy) {
+    if (e.def.gimmick === 'mimic' && !e.awakened) {
+      e.hpBar?.clear().setVisible(false);
+      return;
+    }
+    if (!e.hpBar) e.hpBar = this.add.graphics().setDepth(e.sprite.depth + 0.45);
+    else e.hpBar.setDepth(e.sprite.depth + 0.45);
+    e.hpBar.clear();
+    e.hpBar.setVisible(e.sprite.visible);
+    e.hpBar.setPosition(e.sprite.x, e.sprite.y);
+    const w = 24;
+    const x = -w / 2;
+    const y = -20;
+    e.hpBar.fillStyle(0x000000, 0.6); e.hpBar.fillRect(x - 1, y - 1, w + 2, 5);
+    e.hpBar.fillStyle(0x40ff70, 1); e.hpBar.fillRect(x, y, w * Math.max(0, e.hp / e.hpMax), 3);
+    e.skillDebuffVisualKey = `${e.skillAttackDownUntil >= this.turn}:${e.skillDefenseDownUntil >= this.turn}`;
+    const icons = [e.skillAttackDownUntil >= this.turn ? 'attack' : '', e.skillDefenseDownUntil >= this.turn ? 'defense' : ''].filter(Boolean);
+    icons.forEach((kind, index) => {
+      const ix = -icons.length * 5 + index * 10, iy = y + 7, g = e.hpBar;
+      const color = kind === 'attack' ? 0xff998b : 0x8ecaff;
+      g.fillStyle(0x101520, .9).fillRoundedRect(ix - 1, iy - 1, 10, 10, 2);
+      g.lineStyle(1, color, 1);
+      if (kind === 'attack') {
+        g.fillStyle(color).fillRect(ix + 1, iy + 1, 2, 4);
+        g.fillTriangle(ix + 1, iy + 1, ix + 3, iy + 1, ix + 2, iy);
+        g.fillRect(ix, iy + 5, 4, 1);
+        g.fillRect(ix + 1.5, iy + 6, 1, 2);
+      } else {
+        g.strokePoints([{x:ix,y:iy+1},{x:ix+4,y:iy+1},{x:ix+4,y:iy+4},{x:ix+2,y:iy+6},{x:ix,y:iy+4}], true);
+      }
+      g.fillStyle(color).fillRect(ix + 5, iy + 3, 4, 1.5);
+    });
+  }
+
+  private torchRevealsEnemy(enemy: Enemy): boolean {
+    return this.torchTurns > 0 && this.isTileCurrentlyVisible(enemy.x, enemy.y)
+      && Math.max(Math.abs(enemy.x - this.player.x), Math.abs(enemy.y - this.player.y)) <= 10;
+  }
+
+  private canClickEnemy(enemy: Enemy): boolean {
+    if (!enemy.alive || !enemy.sprite?.active || !enemy.sprite.visible || enemy.sprite.alpha <= 0) return false;
+    if (enemy.def.isDarkNinja && !enemy.stealthRevealed && !this.torchRevealsEnemy(enemy)) return false;
+    // Adjacent melee remains available while burrowed, just as with directional input.
+    if (enemy.def.gimmick === 'burrow' && enemy.charging && !this.torchRevealsEnemy(enemy)
+      && bodyDistance(enemy, bossBodyRadius(enemy.def), this.player) > 1) return false;
+    return true;
+  }
+
+  private canInspectEnemy(enemy: Enemy): boolean {
+    if (!enemy.alive || !enemy.sprite?.active || !enemy.sprite.visible || enemy.sprite.alpha <= 0.1) return false;
+    if (enemy.def.isDarkNinja && !enemy.stealthRevealed && !this.torchRevealsEnemy(enemy)) return false;
+    if (enemy.def.gimmick === 'burrow' && enemy.charging && !this.torchRevealsEnemy(enemy)) return false;
+    return this.torchRevealsEnemy(enemy) || enemy.awakened || !['mimic', 'ambush', 'statue'].includes(enemy.def.gimmick ?? '');
+  }
+
+  private bindEnemyPointer(enemy: Enemy) {
+    enemy.sprite.setInteractive({ useHandCursor: true });
+    const input = enemy.sprite.input!;
+    const contains = input.hitAreaCallback;
+    // Keep Phaser's frame-aware bounds, but never expose a concealed enemy through the cursor.
+    input.hitAreaCallback = (area, x, y, sprite) => this.canClickEnemy(enemy) && contains(area, x, y, sprite);
+    enemy.sprite.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (this.canInspectEnemy(enemy)) this.showEnemyInfo(enemy);
+      if (this.canClickEnemy(enemy)) void this.handleMapClick(pointer, enemy);
+    });
+  }
+
+  private clearEnemyHover() {
+    if (!this.hoveredEnemy) return;
+    this.hoveredEnemy = undefined;
+    this.enemyHoverInfoKey = '';
+    this.events.emit('enemyhoverend');
+  }
+
+  private updateCursorTile() {
+    const pointer = this.input.activePointer;
+    const ui = this.scene.get('UIScene') as any;
+    if (!this.cursorTile?.active) this.cursorTile = this.add.rectangle(0, 0, TILE, TILE, 0xffffff, .12)
+      .setStrokeStyle(1, 0xffffff, .3).setDepth(34).setName('cursor-tile').setVisible(false);
+    if (!this.input.isOver || pointer.wasTouch || this.gameEnded || ui.overlayMode !== 'none'
+      || (ui as any).isSkillPointer?.(pointer.x, pointer.y)
+      || pointer.x < MAP_X || pointer.x >= MAP_X + MAP_W || pointer.y < MAP_Y || pointer.y >= MAP_Y + MAP_H) {
+      this.cursorTile.setVisible(false); return;
+    }
+    const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+    const x = Math.floor(world.x / TILE), y = Math.floor(world.y / TILE);
+    this.cursorTile.setPosition((x + .5) * TILE, (y + .5) * TILE)
+      .setVisible(!!this.dungeon.tiles[y]?.[x] && this.isTileCurrentlyVisible(x, y));
+  }
+
+  private updateEnemyHover() {
+    const pointer = this.input.activePointer;
+    const ui = this.scene.get('UIScene') as any;
+    if (!this.input.isOver || pointer.wasTouch || this.gameEnded || !ui?.enemyInfoText?.active
+      || ui.overlayMode !== 'none' || ui.isSkillPointer?.(pointer.x, pointer.y)
+      || pointer.x < MAP_X || pointer.x >= MAP_X + MAP_W
+      || pointer.y < MAP_Y || pointer.y >= MAP_Y + MAP_H) {
+      this.clearEnemyHover();
+      return;
+    }
+
+    // Use the map camera, not pointer.worldX/Y (the HUD has its own camera).
+    // Check every frame so enemies moving under a stationary cursor stay accurate.
+    const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+    let target: Enemy | undefined;
+    for (const enemy of this.enemies) {
+      if (!this.canInspectEnemy(enemy)) continue;
+      if (enemy.sprite.getBounds().contains(world.x, world.y)
+        && (!target || enemy.sprite.depth >= target.sprite.depth)) target = enemy;
+    }
+    if (!target) {
+      this.clearEnemyHover();
+      return;
+    }
+    const attack = this.enemyAttackDefinition(target);
+    const key = [target.hp, target.hpMax, attack.atkMin, attack.atkMax,
+      target.def.def, target.def.behavior, monsterElement(target.def)].join(':');
+    if (target === this.hoveredEnemy && key === this.enemyHoverInfoKey) return;
+    this.hoveredEnemy = target;
+    this.enemyHoverInfoKey = key;
+    this.showEnemyInfo(target);
+  }
+
+  private updateFountainHover() {
+    const pointer = this.input.activePointer;
+    const ui = this.scene.get('UIScene') as any;
+    let target: DungeonObject | undefined;
+    if (this.input.isOver && !pointer.wasTouch && !this.gameEnded && ui?.tooltip?.active
+      && ui.overlayMode === 'none' && !ui.isSkillPointer?.(pointer.x, pointer.y)
+      && pointer.x >= MAP_X && pointer.x < MAP_X + MAP_W && pointer.y >= MAP_Y && pointer.y < MAP_Y + MAP_H) {
+      const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+      target = this.dungeonObjects.find(object => object.kind === 'fountain'
+        && object.sprite.active && object.sprite.visible && object.sprite.alpha > .1
+        && this.isTileCurrentlyVisible(object.x, object.y)
+        && object.sprite.getBounds().contains(world.x, world.y));
+    }
+    if (!target) {
+      this.fountainHoverInfoKey = '';
+      if (ui?.tooltipSource === 'fountain') ui.hideTooltip();
+      return;
+    }
+    const info = this.healingObjectInfo(target);
+    const key = `${target.x}:${target.y}:${info.title}:${info.description}:${pointer.x}:${pointer.y}`;
+    if (key === this.fountainHoverInfoKey && ui.tooltipSource === 'fountain') return;
+    this.fountainHoverInfoKey = key;
+    ui.showTooltip(info.title, info.description, pointer.x, pointer.y, 'fountain');
+  }
+
+  showEnemyInfo(e: Enemy) {
+    this.discoverMonster(e.def.key);
+    const attack = this.enemyAttackDefinition(e);
+    const element = monsterElement(e.def);
+    const weakTo = element ? ELEMENT_INFO[element].weakTo : undefined;
+    this.events.emit('enemyinfo', {
+      hover: e === this.hoveredEnemy,
+      name: e.def.name, hp: e.hp, hpMax: e.hpMax,
+      atk: `${attack.atkMin}-${attack.atkMax}`, def: e.def.def,
+      behavior: this.behaviorLabel(e.def.behavior),
+      description: e.def.description,
+      element: e.def.elements ? `全属性（火・水・氷・雷・闇） 現在の核：${element ? FINAL_ELEMENT_LABEL[element] : '火'}` : element ? `${ELEMENT_INFO[element].name}属性（${weakTo ? `弱点: ${ELEMENT_INFO[weakTo].name}属性` : '属性の弱点なし'}）` : '無属性（属性の弱点・耐性なし）'
+    });
+  }
+  behaviorLabel(b: string): string {
+    return { chase: '追尾', slow: '鈍足(2ターンに1回)', random: 'ランダム移動', loop: '徘徊(壁抜け)', line: '直進', ranged: '遠距離攻撃' }[b] ?? b;
+  }
+
+  // ============ 描画ヘルパー ============
+  updateDirectionalEnemyPose(e: Enemy, time: number) {
+    const pose = monsterDirectionPose(time, e.bobPhase, e.freezeTurns > 0, e.directionMotion);
+    // Move the artwork relative to its anchor; never overwrite an in-flight tween.
+    e.sprite.setDisplayOrigin(e.sprite.width * 0.5 - pose.x / e.baseScale,
+      e.sprite.height * (e.def.isBoss || e.def.isFloorBoss ? BOSS_GROUND_ORIGIN_Y : e.directionArt?.originY ?? .6) - pose.y / e.baseScale).setAngle(pose.angle);
+  }
+
+  updateEnemyDirection(e: Enemy) {
+    if (!e.directionArt || !e.sprite.active) return;
+    e.sprite.setOrigin(.5, e.def.isBoss || e.def.isFloorBoss ? BOSS_GROUND_ORIGIN_Y : e.directionArt.originY ?? .6);
+    const frame = (e.directionArt.frameOffset ?? 0) + MONSTER_DIRECTION_FRAME[e.facing];
+    if (e.sprite.texture.key !== e.directionArt.textureKey || Number(e.sprite.frame.name) !== frame) {
+      e.sprite.setTexture(e.directionArt.textureKey, frame).setFlip(false, false).setAngle(0);
+    }
+  }
+
+  async playDirectionalEnemyAttack(e: Enemy, impact: () => void | Promise<void>, facePlayer: boolean, immediate: boolean): Promise<void> {
+    if (facePlayer) this.faceEnemyToward(e, this.player);
+    this.updateEnemyDirection(e);
+    e.animating = true;
+    const [dx, dy] = this.dirVec(e.facing);
+    const half = this.currentTurnAnimDuration(ANIM) / 2;
+    e.directionMotion = { kind: 'attack', startedAt: this.time.now, duration: half * 2, dx, dy };
+    // Ranged attacks launch immediately, keeping their existing projectile timing.
+    const release = immediate && e.alive && !this.gameEnded ? impact() : undefined;
+    // A cast can teleport the enemy; sway and recovery must use its new position.
+    const x = e.x * TILE + TILE / 2, y = e.y * TILE + TILE / 2;
+    await this.tween(e.sprite, { x: x + dx * 3, y: y + dy * 3 }, half, 'Sine.easeInOut');
+    if (!e.sprite.active) return;
+    const recovery = this.tween(e.sprite, { x, y }, half, 'Sine.easeInOut');
+    await Promise.all([recovery, immediate ? release : e.alive && !this.gameEnded ? impact() : undefined]);
+    if (e.sprite.active) {
+      e.animating = false;
+      e.directionMotion = undefined;
+    }
+  }
+
+  faceEnemyToward(e: Enemy, target: Vec2) {
+    const dx = target.x - e.x;
+    const dy = target.y - e.y;
+    if (Math.abs(dx) > Math.abs(dy)) e.facing = dx > 0 ? 'right' : 'left';
+    else if (dy !== 0) e.facing = dy > 0 ? 'down' : 'up';
+  }
+
+  handleMoveKeyDown(event: KeyboardEvent) {
+    const dir = MOVE_KEY_DIRS[event.code || event.key];
+    if (!dir || event.repeat) return;
+    const ui = this.scene.get('UIScene') as { overlayMode?: string } | undefined;
+    if (this.gameEnded || (ui?.overlayMode && ui.overlayMode !== 'none')) return;
+    event.preventDefault();
+    // 最大1行動。連打で大量に予約せず、最後に押した方向へ更新する。
+    this.queuedMove = dir;
+    this.heldDir = null;
+    this.holdStartedAt = 0;
+    if (this.clickPathActive) this.stopClickPath();
+  }
+
+  handleMoveKeyUp(event: KeyboardEvent) {
+    const dir = MOVE_KEY_DIRS[event.code || event.key];
+    if (dir && this.heldDir === dir) {
+      this.heldDir = null;
+      this.holdStartedAt = 0;
+      this.setBoostTier(0);
+    }
+    // 離しても未処理の短押しは消さない。
+  }
+
+  clearMoveInput() {
+    this.clearEnemyHover();
+    this.showSkillRangePreview(false);
+    this.showDynamiteRangePreview(false);
+    this.events.emit('moveinputcleared');
+    this.queuedMove = null;
+    this.heldDir = null;
+    this.holdStartedAt = 0;
+    this.holdRepeatAt = 0;
+    this.touchDir = null;
+    this.input.keyboard?.resetKeys();
+    if (this.clickPathActive) this.stopClickPath();
+    else this.setBoostTier(0);
+  }
+
+  setEnemyAnimation(e: Enemy, action: MonsterAction, duration?: number) {
+    e.frameAnimation = {
+      action,
+      startedAt: this.time.now,
+      duration: duration ?? (action === 'charge' ? 800 : 1200)
+    };
+    this.updateEnemyAnimation(e, this.time.now);
+  }
+
+  updateEnemyAnimation(e: Enemy, time: number) {
+    if (!e.frameAnimation || !e.sprite.active) return;
+    const animation = getMonsterAnimation(e.def.key);
+    if (!animation) return;
+    const { texture, frame } = monsterAnimationFrame(e.facing, e.frameAnimation,
+      e.freezeTurns > 0 ? e.frameAnimation.startedAt : time, animation);
+    if (e.sprite.texture.key !== texture || String(e.sprite.frame.name) !== String(frame)) {
+      e.sprite.setTexture(texture, frame);
+    }
+    e.sprite.setFlip(false, false).setAngle(0).setScale(e.baseScale);
+  }
+
+  async playDrawnEnemyAttack(
+    e: Enemy, action: 'claw' | 'cast', impact: () => void | Promise<void>, facePlayer = true
+  ): Promise<void> {
+    if (e.directionArt) return this.playDirectionalEnemyAttack(e, impact, facePlayer, action === 'cast');
+    if (facePlayer) this.faceEnemyToward(e, this.player);
+    e.animating = true;
+    const duration = Math.max(action === 'cast' ? 240 : 160,
+      this.currentTurnAnimDuration(action === 'cast' ? 400 : 280));
+    this.setEnemyAnimation(e, action, duration);
+    const wait = (ms: number) => new Promise<void>((resolve) => this.time.delayedCall(ms, () => resolve()));
+    const recovery = wait(duration);
+    await wait(duration / 2);
+    if (e.alive && e.sprite.active && !this.gameEnded) {
+      this.updateEnemyAnimation(e, this.time.now);
+      await impact();
+    }
+    await recovery;
+    if (!e.sprite.active) return;
+    e.animating = false;
+    this.setEnemyAnimation(e, this.bossStates.get(e)?.intent ? 'charge' : 'idle');
+  }
+
+  setPlayerVisual(dir: Dir, frame: PlayerVisualFrame) {
+    const arcadia = this.player.weapon?.key === 'w_hero_sword';
+    this.playerAnimation.attackFrameMs = arcadia ? 65 : this.player.weapon?.weaponType === 'katana' ? 52 : 26;
+    this.playerAnimation.windupFrameMs = arcadia ? 90 : this.player.weapon?.weaponType === 'katana' ? 70 : 29;
+    this.playerAnimation.play(frame, this.time.now);
+    this.playerVisualSince = this.playerAnimation.since;
+    this.player.dir = dir;
+    if (this.transformation?.kind === 'boss5') this.transformationSprite?.setFrame(MONSTER_DIRECTION_FRAME[dir]).setFlipX(false);
+    else this.transformationSprite?.setFlipX(dir === 'left');
+    this.drawPlayerFrame(dir, this.playerAnimation.sample(this.time.now));
+    this.updateHeldEquipment();
+  }
+
+  drawPlayerFrame(dir: Dir, frame: PlayerVisualFrame) {
+    this.playerVisualFrame = frame;
+    const sheetKey = playerSheetKey(this.playerGender, this.playerArmor ?? DEFAULT_PLAYER_ARMOR);
+    if (this.textures.exists(sheetKey)) {
+      const index = playerFrameIndex(dir, frame);
+      if (this.playerSprite.texture.key !== sheetKey || Number(this.playerSprite.frame.name) !== index) {
+        this.playerSprite.setTexture(sheetKey, index).setFlipX(false);
+      }
+      return;
+    }
+
+    // 新シートが読めない環境では従来素材へフォールバックする。
+    if (frame === 'hurt') {
+      this.playerSprite.setTexture('player_hurt').setFlipX(dir === 'right');
+      return;
+    }
+    if (frame === 'down') {
+      this.playerSprite.setTexture('player_down').setFlipX(false);
+      return;
+    }
+    const legacyFrame = frame === 'idle2' ? 'idle' : frame.startsWith('walk') ? 'walk1'
+      : frame.startsWith('atkWindup') ? 'atkWindup' : frame.startsWith('atk') ? 'atk' : frame;
+    const key = `player_${dir}_${legacyFrame}`;
+    if (this.textures.exists(key)) {
+      this.playerSprite.setTexture(key);
+      this.playerSprite.setFlipX(false);
+    } else {
+      const base = dir === 'right' ? 'left' : dir;
+      this.playerSprite.setTexture(`player_${base}_${legacyFrame}`);
+      this.playerSprite.setFlipX(dir === 'right');
+    }
+  }
+
+  tween(target: any, props: any, ms: number, ease = 'Linear'): Promise<void> {
+    return awaitTween(this, target, props, ms, ease);
+  }
+
+  private discoverMonster(key: string) {
+    if (this.discovered.has(key)) return;
+    this.discovered.add(key);
+    if (this.runSaveEnabled()) writeCodexSave(this.discovered);
+  }
+
+  private recordOwnedEquipment() {
+    let changed = false;
+    for (const key of equipmentKeys(this.player)) {
+      if (!this.discoveredEquipment.has(key)) {
+        this.discoveredEquipment.add(key);
+        changed = true;
+      }
+    }
+    if (changed && this.runSaveEnabled()) writeEquipmentCodexSave(this.discoveredEquipment);
+  }
+
+  emitRefresh() {
+    this.player.hp = Math.min(this.player.hp, this.player.hpMax);
+    this.recordOwnedEquipment();
+    this.events.emit('refresh');
+    this.savePending = true;
+  }
+
+  captureRun() {
+    const { weapon, shield, armor, ...player } = this.player;
+    return {
+      ranking: { run: this.rankedRun, random: randomState() },
+      state: pickFields(this, RUN_STATE_KEYS),
+      player: { ...player, hpMax: this.player.hpMax },
+      equipped: {
+        weapon: weapon ? this.player.weapons.indexOf(weapon) : -1,
+        shield: shield ? this.player.shields.indexOf(shield) : -1,
+        armor: armor ? this.player.armors.indexOf(armor) : -1
+      },
+      dungeon: this.dungeon,
+      explored: this.explored,
+      openedRooms: [...this.openedOptionalRooms].map(room => this.dungeon.optionalRooms.indexOf(room)).filter(i => i >= 0),
+      discovered: [...this.discovered],
+      logs: this.logHistory,
+      damageHistory: this.damageHistory,
+      adventureHistory: this.adventureHistory,
+      enemies: this.enemies.map(enemy => ({
+        state: pickFields(enemy, ENEMY_STATE_KEYS),
+        visual: { texture: enemy.sprite.texture.key, scaleX: enemy.sprite.scaleX, scaleY: enemy.sprite.scaleY,
+          sourceWidth: enemy.sprite.width, sourceHeight: enemy.sprite.height,
+          alpha: enemy.sprite.alpha, tint: enemy.sprite.tintTopLeft, aura: !!enemy.aura }
+      })),
+      chests: this.chests.map(({ sprite, glow, ...chest }) => chest),
+      ground: this.ground.map(({ sprite, glow, ...item }) => item),
+      objects: this.dungeonObjects.map(({ sprite, waterFx, waterDrops, waterRipples, ...object }) => object),
+      bosses: [...this.bossStates].map(([enemy, { coreLabel, intent, ...state }]) => ({
+        enemy: this.enemies.indexOf(enemy), state,
+        intent: intent ? { ...intent, markers: intent.markers.map(({ plate, label, ...marker }) => marker) } : undefined
+      })),
+      hazards: this.bossHazards.map(({ sprite, ...hazard }) => hazard),
+      obstacles: this.bossObstacles.map(({ sprite, ...obstacle }) => obstacle),
+      audio: { bgmVolume: Audio.bgmVolume, seVolume: Audio.seVolume, bgmOn: Audio.bgmOn, seOn: Audio.seOn }
+    };
+  }
+
+  saveRun() {
+    if (this.restoringRun || this.reviving || this.busy || this.gameEnded || !this.playerSprite || !this.dungeon || this.player.hp <= 0) return false;
+    if (!this.runSaveEnabled()) return false;
+    this.savePending = false;
+    const saved = writeRunSave(this.captureRun());
+    const journalSaved = saved && (this.eventMode ? true : writeQuestJournal(this.rankedRun?.ticket ? mergeQuests(readQuestJournal(), this.secretQuests) : this.secretQuests));
+    if ((!saved || !journalSaved) && !this.saveWarningShown) {
+      this.saveWarningShown = true;
+      this.log('ブラウザに保存できません。保存データの設定・空き容量を確認してください。', 'sys');
+    }
+    return saved && journalSaved;
+  }
+
+  private runSaveEnabled() {
+    if (isReplay()) return false;
+    // QA scenarios must neither overwrite nor delete a real local adventure.
+    const params = new URLSearchParams(location.search);
+    return !localQaEnabled() || ![...params.keys()].some(key => key.startsWith('qa-')) || params.has('qa-save');
+  }
+
+  private restoreRunState(snapshot: RunSnapshot) {
+    const journal = this.secretQuests;
+    Object.assign(this, pickFields(snapshot.state, RUN_STATE_KEYS));
+    this.enhancementScrollClaimedBlocks = Array.isArray(snapshot.state.enhancementScrollClaimedBlocks)
+      ? [...snapshot.state.enhancementScrollClaimedBlocks]
+      : Object.values(this.enhancementScrollDrops).some(Boolean) ? [Math.ceil(this.floor / 2)] : [];
+    this.eventMode = snapshot.state.eventMode ?? null;
+    this.emeraldGuardUntil = snapshot.state.emeraldGuardUntil ?? 0;
+    this.emeraldGuardReadyTurn = snapshot.state.emeraldGuardReadyTurn ?? (this.emeraldGuardUntil > 0 ? this.emeraldGuardUntil + 97 : 0);
+    this.emeraldGuardArmed = snapshot.state.emeraldGuardArmed ?? true;
+    this.eventStartingWeapon = snapshot.state.eventStartingWeapon ?? 'w_iron_dagger';
+    this.difficulty = difficultyOf(snapshot.state.difficulty);
+    this.difficultyClearEligible = snapshot.state.difficultyClearEligible !== false;
+    this.revivesUsed = Number.isInteger(snapshot.state.revivesUsed) && snapshot.state.revivesUsed >= 0 ? snapshot.state.revivesUsed : 0;
+    document.body.dataset.difficulty = this.difficulty;
+    if (!this.rankedRun?.ticket) this.secretQuests = mergeQuests(journal, this.secretQuests);
+    this.floorArrivalTurns = snapshot.state.floorArrivalTurns ?? 0;
+    // Saves created before weapon skills remain readable.
+    if (!Number.isInteger(this.skillChargeSteps) || this.skillChargeSteps < 0) this.skillChargeSteps = 100;
+    this.skillChargeSteps = Math.min(100, this.skillChargeSteps);
+    this.timeStopTurns = Math.max(0, Math.min(5, snapshot.state.timeStopTurns ?? 0));
+    this.lanceSkillTurns = Math.max(0, snapshot.state.lanceSkillTurns ?? 0);
+    this.player = Object.assign(new Player(), snapshot.player);
+    this.player.baseHpMax = snapshot.player.baseHpMax ?? snapshot.player.hpMax;
+    this.player.inventory = this.player.inventory.filter(item => !isRemovedItem(item.kind));
+    for (const item of this.player.inventory) {
+      if (item.kind === 'mystery_bread') Object.assign(item, makeItem('mystery_bread'));
+    }
+    for (const item of [...this.player.weapons, ...this.player.shields]) refreshLegendaryEquipment(item);
+    if (this.pendingEquipment) refreshLegendaryEquipment(this.pendingEquipment.item);
+    this.player.weapon = this.player.weapons[snapshot.equipped.weapon] ?? null;
+    this.player.shield = isTwoHanded(this.player.weapon) ? null : this.player.shields[snapshot.equipped.shield] ?? null;
+    this.player.armor = this.player.armors[snapshot.equipped.armor] ?? null;
+    this.recordOwnedEquipment();
+    this.discovered = new Set([...this.discovered, ...snapshot.discovered]);
+    if (this.runSaveEnabled()) writeCodexSave(this.discovered);
+    this.logHistory = snapshot.logs.map(entry => ({ ...entry, msg: this.playerFacingSavedLog(entry.msg) }));
+    this.damageHistory = (Array.isArray(snapshot.damageHistory) ? snapshot.damageHistory : []).slice(-120);
+    this.adventureHistory = (Array.isArray(snapshot.adventureHistory) ? snapshot.adventureHistory : []).slice(-120);
+    this.qaBossMode = false;
+    this.qaBossRoomZone = undefined;
+    setSelectedGender(this.playerGender);
+    Audio.setBgmVolume(snapshot.audio.bgmVolume);
+    Audio.setSeVolume(snapshot.audio.seVolume);
+    if (Audio.bgmOn !== snapshot.audio.bgmOn) Audio.toggleBgm();
+    if (Audio.seOn !== snapshot.audio.seOn) Audio.toggleSe();
+  }
+
+  private restoreRunEntities(snapshot: RunSnapshot) {
+    const restoredEnemies: (Enemy | undefined)[] = [];
+    for (const [index, saved] of snapshot.enemies.entries()) {
+      // Remove event enemies leaked into older ordinary-stage saves, preserving boss indices.
+      if (!this.eventMode && saved.state.def.key.startsWith('m_hw_')) continue;
+      if (this.floor === 10 && saved.state.def.isFloorBoss && saved.state.def.key === 'm_horn_demon') {
+        saved.state.def = { ...saved.state.def, key: 'm_giant_bull', name: '巨角の猛牛', bossTint: 0xffffff,
+          element: undefined, description: MONSTER_DEFS.find(m => m.key === 'm_giant_bull')!.description };
+        saved.visual.texture = 'giant_bull_directions_v1';
+        const art = DIRECTIONAL_MONSTERS.find(a => a.monsterKey === 'm_giant_bull')!;
+        saved.visual.scaleX = saved.visual.scaleY = 40 * 1.82 / art.artSize;
+        saved.state.baseScale = saved.visual.scaleX;
+        saved.visual.tint = 0xffffff;
+      }
+      const e = this.addEnemy(saved.state.def, saved.state.x, saved.state.y, 1);
+      const currentBaseScale = e.baseScale;
+      restoredEnemies[index] = e;
+      Object.assign(e, saved.state);
+      // Direction atlases can change between releases; restore size against the current art.
+      e.sprite.setTexture(e.directionArt?.textureKey ?? saved.visual.texture,
+        e.directionArt ? (e.directionArt.frameOffset ?? 0) + MONSTER_DIRECTION_FRAME[e.facing] : undefined).setScale(saved.visual.scaleX, saved.visual.scaleY)
+        .setTint(saved.visual.tint).setAlpha(saved.visual.alpha);
+      if ((REFRESHED_MONSTER_KEYS as readonly string[]).includes(e.def.key)
+        || (e.directionArt && saved.visual.texture !== e.directionArt.textureKey)) {
+        const visual = saved.visual as typeof saved.visual & { sourceWidth?: number; sourceHeight?: number };
+        if (visual.sourceWidth && visual.sourceHeight) {
+          const ratioX = visual.sourceWidth / e.sprite.width, ratioY = visual.sourceHeight / e.sprite.height;
+          e.baseScale *= Math.max(ratioX, ratioY);
+          e.sprite.setScale(saved.visual.scaleX * ratioX, saved.visual.scaleY * ratioY);
+        } else {
+          // Older saves contain a scale for the former 32px sheet, not a world size.
+          const pulseX = Phaser.Math.Clamp(saved.visual.scaleX / saved.state.baseScale, .8, 1.2);
+          const pulseY = Phaser.Math.Clamp(saved.visual.scaleY / saved.state.baseScale, .8, 1.2);
+          e.baseScale = currentBaseScale * (e.cloneDepth > 0 ? .72 : 1) * e.midBossVisualMultiplier;
+          e.sprite.setScale(e.baseScale * pulseX, e.baseScale * pulseY);
+        }
+      }
+      const midBossMultiplier = e.def.isFloorBoss && this.floor >= 11 && this.floor % 5 !== 0 ? 1.5 : 1;
+      const sizeRatio = midBossMultiplier / e.midBossVisualMultiplier;
+      e.baseScale *= sizeRatio;
+      e.sprite.setScale(e.sprite.scaleX * sizeRatio, e.sprite.scaleY * sizeRatio);
+      e.midBossVisualMultiplier = midBossMultiplier;
+      if (saved.visual.aura && !e.aura) this.attachAura(e, 40 * midBossMultiplier, e.def.bossTint ?? 0xffa755);
+      this.updateEnemyDirection(e);
+      if (e.freezeTurns > 0) this.freezeEnemy(e, e.freezeTurns);
+      else if (e.emedralStunUntil >= this.turn) this.createPaintedFreeze(e, true);
+      this.drawEnemyHp(e);
+    }
+    for (const saved of snapshot.chests) {
+      // Open chests may now share their tile with a monster: render without collision checks.
+      const size = saved.diamond ? 34 : saved.rare ? 27 : 26;
+      const sprite = this.add.image(0, 0, saved.diamond ? saved.opened ? 'chest_diamond_open' : 'chest_diamond' : this.eventMode ? saved.opened ? 'hw_chest_open' : 'hw_chest' : saved.rare
+        ? saved.opened ? 'chest_rare_open' : 'chest_rare'
+        : saved.opened ? 'chest_common_open' : 'chest_common')
+        .setDepth(6).setOrigin(0.5, 0.62).setDisplaySize(size, size);
+      this.placeSprite(sprite, saved.x, saved.y);
+      const glow = saved.rare ? this.add.image(sprite.x, sprite.y - 4, 'glow')
+        .setDepth(sprite.depth - .12).setBlendMode(Phaser.BlendModes.ADD)
+        .setTint(saved.diamond ? 0x9feeff : 0xffca52).setDisplaySize(42, 42).setAlpha(saved.opened ? .46 : .34) : undefined;
+      this.chests.push({ ...saved, sprite, glow, baseScale: sprite.scaleX });
+    }
+    for (const item of snapshot.ground) {
+      if (isRemovedItem(item.kind)) continue;
+      const equipment = item.weapon ?? item.shield ?? item.armor;
+      if (equipment) refreshLegendaryEquipment(equipment);
+      const texture = item.kind === 'armor' ? armorTextureKey(item.armor!.key)
+        : item.weapon?.starred ? starWeaponKey(item.weapon.key) : equipment?.key ?? (item.kind === 'coin' ? 'coin' : `i_${item.kind}`);
+      const sprite = this.add.image(0, 0, equipmentIconTexture(texture)).setDepth(5).setOrigin(.5, .6).setDisplaySize(equipment ? 24 : 22, equipment ? 24 : 22);
+      this.placeSprite(sprite, item.x, item.y);
+      const glow = this.add.image(sprite.x, sprite.y - 2, 'glow').setDepth(sprite.depth - .12)
+        .setBlendMode(Phaser.BlendModes.ADD).setTint(equipment ? gradeColor(equipment.grade) : item.kind === 'coin' || item.kind === 'mystery_bread' ? 0xffc45a : 0x88dfd4)
+        .setDisplaySize(equipment ? 34 : 28, equipment ? 34 : 28).setAlpha(equipment ? .32 : .18);
+      this.ground.push({ ...item, sprite, glow });
+    }
+    // Older lake-floor saves can contain two fountains. Keep a used one first so reload never grants an extra use.
+    const fountains = snapshot.objects.filter(object => object.kind === 'fountain');
+    const keptFountain = fountains.find(object => object.used) ?? fountains.find(object => object.goldFountain) ?? fountains.find(object => object.silverFountain) ?? fountains[0];
+    for (const object of snapshot.objects) {
+      if (object.kind === 'fountain' && object !== keptFountain) continue;
+      this.addDungeonObject(object.kind, object.x, object.y, object.w, object.h, object.breakable, object.silverFountain ?? false, object.goldFountain ?? false);
+      const restored = this.dungeonObjects[this.dungeonObjects.length - 1];
+      restored.used = object.used;
+      if (object.used) { restored.sprite.setTint(0x7b8c8a).setAlpha(.72); restored.waterFx?.setVisible(false); }
+    }
+    for (const saved of snapshot.bosses) {
+      const enemy = restoredEnemies[saved.enemy];
+      if (!enemy) continue;
+      this.registerBossGimmick(enemy, saved.state.kind);
+      const state = this.bossStates.get(enemy)!;
+      Object.assign(state, saved.state);
+      if (saved.intent) {
+        state.intent = { ...saved.intent, markers: saved.intent.markers.map(marker => {
+          const color = marker.element ? ELEMENT_INFO[marker.element].color : this.bossImpactColor(this.bossImpactKind(state.kind, marker.channel));
+          const restored = this.bossWarningMarkers([marker], color, this.player, marker.channel)[0];
+          Object.assign(restored, marker);
+          restored.label.setText(String(marker.turns));
+          return restored;
+        }) };
+      }
+    }
+    for (const hazard of snapshot.hazards) this.addBossHazards([hazard], hazard.kind, hazard.turns, false);
+    for (const obstacle of snapshot.obstacles) {
+      const sprite = this.add.image(obstacle.x * TILE + TILE / 2, obstacle.y * TILE + TILE / 2,
+        this.textures.exists('prop_statue') ? 'prop_statue' : `wall${eraSuffix(getTheme(this.floor).era)}`)
+        .setDepth(this.worldDepth(obstacle.y * TILE + TILE / 2, 12)).setDisplaySize(TILE - 5, TILE - 3)
+        .setTint(obstacle.kind === 'iron' ? 0x7a4b36 : 0xffe7c2);
+      this.bossObstacles.push({ ...obstacle, sprite });
+    }
+    this.playerSprite.setAlpha(this.invisTurns > 0 ? .4 : 1);
+    for (const enemy of this.enemies) if (enemy.challengeWaves.length) this.drawDifficultyWarnings(enemy);
+    this.updatePlayerAura();
+  }
+
+  // UIScene起動前のログも保持し、UIScene側が起動時に復元できるようにする
+  private playerFacingSavedLog(msg: string): string {
+    msg = msg.split('堕天盾ルシファー').join('漆黒の盾ルファルゼント').split('堕天盾アルカディア').join('漆黒の盾ルファルゼント');
+    // Old browser saves retain their adventure history; refresh obsolete display names.
+    if (!msg.includes('10×10')) return msg;
+    const arrival = msg.match(/(\d+)F「([^」]+)」に到達/);
+    if (arrival) return `${arrival[1]}階「${arrival[2]}」に足を踏み入れた。出口へ続く道は、魔物の封印に閉ざされている。`;
+    if (msg.includes('強い気配')) return '◆ 重い扉の向こうから強い気配を感じる……。';
+    if (msg.includes('への攻撃と技')) return '魔物に近づくには、扉をくぐって部屋に入ろう。';
+    if (msg.includes('次の階')) return '出口はまだ封印されている。番人を倒して道を開こう。';
+    if (msg.includes('封鎖')) return '入口は結界に閉ざされている。魔物を倒して封印を解こう。';
+    return msg.replace('報酬がその場にドロップし、10×10部屋内に階段が現れた。', '宝が残され、先へ続く階段が現れた。')
+      .split('10×10の専用部屋').join('魔物が待つ部屋').split('10×10部屋').join('魔物が待つ部屋');
+  }
+
+  logHistory: { msg: string; type: string }[] = [];
+  damageHistory: DamageEntry[] = [];
+  adventureHistory: AdventureEntry[] = [];
+
+  log(msg: string, type: 'sys' | 'dmg' | 'item' | 'gold' | 'special' = 'sys') {
+    appendJournal(this.adventureHistory, { turn: this.turn, floor: this.floor, msg, type });
+    this.logHistory.push({ msg, type });
+    if (this.logHistory.length > 8) this.logHistory.shift();
+    this.events.emit('log', { msg, type });
+  }
+
+  // ============ ユーティリティ ============
+  dirVec(dir: Dir): [number, number] {
+    return dir === 'up' ? [0, -1] : dir === 'down' ? [0, 1] : dir === 'left' ? [-1, 0] : [1, 0];
+  }
+  enemyAt(x: number, y: number, exclude?: Enemy): Enemy | null {
+    for (const e of this.enemies) if (e !== exclude && e.alive && bodyContains(e, bossBodyRadius(e.def), { x, y })) return e;
+    return null;
+  }
+  chestAt(x: number, y: number): Chest | null {
+    for (const c of this.chests) if (!c.opened && c.x === x && c.y === y) return c;
+    return null;
+  }
+  groundAt(x: number, y: number): GroundItem | null {
+    for (const g of this.ground) if (g.x === x && g.y === y) return g;
+    return null;
+  }
+  distToPlayer(x: number, y: number): number {
+    return Math.abs(x - this.player.x) + Math.abs(y - this.player.y);
+  }
+}

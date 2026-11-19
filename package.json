@@ -1,0 +1,26 @@
+{
+  "name": "chari-dungeon-new-world",
+  "version": "1.0.0",
+  "description": "Chari Dungeon: NEW WORLD — online fantasy RPG",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test:town": "node scripts/test-online-characters.mjs && node scripts/test-online-ground-loot.mjs && node scripts/test-online-presentation.mjs && node scripts/test-town-walk.mjs",
+    "email:build": "tsx scripts/build-auth-email.ts",
+    "deploy": "node scripts/deploy-pages.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@types/node": "^26.6.5",
+    "playwright": "^1.64.0",
+    "tsx": "^4.23.15",
+    "typescript": "^5.5.4",
+    "vite": "^7.3.7"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.117.3",
+    "phaser": "^3.80.1"
+  }
+}

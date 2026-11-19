@@ -1,0 +1,268 @@
+import { runRandom } from './ranking/random';
+import type { Weapon, Shield, Armor, Item, Dir, Magic, MagicCode, EquipmentGrade, WeaponPassive, WeaponType } from './types';
+import { WEAPON_DEFS, SHIELD_DEFS, magicLabel, makeItem, ELEMENT_INFO } from './data';
+import { ELEMENTAL_EQUIPMENT_RATE } from './balance';
+import { DEFAULT_PLAYER_ARMOR, makePlayerArmor } from './playerAppearance';
+import { armorTraitValue } from './equipmentTraits';
+
+export const DEFAULT_PLAYER_WEAPON_KEY = 'w_iron_dagger';
+
+const WEAPON_PASSIVES: Record<WeaponType, WeaponPassive> = {
+  katana: { key: 'heavy_strike', name: '鋭刃', description: '与えるダメージ+6%' },
+  dagger: { key: 'backstab', name: '背面急所', description: 'クリティカルダメージ+10%' },
+  longsword: { key: 'sturdy', name: '剣身防御', description: '受けるダメージ-5%' },
+  lance: { key: 'pierce', name: '貫通', description: '敵の防御を8%無視' },
+  bow: { key: 'eagle_eye', name: '鷹の目', description: 'クリティカル率+4%' },
+  handgun: { key: 'quickdraw', name: '早撃ち', description: '2マス先へ射撃・会心率+8%' },
+  greatsword: { key: 'heavy_strike', name: '重撃', description: '与えるダメージ+6%' },
+  dual_sword: { key: 'twin_edge', name: '双刃', description: '2撃目の威力+8%' },
+  twin_daggers: { key: 'blood_edge', name: '吸命刃', description: '与ダメージの3%回復' }
+};
+
+export class Player {
+  name = 'チャリ';
+  level = 1;
+  exp = 0;
+  expNext = 20;
+  baseHpMax = 100;
+  get hpMax() { return this.baseHpMax + (this.weapon?.starred ? 50 : 0) + armorTraitValue(this.armor,'hp'); }
+  set hpMax(value: number) { this.baseHpMax = value - (this.weapon?.starred ? 50 : 0) - armorTraitValue(this.armor,'hp'); }
+  hp = 100;
+  baseAtkMin = 5;
+  baseAtkMax = 12;
+  baseDef = 3;
+  transformationAttackRate = 1;
+  transformationDefBonus = 0;
+  fountainBlessingFloor: number | null = null;
+  fountainBlessingPower: 1.1 | 1.2 | 1.5 = 1.1;
+
+  get fountainBlessingRate(): number {
+    return this.fountainBlessingFloor === null ? 1 : this.fountainBlessingPower;
+  }
+  gold = 0;
+
+  x = 0;
+  y = 0;
+  dir: Dir = 'down';
+
+  weapon: Weapon | null = null;
+  shield: Shield | null = null;
+  armor: Armor | null = null;
+  inventory: Item[] = [];
+  weapons: Weapon[] = [];   // 所持武器
+  shields: Shield[] = [];   // 所持盾
+  armors: Armor[] = [];     // 所持服・鎧
+
+  poisonTurns = 0;
+  reviveReady = false; // 復活のタネ所持で有効化されるフラグ（アイテム所持で判定）
+
+  constructor() {
+    // 初期アイテム
+    this.inventory.push(makeItem('potion'));
+    this.inventory.push(makeItem('potion'));
+    this.inventory.push(makeItem('potion'));
+    const defaultWeapon = makeWeapon(DEFAULT_PLAYER_WEAPON_KEY, []);
+    this.weapons.push(defaultWeapon);
+    this.weapon = defaultWeapon;
+    const defaultArmor = makePlayerArmor(DEFAULT_PLAYER_ARMOR);
+    this.armors.push(defaultArmor);
+    this.armor = defaultArmor;
+  }
+
+  get atkMin(): number {
+    let v = this.baseAtkMin + Math.floor(this.level * 0.6);
+    if (this.weapon) {
+      v += this.weapon.atkMin;
+      v += (this.weapon.plus ?? 0) * 2; // 強化+1ごとに最小+2
+      for (const m of this.weapon.magics) {
+        if (m.code === 'A') v += m.level;
+      }
+    }
+    return Math.max(1, Math.floor(v * this.transformationAttackRate * this.fountainBlessingRate));
+  }
+
+  get atkMax(): number {
+    let v = this.baseAtkMax + this.level;
+    if (this.weapon) {
+      v += this.weapon.atkMax;
+      v += (this.weapon.plus ?? 0) * 4; // 強化+1ごとに最大+4
+      for (const m of this.weapon.magics) {
+        if (m.code === 'A') v += m.level;
+        if (m.code === 'B') v += m.level;
+      }
+    }
+    return Math.max(1, Math.floor(v * this.transformationAttackRate * this.fountainBlessingRate));
+  }
+
+  get def(): number {
+    let v = this.baseDef + Math.floor(this.level * 0.4);
+    if (this.armor) v += this.armor.defBonus + (this.armor.plus ?? 0) + armorTraitValue(this.armor,'defense');
+    if (this.shield && this.shield.dur > 0) v += this.shield.defBonus + (this.shield.plus ?? 0);
+    return Math.floor((v + this.transformationDefBonus) * this.fountainBlessingRate);
+  }
+
+  hasMagic(code: MagicCode): Magic | undefined {
+    return this.weapon?.magics.find((m) => m.code === code);
+  }
+
+  addExp(v: number): boolean {
+    this.exp += v;
+    let leveled = false;
+    while (this.exp >= this.expNext) {
+      this.exp -= this.expNext;
+      this.level++;
+      this.hpMax += 12;
+      this.hp = this.hpMax;
+      this.expNext = Math.floor(this.expNext * 1.35 + 8);
+      leveled = true;
+    }
+    return leveled;
+  }
+
+  heal(v: number) {
+    this.hp = Math.min(this.hpMax, this.hp + v);
+  }
+}
+
+export function makeWeapon(key: string, magics: Magic[]): Weapon {
+  magics = magics.filter(m => m.code !== 'K');
+  const def = WEAPON_DEFS.find((d) => d.key === key)!;
+  let durMax = def.durMax;
+  let atkMin = def.atkMin;
+  let atkMax = def.atkMax;
+  for (const m of magics) {
+    if (m.code === 'H') durMax += m.level * 15;
+  }
+  return {
+    key: def.key, name: def.name, atkMin, atkMax,
+    durMax, dur: durMax, magics, grade: def.grade, plus: def.initialPlus ?? 0, dual: def.dual,
+    weaponType: def.weaponType, element: def.element, ss: def.ss,
+    passive: def.passive ? { ...def.passive } : undefined,
+    specialCounter: 0
+  };
+}
+
+export function makeShield(key: string, gradeOverride?: EquipmentGrade): Shield {
+  const def = SHIELD_DEFS.find((d) => d.key === key)!;
+  const grade = gradeOverride ?? def.grade;
+  // SSS reclassifies the exclusive relic without changing its combat values.
+  const gradeIndex = { D: 0, C: 1, B: 2, A: 3, S: 4, SS: 5, SSS: 4 }[grade];
+  const defBonus = Math.max(def.defBonus, 2 + gradeIndex * 2);
+  const durMax = Math.max(def.durMax, 40 + gradeIndex * 15);
+  return {
+    key: def.key, name: def.name, defBonus, durMax, dur: durMax, grade, plus: def.initialPlus ?? 0,
+    element: def.element, passive: { ...def.passive }, guardCounter: 0
+  };
+}
+
+export function shieldFullName(s: Shield): string {
+  const element = s.element ? `【${ELEMENT_INFO[s.element].name}】` : '';
+  return `[${s.grade}] ${element}${(s.plus ?? 0) > 0 ? `+${s.plus} ` : ''}${s.name}`;
+}
+
+/** Refresh old saves in place, preserving enhancement, durability and passive counters. */
+export function refreshLegendaryEquipment(item: Pick<Weapon | Shield, 'key' | 'name' | 'grade'>): void {
+  if ('magics' in item && Array.isArray(item.magics)) item.magics = item.magics.filter(m => m.code !== 'K');
+  const def = item.key === 'w_hero_sword' ? WEAPON_DEFS.find(d => d.key === item.key)
+    : item.key === 's_arcadia_guard' ? SHIELD_DEFS.find(d => d.key === item.key) : undefined;
+  if (def) { item.name = def.name + ('starred' in item && item.starred ? '★' : ''); item.grade = def.grade; }
+}
+
+function addRandomLootTraits(weapon: Weapon): Weapon {
+  if (!weapon.passive && runRandom() < 0.62) weapon.passive = { ...WEAPON_PASSIVES[weapon.weaponType] };
+  return weapon;
+}
+
+function equipmentPoolAtElementRate<T extends { element?: unknown }>(pool: T[]): T[] {
+  const elemental = pool.filter((item) => item.element !== undefined);
+  const neutral = pool.filter((item) => item.element === undefined);
+  const selected = runRandom() < ELEMENTAL_EQUIPMENT_RATE ? elemental : neutral;
+  return selected.length ? selected : pool;
+}
+
+function weightedEquipmentPick<T extends { rarity: number }>(pool: T[]): T {
+  const total = pool.reduce((sum, item) => sum + item.rarity, 0);
+  let roll = runRandom() * total;
+  for (const item of pool) {
+    roll -= item.rarity;
+    if (roll <= 0) return item;
+  }
+  return pool[pool.length - 1];
+}
+
+// ランダムなマジックをn個生成（ガチャ・武器生成で共用）
+export function rollMagics(n: number): Magic[] {
+  const magics: Magic[] = [];
+  const codes: MagicCode[] = ['B', 'A', 'H', 'R', 'F', 'D', 'DK', 'C', 'P', 'I'];
+  for (let i = 0; i < n; i++) {
+    const code = codes[Math.floor(runRandom() * codes.length)];
+    if (magics.some((m) => m.code === code)) continue;
+    let level = 1;
+    if (code === 'B') level = 2 + Math.floor(runRandom() * 5); // 2-6
+    else if (code === 'A' || code === 'H') level = 1 + Math.floor(runRandom() * 3); // 1-3
+    magics.push({ code, level, label: magicLabel(code, level) });
+  }
+  return magics;
+}
+
+// マジック付き武器をランダム生成
+export function rollWeapon(floor: number): Weapon {
+  const pool = equipmentPoolAtElementRate(WEAPON_DEFS.filter((d) => !d.exclusiveLoot && d.minFloor <= floor));
+  const picked = weightedEquipmentPick(pool);
+
+  const magicChance = 0.35 + Math.min(0.4, floor * 0.015);
+  const magics: Magic[] = runRandom() < magicChance
+    ? rollMagics(runRandom() < 0.25 ? 2 : 1)
+    : [];
+  const weapon = makeWeapon(picked.key, magics);
+  // 一定確率で最初から強化済み（+1が多く、たまに+2/+3。深い階ほど出やすい）
+  if (runRandom() < 0.22 + Math.min(0.18, floor * 0.01)) {
+    const r = runRandom();
+    weapon.plus = Math.max(weapon.plus, r < 0.65 ? 1 : r < 0.9 ? 2 : 3);
+  }
+  return addRandomLootTraits(weapon);
+}
+
+export function rollWeaponByGrade(grade: EquipmentGrade): Weapon {
+  const pool = equipmentPoolAtElementRate(WEAPON_DEFS.filter((d) => !d.exclusiveLoot && (d.grade === grade || grade === 'S' && d.grade === 'SS')));
+  const picked = pool[Math.floor(runRandom() * pool.length)] ?? WEAPON_DEFS[0];
+  const magicCount = grade === 'S' ? 2 : grade === 'A' ? 1 : grade === 'B' && runRandom() < 0.35 ? 1 : 0;
+  return addRandomLootTraits(makeWeapon(picked.key, rollMagics(magicCount)));
+}
+
+/** The 15F ice boss replaces its ordinary weapon reward with one unlocked ice weapon. */
+export function rollGlacialBossWeapon(): Weapon {
+  const pool = WEAPON_DEFS.filter(def => !def.exclusiveLoot && def.element === 'ice' && def.minFloor <= 15);
+  const picked = pool[Math.floor(runRandom() * pool.length)];
+  return makeWeapon(picked.key, []);
+}
+
+/** The 20F dragon guarantees one fire weapon available by this floor. */
+export function rollVolcanicBossWeapon(): Weapon {
+  const pool = WEAPON_DEFS.filter(def => !def.exclusiveLoot && def.element === 'fire' && def.minFloor <= 20);
+  return makeWeapon(pool[Math.floor(runRandom() * pool.length)].key, []);
+}
+
+export function weaponRarity(w: Pick<Weapon, 'grade' | 'ss'>): EquipmentGrade | 'SS' {
+  return w.grade === 'SSS' ? 'SSS' : w.ss ? 'SS' : w.grade;
+}
+
+export function weaponFullName(w: Weapon): string {
+  const plus = (w.plus ?? 0) > 0 ? `+${w.plus} ` : '';
+  const magic = w.magics.length ? ` [${w.magics.map((m) => m.label).join('')}]` : '';
+  const dual = w.dual ? '〔二刀〕' : '';
+  const passive = w.passive ? `〈${w.passive.name}〉` : '';
+  return `[${weaponRarity(w)}] ${plus}${w.name}${dual}${passive}${magic}`;
+}
+
+export function rollShield(floor: number): Shield {
+  const pool = equipmentPoolAtElementRate(SHIELD_DEFS.filter((d) => !d.exclusiveLoot && d.minFloor <= floor));
+  const picked = weightedEquipmentPick(pool);
+  return makeShield(picked.key);
+}
+
+export function rollShieldByGrade(grade: EquipmentGrade): Shield {
+  const pool = equipmentPoolAtElementRate(SHIELD_DEFS.filter((d) => !d.exclusiveLoot && d.grade === grade));
+  const picked = pool[Math.floor(runRandom() * pool.length)] ?? SHIELD_DEFS[0];
+  return makeShield(picked.key, grade);
+}

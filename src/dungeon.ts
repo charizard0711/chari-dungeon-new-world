@@ -1,0 +1,1193 @@
+import { runRandom } from './ranking/random';
+import type { TileType, Vec2 } from './types';
+import { getFloorLayoutProfile } from './floorLayout';
+import type { RoomShape } from './floorLayout';
+
+export interface Room {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  cx: number;
+  cy: number;
+}
+
+export type DungeonBiome = 'ruins' | 'aqueduct' | 'frost' | 'magma' | 'storm' | 'void';
+export type OptionalRoomKind = 'ambush' | 'treasure' | 'shrine' | 'hazard' | 'diamond';
+
+export interface OptionalRoom {
+  room: Room;
+  door: Vec2;
+  entry: Vec2;
+  kind: OptionalRoomKind;
+  opened: boolean;
+}
+
+export interface DungeonData {
+  w: number;
+  h: number;
+  tiles: TileType[][];      // [y][x]
+  rooms: Room[];
+  start: Vec2;
+  stairs: Vec2;
+  hazards: Vec2[];
+  exitRoom?: Room;
+  lakeRoom?: Room;
+  bossRoom?: Room;
+  bossRoomZone?: BossRoomZone;
+  bossEntrance?: Vec2;
+  bossEntry?: Vec2;
+  bossCompass?: Vec2;
+  teleportPads: TeleportPad[];
+  biome: DungeonBiome;
+  optionalRooms: OptionalRoom[];
+  volcanoArena?: { props: (Vec2 & { part: 'prop-1' | 'prop-2' | 'prop-3' | 'prop-4'; blocking: boolean })[] };
+  waterArena?: { props: (Vec2 & { part: 'prop-1' | 'prop-2' | 'prop-3' | 'prop-4'; blocking: boolean })[] };
+  thunderArena?: { props: (Vec2 & { part: 'prop-1' | 'prop-2' | 'prop-3' | 'prop-4'; blocking: boolean })[] };
+  finalDepthArena?: { props: (Vec2 & { part: import('./finalDepthTerrain').FinalDepthPart; blocking: boolean })[] };
+  glacialArena?: { props: (Vec2 & { kind: 'crystal' | 'obelisk' | 'boulder' | 'altar'; blocking: boolean })[] };
+}
+
+export type BossRoomZone = 'north' | 'south' | 'east' | 'west' | 'center';
+export type TeleportPad = Vec2;
+
+const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
+
+function irand(min: number, max: number): number {
+  return Math.floor(runRandom() * (max - min + 1)) + min;
+}
+
+function roomAt(x: number, y: number, w: number, h: number): Room {
+  return { x, y, w, h, cx: x + Math.floor(w / 2), cy: y + Math.floor(h / 2) };
+}
+
+function carveCell(tiles: TileType[][], x: number, y: number) {
+  if (y > 0 && y < tiles.length - 1 && x > 0 && x < tiles[0].length - 1) tiles[y][x] = 'floor';
+}
+
+function mazeCellPosition(cellX: number, cellY: number): Vec2 {
+  return { x: 1 + cellX * 2, y: 1 + cellY * 2 };
+}
+
+function carveMazeCell(tiles: TileType[][], cellX: number, cellY: number) {
+  const position = mazeCellPosition(cellX, cellY);
+  carveCell(tiles, position.x, position.y);
+}
+
+function connectMazeCells(tiles: TileType[][], cellX: number, cellY: number, dx: number, dy: number) {
+  const position = mazeCellPosition(cellX, cellY);
+  if (dx === 1) {
+    carveCell(tiles, position.x + 1, position.y);
+  } else if (dx === -1) {
+    carveCell(tiles, position.x - 1, position.y);
+  } else if (dy === 1) {
+    carveCell(tiles, position.x, position.y + 1);
+  } else if (dy === -1) {
+    carveCell(tiles, position.x, position.y - 1);
+  }
+}
+
+function generateSinglePathMaze(tiles: TileType[][], columns: number, rows: number) {
+  const visited = Array.from({ length: rows }, () => Array<boolean>(columns).fill(false));
+  const stack: Vec2[] = [{ x: 0, y: 0 }];
+  visited[0][0] = true;
+  carveMazeCell(tiles, 0, 0);
+
+  while (stack.length) {
+    const current = stack[stack.length - 1];
+    const choices = DIRS
+      .map(([dx, dy]) => ({ x: current.x + dx, y: current.y + dy, dx, dy }))
+      .filter((next) => next.x >= 0 && next.y >= 0 && next.x < columns && next.y < rows && !visited[next.y][next.x]);
+    if (!choices.length) {
+      stack.pop();
+      continue;
+    }
+    const next = choices[irand(0, choices.length - 1)];
+    connectMazeCells(tiles, current.x, current.y, next.dx, next.dy);
+    carveMazeCell(tiles, next.x, next.y);
+    visited[next.y][next.x] = true;
+    stack.push({ x: next.x, y: next.y });
+  }
+
+}
+
+function carveRoom(tiles: TileType[][], room: Room) {
+  for (let y = room.y; y < room.y + room.h; y++) {
+    for (let x = room.x; x < room.x + room.w; x++) tiles[y][x] = 'floor';
+  }
+}
+
+function carveStyledRoom(tiles: TileType[][], room: Room, shape: RoomShape, seed: number) {
+  carveRoom(tiles, room);
+  if (shape === 'square') return;
+
+  const setWall = (x: number, y: number) => {
+    // 中央の十字と各辺中央は、出入口・噴水・方位盤・転送床のため常に空ける。
+    if (x === room.cx || y === room.cy) return;
+    if (x < room.x || y < room.y || x >= room.x + room.w || y >= room.y + room.h) return;
+    tiles[y][x] = 'wall';
+  };
+  const innerCorners = [
+    { x: room.x + 1, y: room.y + 1, dx: 1, dy: 1 },
+    { x: room.x + room.w - 2, y: room.y + 1, dx: -1, dy: 1 },
+    { x: room.x + 1, y: room.y + room.h - 2, dx: 1, dy: -1 },
+    { x: room.x + room.w - 2, y: room.y + room.h - 2, dx: -1, dy: -1 }
+  ];
+  const outerCorners = [
+    { x: room.x, y: room.y, dx: 1, dy: 1 },
+    { x: room.x + room.w - 1, y: room.y, dx: -1, dy: 1 },
+    { x: room.x, y: room.y + room.h - 1, dx: 1, dy: -1 },
+    { x: room.x + room.w - 1, y: room.y + room.h - 1, dx: -1, dy: -1 }
+  ];
+
+  if (shape === 'notched') {
+    for (const corner of outerCorners) setWall(corner.x, corner.y);
+    return;
+  }
+  if (shape === 'pillared') {
+    for (const corner of innerCorners) setWall(corner.x, corner.y);
+    return;
+  }
+  if (shape === 'cross') {
+    for (const corner of outerCorners) {
+      setWall(corner.x, corner.y);
+      setWall(corner.x + corner.dx, corner.y);
+      setWall(corner.x, corner.y + corner.dy);
+    }
+    return;
+  }
+
+  // 対角だけを深く欠き、左右対称ではない古い増改築の形にする。
+  const offsetCorners = seed % 2 === 0 ? [outerCorners[0], outerCorners[3]] : [outerCorners[1], outerCorners[2]];
+  for (const corner of offsetCorners) {
+    setWall(corner.x, corner.y);
+    setWall(corner.x + corner.dx, corner.y);
+  }
+}
+
+function carveWideCorridor(tiles: TileType[][], from: Vec2, to: Vec2, horizontalFirst = runRandom() < 0.5) {
+  const carveHorizontal = (x0: number, x1: number, y: number) => {
+    for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) {
+      carveCell(tiles, x, y);
+      carveCell(tiles, x, y + 1);
+    }
+  };
+  const carveVertical = (y0: number, y1: number, x: number) => {
+    for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) {
+      carveCell(tiles, x, y);
+      carveCell(tiles, x + 1, y);
+    }
+  };
+  if (horizontalFirst) {
+    carveHorizontal(from.x, to.x, from.y);
+    carveVertical(from.y, to.y, to.x);
+  } else {
+    carveVertical(from.y, to.y, from.x);
+    carveHorizontal(from.x, to.x, to.y);
+  }
+}
+
+function carveMazeRegion(
+  tiles: TileType[][],
+  origin: Vec2,
+  columns: number,
+  rows: number,
+  extraLoops = 2
+) {
+  const visited = Array.from({ length: rows }, () => Array<boolean>(columns).fill(false));
+  const cellPosition = (x: number, y: number): Vec2 => ({ x: origin.x + x * 2, y: origin.y + y * 2 });
+  const stack: Vec2[] = [{ x: irand(0, columns - 1), y: irand(0, rows - 1) }];
+  visited[stack[0].y][stack[0].x] = true;
+  const first = cellPosition(stack[0].x, stack[0].y);
+  carveCell(tiles, first.x, first.y);
+
+  while (stack.length) {
+    const current = stack[stack.length - 1];
+    const choices = shuffle(DIRS
+      .map(([dx, dy]) => ({ x: current.x + dx, y: current.y + dy, dx, dy }))
+      .filter((next) => next.x >= 0 && next.y >= 0 && next.x < columns && next.y < rows
+        && !visited[next.y][next.x]));
+    if (!choices.length) {
+      stack.pop();
+      continue;
+    }
+    const next = choices[0];
+    const from = cellPosition(current.x, current.y);
+    const to = cellPosition(next.x, next.y);
+    carveCell(tiles, Math.floor((from.x + to.x) / 2), Math.floor((from.y + to.y) / 2));
+    carveCell(tiles, to.x, to.y);
+    visited[next.y][next.x] = true;
+    stack.push({ x: next.x, y: next.y });
+  }
+
+  // 完全な一本道迷路に少数の再合流を加え、行き止まりと周回路を両方残す。
+  const loopCandidates: Vec2[] = [];
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < columns; x++) {
+      const cell = cellPosition(x, y);
+      if (x < columns - 1 && tiles[cell.y][cell.x + 1] === 'wall') loopCandidates.push({ x: cell.x + 1, y: cell.y });
+      if (y < rows - 1 && tiles[cell.y + 1][cell.x] === 'wall') loopCandidates.push({ x: cell.x, y: cell.y + 1 });
+    }
+  }
+  for (const connector of shuffle(loopCandidates).slice(0, extraLoops)) carveCell(tiles, connector.x, connector.y);
+}
+
+function roomsOverlap(a: Room, b: Room, padding = 1) {
+  return a.x < b.x + b.w + padding && a.x + a.w + padding > b.x
+    && a.y < b.y + b.h + padding && a.y + a.h + padding > b.y;
+}
+
+function roomTouchesCarvedFloor(tiles: TileType[][], room: Room, padding = 1) {
+  for (let y = room.y - padding; y < room.y + room.h + padding; y++) {
+    for (let x = room.x - padding; x < room.x + room.w + padding; x++) {
+      if (!tiles[y]?.[x] || tiles[y][x] !== 'wall') return true;
+    }
+  }
+  return false;
+}
+
+function nearestMainRoom(room: Room, mainRooms: Room[]): Room {
+  return [...mainRooms].sort((a, b) => Math.abs(a.cx - room.cx) + Math.abs(a.cy - room.cy)
+    - (Math.abs(b.cx - room.cx) + Math.abs(b.cy - room.cy)))[0];
+}
+
+function pointInRoom(point: Vec2, room: Room, padding = 0) {
+  return point.x >= room.x - padding && point.x < room.x + room.w + padding
+    && point.y >= room.y - padding && point.y < room.y + room.h + padding;
+}
+
+function allTargetsWalkablyReachable(tiles: TileType[][], start: Vec2, targets: Vec2[]): boolean {
+  const seen = new Set<string>([`${start.x},${start.y}`]);
+  const queue: Vec2[] = [{ ...start }];
+  while (queue.length) {
+    const current = queue.shift()!;
+    for (const [dx, dy] of DIRS) {
+      const x = current.x + dx, y = current.y + dy;
+      const tile = tiles[y]?.[x];
+      const key = `${x},${y}`;
+      if (!tile || tile === 'wall' || tile === 'door' || tile === 'roomDoor' || tile === 'pit' || seen.has(key)) continue;
+      seen.add(key);
+      queue.push({ x, y });
+    }
+  }
+  return targets.every((target) => seen.has(`${target.x},${target.y}`));
+}
+
+type StraightCorridorAxis = 'horizontal' | 'vertical';
+
+function straightCorridorAxisAt(tiles: TileType[][], x: number, y: number): StraightCorridorAxis | null {
+  if (tiles[y]?.[x] !== 'floor') return null;
+  const floorAt = (px: number, py: number) => tiles[py]?.[px] === 'floor';
+  const left = floorAt(x - 1, y), right = floorAt(x + 1, y);
+  const up = floorAt(x, y - 1), down = floorAt(x, y + 1);
+  if (left && right && !up && !down) return 'horizontal';
+  if (up && down && !left && !right) return 'vertical';
+  return null;
+}
+
+// 曲がり角・交差点・部屋を避け、十分に長い1マス幅の直線通路だけを返す。
+function straightCorridorRuns(tiles: TileType[][], minLength = 5): Vec2[][] {
+  const runs: Vec2[][] = [];
+  for (const axis of ['horizontal', 'vertical'] as const) {
+    const visited = new Set<string>();
+    for (let y = 1; y < tiles.length - 1; y++) {
+      for (let x = 1; x < tiles[0].length - 1; x++) {
+        const key = `${x},${y}`;
+        if (visited.has(key) || straightCorridorAxisAt(tiles, x, y) !== axis) continue;
+        const [dx, dy] = axis === 'horizontal' ? [1, 0] : [0, 1];
+        let startX = x, startY = y;
+        while (straightCorridorAxisAt(tiles, startX - dx, startY - dy) === axis) {
+          startX -= dx;
+          startY -= dy;
+        }
+        const run: Vec2[] = [];
+        for (let px = startX, py = startY; straightCorridorAxisAt(tiles, px, py) === axis; px += dx, py += dy) {
+          run.push({ x: px, y: py });
+          visited.add(`${px},${py}`);
+        }
+        if (run.length >= minLength) runs.push(run);
+      }
+    }
+  }
+  return runs;
+}
+
+function placeStraightIce(tiles: TileType[][], targetCount: number, blocked: Set<string>): Vec2[] {
+  const placed: Vec2[] = [];
+  for (const run of shuffle(straightCorridorRuns(tiles))) {
+    if (placed.length >= targetCount) break;
+    // 端から1マス空け、曲がり角へ進入する直前・直後には氷を置かない。
+    const interior = run.slice(1, -1).filter((cell) => !blocked.has(`${cell.x},${cell.y}`));
+    if (interior.length < 2) continue;
+    const remaining = targetCount - placed.length;
+    const segmentLength = Math.min(interior.length, remaining, irand(2, 4));
+    const start = irand(0, interior.length - segmentLength);
+    for (const cell of interior.slice(start, start + segmentLength)) {
+      if (tiles[cell.y][cell.x] !== 'floor') continue;
+      tiles[cell.y][cell.x] = 'ice';
+      placed.push(cell);
+    }
+  }
+  return placed;
+}
+
+export function biomeForFloor(floor: number): DungeonBiome {
+  if (floor <= 5) return 'ruins';
+  if (floor <= 10) return 'aqueduct';
+  if (floor <= 15) return 'frost';
+  if (floor <= 20) return 'magma';
+  if (floor <= 25) return 'storm';
+  if (floor === 26) return 'aqueduct';
+  if (floor === 27) return 'magma';
+  if (floor === 28) return 'frost';
+  return 'void';
+}
+
+function optionalRoomKind(index: number, biome: DungeonBiome): OptionalRoomKind {
+  const cycle: OptionalRoomKind[] = biome === 'ruins'
+    ? ['treasure', 'ambush', 'shrine', 'hazard']
+    : ['hazard', 'ambush', 'treasure', 'shrine'];
+  return cycle[index % cycle.length];
+}
+
+function roomDoorToward(room: Room, target: Vec2): { door: Vec2; entry: Vec2; approach: Vec2 } {
+  const dx = target.x - room.cx;
+  const dy = target.y - room.cy;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    const left = dx < 0;
+    return {
+      door: { x: left ? room.x - 1 : room.x + room.w, y: room.cy },
+      entry: { x: left ? room.x : room.x + room.w - 1, y: room.cy },
+      approach: { x: left ? room.x - 2 : room.x + room.w + 1, y: room.cy }
+    };
+  }
+  const top = dy < 0;
+  return {
+    door: { x: room.cx, y: top ? room.y - 1 : room.y + room.h },
+    entry: { x: room.cx, y: top ? room.y : room.y + room.h - 1 },
+    approach: { x: room.cx, y: top ? room.y - 2 : room.y + room.h + 1 }
+  };
+}
+
+function closeOptionalRoom(tiles: TileType[][], optional: OptionalRoom) {
+  const { room, door, entry } = optional;
+  for (let y = room.y - 1; y <= room.y + room.h; y++) {
+    for (let x = room.x - 1; x <= room.x + room.w; x++) {
+      const ring = x === room.x - 1 || x === room.x + room.w || y === room.y - 1 || y === room.y + room.h;
+      if (ring) tiles[y][x] = 'wall';
+    }
+  }
+  // Interior floor must exist in data, but it is never revealed until the door opens.
+  // Clear any earlier corridor that happened to cross the room before sealing it.
+  carveRoom(tiles, room);
+  tiles[entry.y][entry.x] = 'floor';
+  tiles[door.y][door.x] = 'roomDoor';
+}
+
+function buildSpaciousDungeon(floor: number, forcedBossRoomZone?: BossRoomZone): DungeonData {
+  const layout = getFloorLayoutProfile(floor);
+  const biome = biomeForFloor(floor);
+  const hasFieldBossRoom = floor % 5 !== 0;
+  // Reserve an outer margin so a larger boss room does not consume the maze bands.
+  const margin = hasFieldBossRoom ? 3 : 0;
+  const w = 57 + Math.min(6, Math.floor(floor / 10) * 2) + margin * 2;
+  const h = 47 + Math.min(4, Math.floor(floor / 15) * 2) + margin * 2;
+  const tiles: TileType[][] = Array.from({ length: h }, () => Array<TileType>(w).fill('wall'));
+  const needsHealingLake = floor % 5 === 0 || (floor >= 6 && floor % 3 === 0);
+  type CardinalZone = Exclude<BossRoomZone, 'center'>;
+  const cardinalZones: CardinalZone[] = ['north', 'south', 'west', 'east'];
+  const forcedCardinalZone = forcedBossRoomZone && forcedBossRoomZone !== 'center'
+    ? forcedBossRoomZone
+    : undefined;
+  const exitZone: CardinalZone = forcedCardinalZone ?? shuffle([...cardinalZones])[0];
+  const hubCenterX = Math.floor(w / 2);
+  const hallCenterY = Math.floor(h / 2);
+  const hubRoom = roomAt(hubCenterX - 3, hallCenterY - 3, 7, 7);
+  const northRoom = roomAt(hubCenterX + irand(-4, 4) - 3, 2 + margin, 7, 7);
+  const southRoom = roomAt(hubCenterX + irand(-4, 4) - 3, h - 9 - margin, 7, 7);
+  const westRoom = roomAt(2 + margin, hallCenterY + irand(-3, 3) - 3, 7, 7);
+  const eastRoom = roomAt(w - 9 - margin, hallCenterY + irand(-3, 3) - 3, 7, 7);
+  const roomsByZone: Record<CardinalZone, Room> = {
+    north: northRoom, south: southRoom, west: westRoom, east: eastRoom
+  };
+  const exitRoom = roomsByZone[exitZone];
+  if (hasFieldBossRoom) {
+    // Expand toward the outer map edge; keep the side facing the maze in place.
+    const x = exitRoom.x - (exitZone === 'west' ? 3 : exitZone === 'east' ? 0 : 1);
+    const y = exitRoom.y - (exitZone === 'north' ? 3 : exitZone === 'south' ? 0 : 1);
+    Object.assign(exitRoom, roomAt(x, y, 10, 10));
+  }
+  const lakeZone = needsHealingLake
+    ? shuffle(cardinalZones.filter((zone) => zone !== exitZone))[0]
+    : undefined;
+  const lakeRoom = lakeZone ? roomsByZone[lakeZone] : undefined;
+  const mainRooms = [hubRoom, northRoom, southRoom, westRoom, eastRoom];
+  for (let index = 0; index < mainRooms.length; index++) {
+    const room = mainRooms[index];
+    const shape = room === exitRoom && hasFieldBossRoom ? 'square' : layout.roomShape;
+    carveStyledRoom(tiles, room, shape, layout.seed + index);
+  }
+
+  // 広間同士を直線で結ばず、四方向の迷路帯を必ず抜ける構成にする。
+  // 小さな再合流はあるが行き止まりも残るため、地図を覚える探索感が生まれる。
+  // The four maze bands now contain roughly twice as many cells as before.
+  // Their room positions, entry points, exits, DFS routes, and extra loops all vary per run.
+  const westMaze = { columns: 6, rows: 5 };
+  const eastMaze = { columns: 6, rows: 5 };
+  const northMaze = { columns: 7, rows: 5 };
+  const southMaze = { columns: 7, rows: 5 };
+  const westMazeOrigin = {
+    x: westRoom.x + westRoom.w + 1,
+    y: Math.floor((westRoom.cy + hubRoom.cy) / 2) - (westMaze.rows - 1)
+  };
+  const eastMazeOrigin = {
+    x: hubRoom.x + hubRoom.w + 1,
+    y: Math.floor((eastRoom.cy + hubRoom.cy) / 2) - (eastMaze.rows - 1)
+  };
+  const northMazeOrigin = {
+    x: Math.floor((northRoom.cx + hubRoom.cx) / 2) - (northMaze.columns - 1),
+    y: northRoom.y + northRoom.h + 1
+  };
+  const southMazeOrigin = {
+    x: Math.floor((southRoom.cx + hubRoom.cx) / 2) - (southMaze.columns - 1),
+    y: hubRoom.y + hubRoom.h + 1
+  };
+  const mazeLoops = () => Math.max(1, layout.mazeLoops + irand(-1, 1));
+  carveMazeRegion(tiles, westMazeOrigin, westMaze.columns, westMaze.rows, mazeLoops());
+  carveMazeRegion(tiles, eastMazeOrigin, eastMaze.columns, eastMaze.rows, mazeLoops());
+  carveMazeRegion(tiles, northMazeOrigin, northMaze.columns, northMaze.rows, mazeLoops());
+  carveMazeRegion(tiles, southMazeOrigin, southMaze.columns, southMaze.rows, mazeLoops());
+
+  const westEntry = { x: westMazeOrigin.x, y: westMazeOrigin.y + irand(0, westMaze.rows - 1) * 2 };
+  const westExit = { x: westMazeOrigin.x + (westMaze.columns - 1) * 2, y: westMazeOrigin.y + irand(0, westMaze.rows - 1) * 2 };
+  const eastEntry = { x: eastMazeOrigin.x, y: eastMazeOrigin.y + irand(0, eastMaze.rows - 1) * 2 };
+  const eastExit = { x: eastMazeOrigin.x + (eastMaze.columns - 1) * 2, y: eastMazeOrigin.y + irand(0, eastMaze.rows - 1) * 2 };
+  const northEntry = { x: northMazeOrigin.x + irand(0, northMaze.columns - 1) * 2, y: northMazeOrigin.y };
+  const northExit = { x: northMazeOrigin.x + irand(0, northMaze.columns - 1) * 2, y: northMazeOrigin.y + (northMaze.rows - 1) * 2 };
+  const southEntry = { x: southMazeOrigin.x + irand(0, southMaze.columns - 1) * 2, y: southMazeOrigin.y };
+  const southExit = { x: southMazeOrigin.x + irand(0, southMaze.columns - 1) * 2, y: southMazeOrigin.y + (southMaze.rows - 1) * 2 };
+  const westRoomApproach = { x: westRoom.x + westRoom.w, y: westRoom.cy };
+  const westRoomStaging = { x: westRoomApproach.x + 1, y: westRoom.cy };
+  carveThinCorridor(tiles, westRoomApproach, westRoomStaging);
+  carveThinCorridor(tiles, westRoomStaging, westEntry);
+  const hubWestApproach = { x: hubRoom.x, y: hubRoom.cy };
+  const hubWestStaging = { x: hubRoom.x - 1, y: hubRoom.cy };
+  carveThinCorridor(tiles, westExit, hubWestStaging);
+  carveThinCorridor(tiles, hubWestStaging, hubWestApproach);
+  carveThinCorridor(tiles, { x: hubRoom.x + hubRoom.w - 1, y: hubRoom.cy }, eastEntry);
+  const eastRoomApproach = { x: eastRoom.x - 1, y: eastRoom.cy };
+  const eastRoomStaging = { x: eastRoomApproach.x - 1, y: eastRoom.cy };
+  carveThinCorridor(tiles, eastExit, eastRoomStaging);
+  carveThinCorridor(tiles, eastRoomStaging, eastRoomApproach);
+  const northRoomApproach = { x: northRoom.cx, y: northRoom.y + northRoom.h };
+  const northRoomStaging = { x: northRoom.cx, y: northRoomApproach.y + 1 };
+  carveThinCorridor(tiles, northRoomApproach, northRoomStaging);
+  carveThinCorridor(tiles, northRoomStaging, northEntry);
+  carveThinCorridor(tiles, northExit, { x: hubRoom.cx, y: hubRoom.y });
+  // 広間の外へ1マス出てから横へ曲がる。部屋角の欠きで通路が分断されないようにする。
+  const hubSouthApproach = { x: hubRoom.cx, y: hubRoom.y + hubRoom.h - 1 };
+  const hubSouthStaging = { x: hubRoom.cx, y: hubRoom.y + hubRoom.h };
+  carveThinCorridor(tiles, hubSouthApproach, hubSouthStaging);
+  carveThinCorridor(tiles, hubSouthStaging, southEntry);
+  const southRoomApproach = { x: southRoom.cx, y: southRoom.y - 1 };
+  const southRoomStaging = { x: southRoom.cx, y: southRoomApproach.y - 1 };
+  carveThinCorridor(tiles, southExit, southRoomStaging);
+  carveThinCorridor(tiles, southRoomStaging, southRoomApproach);
+
+  // 迷路の一部だけ3x3の小広場にして、細道だけが続く窮屈さを和らげる。
+  const mazePocketCandidates = shuffle([
+    roomAt(westMazeOrigin.x + 2, westMazeOrigin.y + 2, 3, 3),
+    roomAt(eastMazeOrigin.x + 4, eastMazeOrigin.y + 2, 3, 3),
+    roomAt(northMazeOrigin.x + 4, northMazeOrigin.y + 2, 3, 3),
+    roomAt(southMazeOrigin.x + 6, southMazeOrigin.y + 4, 3, 3)
+  ]);
+  for (const mazePocket of mazePocketCandidates.slice(0, Math.min(mazePocketCandidates.length, layout.mazePockets))) {
+    carveRoom(tiles, mazePocket);
+  }
+  const start = { x: hubRoom.cx, y: hubRoom.cy };
+  // 開始位置の少し北側に、通行可能なボス探知の方位盤を置く。
+  // 5の倍数階でも石盤自体は残るが、中ボスがいないため反応しない。
+  const bossCompass = { x: hubRoom.cx, y: hubRoom.cy - 2 };
+  const stairs = { x: exitRoom.cx, y: exitRoom.cy };
+  let bossRoom: Room | undefined;
+  let bossEntrance: Vec2 | undefined;
+  let bossEntry: Vec2 | undefined;
+  if (hasFieldBossRoom) {
+    bossRoom = exitRoom;
+    const doorway: Record<CardinalZone, { entrance: Vec2; entry: Vec2 }> = {
+      north: {
+        entrance: { x: exitRoom.cx, y: exitRoom.y + exitRoom.h },
+        entry: { x: exitRoom.cx, y: exitRoom.y + exitRoom.h - 1 }
+      },
+      south: {
+        entrance: { x: exitRoom.cx, y: exitRoom.y - 1 },
+        entry: { x: exitRoom.cx, y: exitRoom.y }
+      },
+      west: {
+        entrance: { x: exitRoom.x + exitRoom.w, y: exitRoom.cy },
+        entry: { x: exitRoom.x + exitRoom.w - 1, y: exitRoom.cy }
+      },
+      east: {
+        entrance: { x: exitRoom.x - 1, y: exitRoom.cy },
+        entry: { x: exitRoom.x, y: exitRoom.cy }
+      }
+    };
+    bossEntrance = doorway[exitZone].entrance;
+    bossEntry = doorway[exitZone].entry;
+    for (let y = exitRoom.y - 1; y <= exitRoom.y + exitRoom.h; y++) {
+      for (let x = exitRoom.x - 1; x <= exitRoom.x + exitRoom.w; x++) {
+        const ring = x === exitRoom.x - 1 || x === exitRoom.x + exitRoom.w
+          || y === exitRoom.y - 1 || y === exitRoom.y + exitRoom.h;
+        if (ring) tiles[y][x] = 'wall';
+      }
+    }
+    carveRoom(tiles, exitRoom);
+    tiles[bossEntrance.y][bossEntrance.x] = 'floor';
+    tiles[bossEntry.y][bossEntry.x] = 'floor';
+    tiles[stairs.y][stairs.x] = 'door';
+  } else {
+    tiles[stairs.y][stairs.x] = 'door';
+  }
+
+  const roomBudget = Math.min(3, 1 + Math.floor((floor - 1) / 4));
+  const requestedRooms = Math.max(0, roomBudget - (hasFieldBossRoom ? 1 : 0));
+  const candidates = shuffle([
+    roomAt(2, 2, 5, 5),
+    roomAt(w - 7, 2, 5, 5),
+    roomAt(2, h - 8, 5, 5),
+    roomAt(w - 7, h - 8, 5, 5),
+    roomAt(2, Math.floor(h * 0.25), 5, 5),
+    roomAt(w - 7, Math.floor(h * 0.25), 5, 5),
+    roomAt(2, Math.floor(h * 0.68), 5, 5),
+    roomAt(w - 7, Math.floor(h * 0.68), 5, 5)
+  ]).filter((room) => mainRooms.every((main) => !roomsOverlap(room, main, 2))
+    && !roomTouchesCarvedFloor(tiles, room, 1));
+  const optionalRooms: OptionalRoom[] = [];
+  for (const room of candidates) {
+    if (optionalRooms.length >= requestedRooms) break;
+    if (optionalRooms.some((other) => roomsOverlap(room, other.room, 3))) continue;
+    // 出口／中ボス部屋へ秘密部屋の通路を直結すると、封印扉や専用外周を削るため接続先から外す。
+    const target = nearestMainRoom(room, mainRooms.filter((main) => main !== exitRoom));
+    const doorway = roomDoorToward(room, target);
+    const optional: OptionalRoom = {
+      room, door: doorway.door, entry: doorway.entry,
+      kind: optionalRoomKind(optionalRooms.length + floor, biome), opened: false
+    };
+    carveWideCorridor(tiles, doorway.approach, { x: target.cx, y: target.cy });
+    tiles[doorway.approach.y][doorway.approach.x] = 'floor';
+    closeOptionalRoom(tiles, optional);
+    // Ordinary side rooms are now open passages; only the diamond treasury has a lock.
+    tiles[optional.door.y][optional.door.x] = 'floor';
+    optionalRooms.push(optional);
+  }
+
+  // 秘密部屋へ向かう2マス通路が主要広間の角を横切った場合も、階固有の輪郭を復元する。
+  // 出口部屋は接続先から除外済みで、封印扉を保持するためここでは掘り直さない。
+  for (let index = 0; index < mainRooms.length; index++) {
+    const room = mainRooms[index];
+    if (room === exitRoom) continue;
+    carveStyledRoom(tiles, room, layout.roomShape, layout.seed + index);
+  }
+
+  // 一部の一本道を2マス幅にし、途中へ短い戦闘広場を挟む。
+  // 主要部屋と秘密部屋は保護するため、入口や部屋内レイアウトは壊さない。
+  const passageRooms = addPassageVariety(
+    tiles,
+    start,
+    [...mainRooms, ...optionalRooms.map((optional) => optional.room)],
+    layout.passageWidenings,
+    layout.sidePockets
+  );
+
+  // 全通路を掘った後、開始部屋とボス部屋を除く部屋端の中央へ転送床を置く。
+  // 通路入口と重なる辺は避け、通常階は残り3部屋、5の倍数階は四方4部屋が配置先になる。
+  const teleportRooms = shuffle(mainRooms.filter((room) => room !== hubRoom && room !== bossRoom)).slice(0, 4);
+  const teleportPads: TeleportPad[] = teleportRooms.map((room) => {
+    // 上辺は壁際の装飾や宝箱と重なって窮屈に見えるため、転送床の配置先に使わない。
+    const edgeCenters = [
+      { pad: { x: room.cx, y: room.y + room.h - 1 }, outside: { x: room.cx, y: room.y + room.h } },
+      { pad: { x: room.x, y: room.cy }, outside: { x: room.x - 1, y: room.cy } },
+      { pad: { x: room.x + room.w - 1, y: room.cy }, outside: { x: room.x + room.w, y: room.cy } }
+    ];
+    const awayFromEntrances = edgeCenters.filter(({ outside }) => tiles[outside.y]?.[outside.x] === 'wall');
+    return shuffle(awayFromEntrances.length ? awayFromEntrances : edgeCenters)[0].pad;
+  });
+  for (const pad of teleportPads) tiles[pad.y][pad.x] = 'floor';
+
+  const hazards: Vec2[] = [];
+  const hazardByBiome: Record<DungeonBiome, TileType[]> = {
+    ruins: [], aqueduct: ['poison'], frost: [],
+    magma: ['lava'], storm: ['lightning'], void: ['voidRift', 'pit']
+  };
+  const protectedRooms = optionalRooms.map((optional) => optional.room);
+  const hazardCount = 8 + Math.floor(floor / 3);
+  const iceTarget = biome === 'frost' ? hazardCount : biome === 'aqueduct' ? Math.ceil(hazardCount * 0.45) : 0;
+  const blockedIce = new Set<string>([
+    `${start.x},${start.y}`, `${stairs.x},${stairs.y}`,
+    ...teleportPads.map((pad) => `${pad.x},${pad.y}`),
+    ...optionalRooms.flatMap((optional) => [optional.door, optional.entry].map((cell) => `${cell.x},${cell.y}`))
+  ]);
+  hazards.push(...placeStraightIce(tiles, iceTarget, blockedIce));
+  const randomHazardTarget = Math.max(0, hazardCount - hazards.length);
+  const exitAccess = bossEntrance ?? { x: stairs.x + 1, y: stairs.y };
+  const reachabilityTargets = [...teleportPads, exitAccess];
+  let placed = 0;
+  for (let tries = 0; tries < randomHazardTarget * 20 && placed < randomHazardTarget; tries++) {
+    const x = irand(2, w - 3), y = irand(2, h - 3);
+    if (tiles[y][x] !== 'floor'
+      || pointInRoom({ x, y }, hubRoom, 1) || pointInRoom({ x, y }, exitRoom, 1)
+      || teleportPads.some((pad) => pad.x === x && pad.y === y)
+      || protectedRooms.some((room) => pointInRoom({ x, y }, room, 1))) continue;
+    const biomeHazards = hazardByBiome[biome];
+    if (!biomeHazards.length) break;
+    const type = biomeHazards[irand(0, biomeHazards.length - 1)];
+    tiles[y][x] = type;
+    if (type === 'pit' && !allTargetsWalkablyReachable(tiles, start, reachabilityTargets)) {
+      tiles[y][x] = 'floor';
+      continue;
+    }
+    if (type !== 'rune') hazards.push({ x, y });
+    placed++;
+  }
+
+  return {
+    w, h, tiles, rooms: [...mainRooms, ...optionalRooms.map((optional) => optional.room), ...passageRooms],
+    start, stairs, hazards, exitRoom, lakeRoom, bossRoom, bossEntrance, bossEntry, bossCompass,
+    bossRoomZone: bossRoom ? exitZone : undefined, teleportPads, biome, optionalRooms
+  };
+}
+
+function carveThinCorridor(tiles: TileType[][], from: Vec2, to: Vec2) {
+  for (let x = Math.min(from.x, to.x); x <= Math.max(from.x, to.x); x++) carveCell(tiles, x, from.y);
+  for (let y = Math.min(from.y, to.y); y <= Math.max(from.y, to.y); y++) carveCell(tiles, to.x, y);
+}
+
+function shuffle<T>(values: T[]): T[] {
+  for (let i = values.length - 1; i > 0; i--) {
+    const j = irand(0, i);
+    [values[i], values[j]] = [values[j], values[i]];
+  }
+  return values;
+}
+
+function overlapsProtectedRoom(x: number, y: number, protectedRooms: Room[], padding = 1) {
+  return protectedRooms.some((room) => x >= room.x - padding && x < room.x + room.w + padding
+    && y >= room.y - padding && y < room.y + room.h + padding);
+}
+
+function addPassageVariety(
+  tiles: TileType[][],
+  start: Vec2,
+  protectedRooms: Room[],
+  passageTarget: number,
+  pocketTarget: number
+): Room[] {
+  const h = tiles.length;
+  const w = tiles[0].length;
+  const widenedCells = new Set<string>();
+  const passageCandidates: { x: number; y: number; horizontal: boolean }[] = [];
+
+  // 元の1マス迷路の接続部を候補にし、部分的に2マス幅へ広げる。
+  for (let y = 2; y < h - 2; y++) {
+    for (let x = 2; x < w - 2; x++) {
+      if (tiles[y][x] === 'wall' || overlapsProtectedRoom(x, y, protectedRooms, 2)) continue;
+      if (x % 2 === 0 && y % 2 === 1 && tiles[y][x - 1] !== 'wall' && tiles[y][x + 1] !== 'wall') {
+        passageCandidates.push({ x, y, horizontal: true });
+      }
+      if (x % 2 === 1 && y % 2 === 0 && tiles[y - 1][x] !== 'wall' && tiles[y + 1][x] !== 'wall') {
+        passageCandidates.push({ x, y, horizontal: false });
+      }
+    }
+  }
+
+  let passageCount = 0;
+  for (const candidate of shuffle(passageCandidates)) {
+    if (passageCount >= passageTarget) break;
+    const sideChoices = shuffle([-1, 1]);
+    let widened = false;
+    for (const side of sideChoices) {
+      const cells: Vec2[] = candidate.horizontal
+        ? [
+            { x: candidate.x - 1, y: candidate.y + side },
+            { x: candidate.x, y: candidate.y + side },
+            { x: candidate.x + 1, y: candidate.y + side }
+          ]
+        : [
+            { x: candidate.x + side, y: candidate.y - 1 },
+            { x: candidate.x + side, y: candidate.y },
+            { x: candidate.x + side, y: candidate.y + 1 }
+          ];
+      if (cells.some((cell) => cell.x <= 0 || cell.y <= 0 || cell.x >= w - 1 || cell.y >= h - 1
+        || overlapsProtectedRoom(cell.x, cell.y, protectedRooms, 1)
+        || widenedCells.has(`${cell.x},${cell.y}`))) continue;
+      if (cells.every((cell) => tiles[cell.y][cell.x] !== 'wall')) continue;
+      for (const cell of cells) {
+        carveCell(tiles, cell.x, cell.y);
+        widenedCells.add(`${cell.x},${cell.y}`);
+      }
+      widened = true;
+      break;
+    }
+    if (widened) passageCount++;
+  }
+
+  // 一本道の節を3×3へ広げ、短い戦闘や分岐に使える小空間を作る。
+  const pocketCandidates: Vec2[] = [];
+  for (let y = 2; y < h - 2; y++) {
+    for (let x = 2; x < w - 2; x++) {
+      if (x % 2 === 0 || y % 2 === 0 || tiles[y][x] === 'wall') continue;
+      if (Math.max(Math.abs(x - start.x), Math.abs(y - start.y)) < 5) continue;
+      const room = roomAt(x - 1, y - 1, 3, 3);
+      let blocked = false;
+      for (let roomY = room.y; roomY < room.y + room.h && !blocked; roomY++) {
+        for (let roomX = room.x; roomX < room.x + room.w; roomX++) {
+          if (overlapsProtectedRoom(roomX, roomY, protectedRooms, 1)) { blocked = true; break; }
+        }
+      }
+      if (!blocked) pocketCandidates.push({ x, y });
+    }
+  }
+
+  const pocketRooms: Room[] = [];
+  for (const center of shuffle(pocketCandidates)) {
+    if (pocketRooms.length >= pocketTarget) break;
+    if (pocketRooms.some((room) => Math.max(Math.abs(room.cx - center.x), Math.abs(room.cy - center.y)) < 6)) continue;
+    const room = roomAt(center.x - 1, center.y - 1, 3, 3);
+    carveRoom(tiles, room);
+    pocketRooms.push(room);
+  }
+  return pocketRooms;
+}
+
+function farthestReachableFloor(tiles: TileType[][], start: Vec2): Vec2 {
+  const distance = tiles.map((row) => row.map(() => -1));
+  const queue: Vec2[] = [start];
+  let farthest = { ...start };
+  distance[start.y][start.x] = 0;
+
+  while (queue.length) {
+    const current = queue.shift()!;
+    if (distance[current.y][current.x] > distance[farthest.y][farthest.x]) farthest = { ...current };
+    for (const [dx, dy] of DIRS) {
+      const x = current.x + dx;
+      const y = current.y + dy;
+      if (tiles[y]?.[x] !== 'wall' && distance[y][x] === -1) {
+        distance[y][x] = distance[current.y][current.x] + 1;
+        queue.push({ x, y });
+      }
+    }
+  }
+  return farthest;
+}
+
+function pathToFloor(tiles: TileType[][], start: Vec2, target: Vec2): Vec2[] {
+  const seen = tiles.map((row) => row.map(() => false));
+  const parent = new Map<string, Vec2>();
+  const queue: Vec2[] = [{ ...start }];
+  seen[start.y][start.x] = true;
+  while (queue.length) {
+    const current = queue.shift()!;
+    if (current.x === target.x && current.y === target.y) break;
+    for (const [dx, dy] of DIRS) {
+      const x = current.x + dx, y = current.y + dy;
+      if (tiles[y]?.[x] === 'wall' || seen[y]?.[x]) continue;
+      seen[y][x] = true;
+      parent.set(`${x},${y}`, current);
+      queue.push({ x, y });
+    }
+  }
+  const path: Vec2[] = [];
+  for (let current: Vec2 | undefined = { ...target }; current; current = parent.get(`${current.x},${current.y}`)) {
+    path.push(current);
+    if (current.x === start.x && current.y === start.y) break;
+  }
+  return path.reverse();
+}
+
+function reachableFloorsByDistance(tiles: TileType[][], start: Vec2): Vec2[] {
+  const distance = tiles.map((row) => row.map(() => -1));
+  const queue: Vec2[] = [{ ...start }];
+  const floors: Vec2[] = [];
+  distance[start.y][start.x] = 0;
+  while (queue.length) {
+    const current = queue.shift()!;
+    floors.push(current);
+    for (const [dx, dy] of DIRS) {
+      const x = current.x + dx, y = current.y + dy;
+      if (tiles[y]?.[x] === 'wall' || distance[y]?.[x] !== -1) continue;
+      distance[y][x] = distance[current.y][current.x] + 1;
+      queue.push({ x, y });
+    }
+  }
+  return floors.sort((a, b) => distance[b.y][b.x] - distance[a.y][a.x]);
+}
+
+function nearestMazeCoordinate(value: number, origin: number, cells: number): number {
+  const cell = Math.max(0, Math.min(cells - 1, Math.round((value - origin - 1) / 2)));
+  return origin + 1 + cell * 2;
+}
+
+function removeUnreachableFloors(tiles: TileType[][], start: Vec2) {
+  const seen = tiles.map((row) => row.map(() => false));
+  const queue: Vec2[] = [{ ...start }];
+  seen[start.y][start.x] = true;
+  while (queue.length) {
+    const current = queue.shift()!;
+    for (const [dx, dy] of DIRS) {
+      const x = current.x + dx, y = current.y + dy;
+      if (!tiles[y]?.[x] || tiles[y][x] === 'wall' || seen[y][x]) continue;
+      seen[y][x] = true;
+      queue.push({ x, y });
+    }
+  }
+  for (let y = 0; y < tiles.length; y++) {
+    for (let x = 0; x < tiles[y].length; x++) {
+      if (tiles[y][x] !== 'wall' && !seen[y][x]) tiles[y][x] = 'wall';
+    }
+  }
+}
+
+export const TREASURY_CHANCE = 0.10;
+
+/** One roll per ordinary floor. Extend the outer edge so successful rolls never fail placement. */
+export function addDiamondTreasury(d: DungeonData, random = runRandom): DungeonData {
+  if (d.optionalRooms.some(room => room.kind === 'diamond') || random() >= TREASURY_CHANCE) return d;
+  const exitZone = d.bossRoomZone ?? (d.exitRoom && d.exitRoom.cy < d.start.y ? 'north' : 'south');
+  const north = exitZone === 'south' || (exitZone !== 'north' && random() < 0.5);
+  const targets = d.rooms.filter(room => room !== d.bossRoom && room !== d.exitRoom
+    && !d.optionalRooms.some(optional => optional.room === room) && room.w >= 7 && room.h >= 7);
+  const target = [...targets].sort((a, b) => north ? a.y - b.y : b.y + b.h - a.y - a.h)[0];
+  if (!target) throw new Error('A treasury needs a connected main room');
+  const extension = 11;
+  const oldHeight = d.h;
+  const extra = Array.from({ length: extension }, () => Array<TileType>(d.w).fill('wall'));
+  if (north) {
+    d.tiles.unshift(...extra);
+    // Several fields share Room/Vec2 instances. Shift each object exactly once.
+    const rooms = new Set([...d.rooms, d.exitRoom, d.lakeRoom, d.bossRoom,
+      ...d.optionalRooms.map(optional => optional.room)].filter((room): room is Room => !!room));
+    for (const room of rooms) { room.y += extension; room.cy += extension; }
+    const points = new Set([d.start, d.stairs, d.bossEntrance, d.bossEntry, d.bossCompass,
+      ...d.hazards, ...d.teleportPads, ...d.optionalRooms.flatMap(optional => [optional.door, optional.entry])]
+      .filter((point): point is Vec2 => !!point));
+    for (const point of points) point.y += extension;
+  } else d.tiles.push(...extra);
+  d.h += extension;
+  const room = roomAt(target.cx - 3, north ? 1 : oldHeight + 3, 7, 7);
+  const door = { x: room.cx, y: north ? room.y + room.h : room.y - 1 };
+  const entry = { x: room.cx, y: north ? room.y + room.h - 1 : room.y };
+  const approach = { x: room.cx, y: door.y + (north ? 1 : -1) };
+  carveThinCorridor(d.tiles, { x: target.cx, y: north ? target.y : target.y + target.h - 1 }, approach);
+  const optional: OptionalRoom = { room, door, entry, kind: 'diamond', opened: false };
+  closeOptionalRoom(d.tiles, optional);
+  d.rooms.push(room);
+  d.optionalRooms.push(optional);
+  return d;
+}
+
+/** Also upgrades old saves. Return rooms whose contents have not yet been revealed. */
+export function removeLegacyRoomDoors(d: DungeonData): OptionalRoom[] {
+  const pending: OptionalRoom[] = [];
+  for (const optional of d.optionalRooms) {
+    if (optional.kind === 'diamond') continue;
+    if (!optional.opened) pending.push(optional);
+    optional.opened = true;
+    if (d.tiles[optional.door.y][optional.door.x] === 'roomDoor') d.tiles[optional.door.y][optional.door.x] = 'floor';
+  }
+  return pending;
+}
+
+export function generateDungeon(floor: number, forcedBossRoomZone?: BossRoomZone): DungeonData {
+  return addDiamondTreasury(generateBaseDungeon(floor, forcedBossRoomZone));
+}
+
+function generateBaseDungeon(floor: number, _forcedBossRoomZone?: BossRoomZone): DungeonData {
+  if (floor === 30) {
+    const w = 25, h = 31;
+    const tiles: TileType[][] = Array.from({ length: h }, () => Array<TileType>(w).fill('wall'));
+    const entry = roomAt(8, 20, 9, 8), exitRoom = roomAt(7, 3, 11, 10);
+    carveRoom(tiles, entry); carveRoom(tiles, exitRoom);
+    for (let y = exitRoom.cy; y <= entry.cy; y++) for (let x = 11; x <= 13; x++) tiles[y][x] = 'floor';
+    const start = { x: entry.cx, y: entry.cy + 2 }, stairs = { x: exitRoom.cx, y: exitRoom.y + 1 };
+    tiles[stairs.y][stairs.x] = 'door';
+    return { w, h, tiles, rooms: [entry, exitRoom], start, stairs, exitRoom, hazards: [], teleportPads: [], biome: 'void', optionalRooms: [] };
+  }
+  return buildSpaciousDungeon(floor, _forcedBossRoomZone);
+  /* Legacy maze generator kept below temporarily as a reference while the spacious generator settles.
+  // 縦横を約√2倍にし、従来比でおよそ2倍の探索面積を確保する。
+  const mazeColumns = 16 + Math.min(5, Math.floor(floor / 6));
+  const mazeRows = 12 + Math.min(4, Math.floor(floor / 8));
+  const mazeWidth = mazeColumns * 2 + 1;
+  const hasBossRoom = floor !== 5;
+  const w = mazeWidth;
+  const h = mazeRows * 2 + 1;
+  const tiles: TileType[][] = Array.from({ length: h }, () => Array<TileType>(w).fill('wall'));
+
+  generateSinglePathMaze(tiles, mazeColumns, mazeRows);
+  const start = { x: 1, y: 1 };
+  if (floor === 1) {
+    // 初期装備の赤箱まで、正面2マスの通路を必ず確保する。
+    tiles[2][1] = 'floor';
+    tiles[3][1] = 'floor';
+  }
+  const exitAnchor = farthestReachableFloor(tiles, start);
+  let exitRoom: Room;
+  let stairs: Vec2;
+  let bossRoom: Room | undefined;
+  let bossEntrance: Vec2 | undefined;
+  let bossEntry: Vec2 | undefined;
+
+  if (hasBossRoom) {
+    // 最遠地点へ至る正規ルートを壊さない範囲で、いちばん奥の床を前室に選ぶ。
+    // その先へ7x7部屋を増築し、入口は必ず上辺か下辺に限定する。
+    let placement: { room: Room; staging: Vec2; enterFromTop: boolean } | null = null;
+    for (const staging of reachableFloorsByDistance(tiles, start)) {
+      if (placement) break;
+      const roomX = staging.x - 3;
+      if (roomX < 2 || roomX > w - 9) continue;
+      const route = pathToFloor(tiles, start, staging);
+      for (const enterFromTop of [true, false]) {
+        const roomY = enterFromTop ? staging.y + 2 : staging.y - 8;
+        if (roomY < 2 || roomY > h - 9) continue;
+        const room = roomAt(roomX, roomY, 7, 7);
+        const overlapsRoute = route.slice(0, -1).some((cell) => cell.x >= room.x - 1
+          && cell.x <= room.x + room.w && cell.y >= room.y - 1 && cell.y <= room.y + room.h);
+        if (!overlapsRoute) {
+          placement = { room, staging: { ...staging }, enterFromTop };
+          break;
+        }
+      }
+    }
+    if (!placement) throw new Error('中ボス部屋を迷路の最奥へ配置できませんでした。');
+    bossRoom = placement.room;
+    const { staging, enterFromTop } = placement;
+
+    const entry = enterFromTop
+      ? { x: bossRoom.cx, y: bossRoom.y }
+      : { x: bossRoom.cx, y: bossRoom.y + bossRoom.h - 1 };
+    const approach = enterFromTop
+      ? { x: bossRoom.cx, y: bossRoom.y - 1 }
+      : { x: bossRoom.cx, y: bossRoom.y + bossRoom.h };
+    // 外周1マスを壁で閉じてから部屋を掘り直す。例外は入口の1マスだけ。
+    for (let y = bossRoom.y - 1; y <= bossRoom.y + bossRoom.h; y++) {
+      for (let x = bossRoom.x - 1; x <= bossRoom.x + bossRoom.w; x++) {
+        const onRing = x === bossRoom.x - 1 || x === bossRoom.x + bossRoom.w
+          || y === bossRoom.y - 1 || y === bossRoom.y + bossRoom.h;
+        if (onRing) tiles[y][x] = 'wall';
+      }
+    }
+    carveRoom(tiles, bossRoom);
+    carveThinCorridor(tiles, staging, approach);
+    tiles[staging.y][staging.x] = 'floor';
+    tiles[approach.y][approach.x] = 'floor';
+    tiles[entry.y][entry.x] = 'floor';
+
+    bossEntrance = approach;
+    bossEntry = entry;
+    exitRoom = bossRoom;
+    // 出口は見失わないよう7x7部屋の中央へ置き、中ボス撃破までは封印床として確保する。
+    stairs = { x: bossRoom.cx, y: bossRoom.cy };
+    tiles[stairs.y][stairs.x] = 'door';
+  } else {
+    // 5Fだけは従来どおり、最遠地点の出口から独立した5.5F強ボス部屋へ進む。
+    exitRoom = roomAt(
+      Math.max(1, Math.min(mazeWidth - 5, exitAnchor.x - 1)),
+      Math.max(1, Math.min(h - 5, exitAnchor.y - 1)),
+      4,
+      4
+    );
+    carveRoom(tiles, exitRoom);
+    carveThinCorridor(tiles, exitAnchor, { x: exitRoom.cx, y: exitRoom.cy });
+    stairs = { x: exitRoom.cx, y: exitRoom.cy };
+    tiles[stairs.y][stairs.x] = 'door';
+  }
+
+  // 7x7区画で元の一本道が分断された場合、到達不能側を壁へ戻して配置物の孤立を防ぐ。
+  removeUnreachableFloors(tiles, start);
+
+  // ボス区画と出口を保護しながら、通常探索部へ2マス通路と3x3小空間を混ぜる。
+  const passageRooms = addPassageVariety(tiles, floor, start, [exitRoom]);
+  removeUnreachableFloors(tiles, start);
+
+  const hazards: Vec2[] = [];
+  const hazardTypes: TileType[] = ['poison', 'cracked', 'rune'];
+  const hazardCount = 3 + Math.floor(floor / 4);
+  for (let i = 0; i < hazardCount; i++) {
+    const x = irand(1, w - 2);
+    const y = irand(1, h - 2);
+    const insideExitRoom = x >= exitRoom.x && x < exitRoom.x + exitRoom.w
+      && y >= exitRoom.y && y < exitRoom.y + exitRoom.h;
+    const insideBossArea = bossRoom && x >= bossRoom.x - 1 && x <= bossRoom.x + bossRoom.w
+      && y >= bossRoom.y - 1 && y <= bossRoom.y + bossRoom.h;
+    const insideStarterPath = floor === 1 && x === 1 && y <= 3;
+    if (tiles[y][x] === 'floor' && !insideExitRoom && !insideBossArea && !insideStarterPath && !(x === start.x && y === start.y)) {
+      const type = hazardTypes[irand(0, hazardTypes.length - 1)];
+      tiles[y][x] = type;
+      if (type === 'poison' || type === 'cracked') hazards.push({ x, y });
+    }
+  }
+
+  return {
+    w, h, tiles, rooms: bossRoom ? [...passageRooms, bossRoom] : [...passageRooms, exitRoom], start, stairs, hazards,
+    exitRoom, bossRoom, bossRoomZone: bossRoom ? 'center' : undefined, bossEntrance, bossEntry
+  };
+  */
+}
+
+// 迷路と完全に分離された「N.5F」ボス専用アリーナ。
+export function generateBossArena(floor: number): DungeonData {
+  const isSuper = floor % 10 === 0;
+  const isStrong = floor % 5 === 0;
+  // 強ボス用マップも約2倍に広げ、戦闘室そのものは全体の約半分に収める。
+  const w = isSuper ? 35 : isStrong ? 31 : 25;
+  const h = isSuper ? 25 : isStrong ? 23 : 19;
+  const tiles: TileType[][] = Array.from({ length: h }, () => Array<TileType>(w).fill('wall'));
+  const roomW = floor === 30 ? 24 : floor === 25 ? 16 : floor === 15 || floor === 20 ? 21 : isSuper ? 25 : isStrong ? 21 : 17;
+  const roomH = floor === 30 ? 18 : floor === 25 ? 14 : floor === 15 || floor === 20 ? 15 : isSuper ? 17 : isStrong ? 15 : 13;
+  const bossRoom = roomAt(Math.floor((w - roomW) / 2), Math.floor((h - roomH) / 2), roomW, roomH);
+  carveRoom(tiles, bossRoom);
+
+  // 中央を広く保ち、四隅の柱だけでボス攻撃を避ける駆け引きを作る。
+  const pillarInset = floor === 10 ? 1 : floor === 20 ? 3 : isSuper ? 4 : 3;
+  const pillars: Vec2[] = [
+    { x: bossRoom.x + pillarInset, y: bossRoom.y + pillarInset },
+    { x: bossRoom.x + bossRoom.w - 1 - pillarInset, y: bossRoom.y + pillarInset },
+    { x: bossRoom.x + pillarInset, y: bossRoom.y + bossRoom.h - 1 - pillarInset },
+    { x: bossRoom.x + bossRoom.w - 1 - pillarInset, y: bossRoom.y + bossRoom.h - 1 - pillarInset }
+  ];
+  let volcanoArena: DungeonData['volcanoArena'];
+  let waterArena: DungeonData['waterArena'];
+  let thunderArena: DungeonData['thunderArena'];
+  let finalDepthArena: DungeonData['finalDepthArena'];
+  let glacialArena: DungeonData['glacialArena'];
+  if (floor >= 6 && floor <= 10) {
+    // Reuse the four cover pillars, adding low props near the edges; keep both central axes open.
+    waterArena = { props: [
+      ...pillars.map((p, i) => ({ ...p, part: (i < 2 ? 'prop-2' : 'prop-1') as 'prop-1' | 'prop-2', blocking: true })),
+      { x: bossRoom.cx - 3, y: bossRoom.y + 1, part: 'prop-3', blocking: true },
+      { x: bossRoom.cx + 3, y: bossRoom.y + 1, part: 'prop-3', blocking: true },
+      { x: bossRoom.cx - 3, y: bossRoom.y + bossRoom.h - 2, part: 'prop-4', blocking: true },
+      { x: bossRoom.cx + 3, y: bossRoom.y + bossRoom.h - 2, part: 'prop-4', blocking: true }
+    ] };
+    if (floor === 10) {
+      // Bull sanctuary: perimeter ruins leave the central charge and sidestep lanes clear.
+      waterArena.props = [
+        ...pillars.map(p => ({ ...p, part: 'prop-2' as const, blocking: true })),
+        { x: bossRoom.x + 1, y: bossRoom.cy, part: 'prop-1', blocking: true },
+        { x: bossRoom.x + bossRoom.w - 2, y: bossRoom.cy, part: 'prop-1', blocking: true }
+      ];
+    }
+    for (const prop of waterArena.props) tiles[prop.y][prop.x] = 'wall';
+  } else if (floor >= 26 && floor <= 30) {
+    if (floor === 30) for (let y = 0; y < roomH; y++) for (let x = 0; x < roomW; x++) {
+      if (Math.min(x, roomW - 1 - x) + Math.min(y, roomH - 1 - y) < 4) tiles[bossRoom.y + y][bossRoom.x + x] = 'wall';
+    }
+    const { cx, cy, x, y } = bossRoom;
+    finalDepthArena = { props: floor === 30 ? [
+      { x: cx - 7, y: y + 2, part: 'prop-1', blocking: true },
+      { x: cx + 7, y: y + 2, part: 'prop-2', blocking: true },
+      { x: x + 2, y: cy, part: 'prop-3', blocking: true },
+      { x: x + roomW - 3, y: cy, part: 'prop-4', blocking: true },
+      { x: cx + 6, y: y + roomH - 3, part: 'prop-5', blocking: true },
+      { x: cx - 6, y: y + roomH - 3, part: 'prop-6', blocking: true },
+      { x: cx + 2, y: y + 1, part: 'prop-7', blocking: true }
+    ] : [
+      { x: x + 2, y: y + 2, part: 'prop-1', blocking: true },
+      { x: x + roomW - 3, y: y + 2, part: 'prop-2', blocking: true },
+      { x: x + 2, y: y + roomH - 3, part: 'prop-3', blocking: true },
+      { x: x + roomW - 3, y: y + roomH - 3, part: 'prop-4', blocking: true }
+    ] };
+    for (const prop of finalDepthArena.props) if (prop.blocking) tiles[prop.y][prop.x] = 'wall';
+  } else if (floor >= 21 && floor <= 25) {
+    // A low-walled storm court, with clipped corners for the king's arena.
+    if (floor === 25) for (let y = 0; y < roomH; y++) for (let x = 0; x < roomW; x++) {
+      if (Math.min(x, roomW - 1 - x) + Math.min(y, roomH - 1 - y) < 3) tiles[bossRoom.y + y][bossRoom.x + x] = 'wall';
+    }
+    thunderArena = { props: [
+      { x: bossRoom.x + 2, y: bossRoom.y + 2, part: 'prop-1', blocking: true },
+      { x: bossRoom.x + roomW - 3, y: bossRoom.y + 2, part: 'prop-1', blocking: true },
+      { x: bossRoom.x + 2, y: bossRoom.y + roomH - 3, part: 'prop-2', blocking: true },
+      { x: bossRoom.x + roomW - 3, y: bossRoom.y + roomH - 3, part: 'prop-2', blocking: true },
+      { x: bossRoom.cx - 3, y: bossRoom.y + 1, part: 'prop-3', blocking: true },
+      { x: bossRoom.cx + 3, y: bossRoom.y + 1, part: 'prop-3', blocking: true },
+      { x: bossRoom.cx - 3, y: bossRoom.y + roomH - 2, part: 'prop-4', blocking: true },
+      { x: bossRoom.cx + 3, y: bossRoom.y + roomH - 2, part: 'prop-4', blocking: true }
+    ] };
+    for (const prop of thunderArena.props) if (prop.blocking) tiles[prop.y][prop.x] = 'wall';
+  } else if (floor === 15) {
+    // Clip the four corners into an octagonal hall. The middle stays open for dodging.
+    for (let y = 0; y < roomH; y++) {
+      for (let x = 0; x < roomW; x++) {
+        if (Math.min(x, roomW - 1 - x) + Math.min(y, roomH - 1 - y) < 4) {
+          tiles[bossRoom.y + y][bossRoom.x + x] = 'wall';
+        }
+      }
+    }
+    const { cx, cy } = bossRoom;
+    glacialArena = { props: [
+      { x: cx - 6, y: cy - 3, kind: 'crystal', blocking: true },
+      { x: cx + 6, y: cy - 3, kind: 'crystal', blocking: true },
+      { x: cx - 6, y: cy + 3, kind: 'obelisk', blocking: true },
+      { x: cx + 6, y: cy + 3, kind: 'obelisk', blocking: true },
+      { x: cx - 9, y: cy, kind: 'boulder', blocking: true },
+      { x: cx + 9, y: cy, kind: 'boulder', blocking: true },
+      { x: cx - 3, y: cy - 6, kind: 'obelisk', blocking: true },
+      { x: cx + 3, y: cy - 6, kind: 'obelisk', blocking: true },
+      { x: cx, y: cy - 3, kind: 'altar', blocking: false }
+    ] };
+    // Real wall cells give the large props collision for movement, sight and projectiles.
+    for (const prop of glacialArena.props) if (prop.blocking) tiles[prop.y][prop.x] = 'wall';
+  } else if (floor === 20) {
+    // A broad basalt island; the ring outside remains impassable lava scenery.
+    for (let y = 0; y < roomH; y++) for (let x = 0; x < roomW; x++) {
+      if (Math.min(x, roomW - 1 - x) + Math.min(y, roomH - 1 - y) < 4) tiles[bossRoom.y + y][bossRoom.x + x] = 'wall';
+    }
+    const { cx, cy } = bossRoom;
+    volcanoArena = { props: [
+      { x: cx - 6, y: cy - 3, part: 'prop-1', blocking: true },
+      { x: cx + 6, y: cy - 3, part: 'prop-1', blocking: true },
+      { x: cx - 6, y: cy + 3, part: 'prop-2', blocking: true },
+      { x: cx + 6, y: cy + 3, part: 'prop-2', blocking: true },
+      { x: cx - 9, y: cy, part: 'prop-3', blocking: true },
+      { x: cx + 9, y: cy, part: 'prop-3', blocking: true },
+      { x: cx - 3, y: cy - 6, part: 'prop-4', blocking: true },
+      { x: cx + 3, y: cy - 6, part: 'prop-4', blocking: true }
+    ] };
+    for (const prop of volcanoArena.props) if (prop.blocking) tiles[prop.y][prop.x] = 'wall';
+  } else {
+    for (const pillar of pillars) tiles[pillar.y][pillar.x] = 'wall';
+  }
+
+  const start = { x: bossRoom.cx, y: bossRoom.y + bossRoom.h - 1 };
+  // The bull needs a clear central charge lane; its exit sits opposite the entrance.
+  const stairs = { x: bossRoom.cx, y: floor === 10 ? bossRoom.y : bossRoom.cy };
+  tiles[start.y][start.x] = 'floor';
+  tiles[stairs.y][stairs.x] = 'door';
+  return {
+    w, h, tiles, rooms: [bossRoom], start, stairs, hazards: [], bossRoom,
+    bossRoomZone: 'center', teleportPads: [], biome: floor === 15 ? 'frost' : biomeForFloor(floor), optionalRooms: [],
+    ...(glacialArena ? { glacialArena } : {}),
+    ...(waterArena ? { waterArena } : {}),
+    ...(thunderArena ? { thunderArena } : {}),
+    ...(finalDepthArena ? { finalDepthArena } : {}),
+    ...(volcanoArena ? { volcanoArena } : {})
+  };
+}
+
+export function isWalkable(tile: TileType): boolean {
+  return tile !== 'wall' && tile !== 'door' && tile !== 'roomDoor';
+}
+
+export function randomFloor(dungeon: DungeonData, avoid: Vec2[] = []): Vec2 | null {
+  for (let tries = 0; tries < 300; tries++) {
+    const x = irand(1, dungeon.w - 2);
+    const y = irand(1, dungeon.h - 2);
+    const tile = dungeon.tiles[y][x];
+    if (tile === 'floor' || tile === 'rune') {
+      if (dungeon.optionalRooms.some((optional) => !optional.opened && pointInRoom({ x, y }, optional.room))) continue;
+      if (avoid.some((position) => position.x === x && position.y === y)) continue;
+      return { x, y };
+    }
+  }
+  return null;
+}
