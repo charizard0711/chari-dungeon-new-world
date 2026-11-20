@@ -29,3 +29,5 @@ Authentication email generation: `npm run email:build`. Its output must be appli
 Generated title assets and prompts: [docs/new-world-art.md](docs/new-world-art.md).
 
 Current branding and ZERO logo prompt: [docs/zero-brand-20261120.md](docs/zero-brand-20261120.md).
+
+Custom domain and authentication configuration: [docs/custom-domain-20261120.md](docs/custom-domain-20261120.md).
