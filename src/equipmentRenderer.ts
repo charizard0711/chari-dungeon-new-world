@@ -15,6 +15,7 @@ export class EquipmentRenderer {
   readonly offhand: Phaser.GameObjects.Image;
   readonly scabbard: Phaser.GameObjects.Image;
   readonly waistFitting: Phaser.GameObjects.Image;
+  readonly sparkles: Phaser.GameObjects.Graphics;
   private heroGlow?: Phaser.FX.Glow;
   private swordAura: LegendaryAura;
   private shieldAura: LegendaryAura;
@@ -25,6 +26,7 @@ export class EquipmentRenderer {
     this.waistFitting = scene.add.image(0, 0, 'katana_waist_fitting_v3').setVisible(false);
     this.scabbard = scene.add.image(0, 0, 'katana_scabbard_v2').setVisible(false);
     this.offhand = scene.add.image(0,0,'s_iron_round').setVisible(false);
+    this.sparkles = scene.add.graphics();
     this.swordAura = new LegendaryAura(scene, this.weapon, 'sword');
     this.shieldAura = new LegendaryAura(scene, this.offhand, 'shield');
     this.scabbardAura = new LegendaryAura(scene, this.scabbard, 'scabbard');
@@ -48,6 +50,8 @@ export class EquipmentRenderer {
       this.heroGlow = undefined;
     }
     const show = enabled && body.visible && body.active && frame !== 'down';
+    this.sparkles.clear().setVisible(show&&!!weapon?.starred).setDepth(body.depth+.4);
+    if(show&&weapon?.starred){const time=this.scene.time.now,unit=Math.abs(body.displayWidth)/64;for(let i=0;i<3;i++){const phase=time*.003+i*2.1,alpha=Math.pow((Math.sin(phase)+1)/2,3),x=body.x+Math.sin(phase+i)*19*unit,y=body.y-9*unit+Math.cos(phase*.8+i)*20*unit,r=(1.4+alpha*1.2)*unit;this.sparkles.fillStyle(0xffe8a3,alpha);this.sparkles.fillTriangle(x-r,y,x,y-r*1.7,x+r,y);this.sparkles.fillTriangle(x-r,y,x,y+r*1.7,x+r,y);}}
     const katana = show && weapon?.weaponType === 'katana';
     const action = playerAction(frame);
     const unit = Math.abs(body.scaleY) * (body.frame.realWidth || PLAYER_FRAME_SIZE) / 40;

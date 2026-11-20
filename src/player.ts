@@ -4,6 +4,7 @@ import { WEAPON_DEFS, SHIELD_DEFS, magicLabel, makeItem, ELEMENT_INFO } from './
 import { ELEMENTAL_EQUIPMENT_RATE } from './balance';
 import { DEFAULT_PLAYER_ARMOR, makePlayerArmor } from './playerAppearance';
 import { armorTraitValue } from './equipmentTraits';
+import type {Necklace} from './townEquipment';
 
 export const DEFAULT_PLAYER_WEAPON_KEY = 'w_iron_dagger';
 
@@ -48,6 +49,7 @@ export class Player {
   weapon: Weapon | null = null;
   shield: Shield | null = null;
   armor: Armor | null = null;
+  necklace: Necklace | null = null;
   inventory: Item[] = [];
   weapons: Weapon[] = [];   // 所持武器
   shields: Shield[] = [];   // 所持盾
@@ -96,6 +98,7 @@ export class Player {
 
   get def(): number {
     let v = this.baseDef + Math.floor(this.level * 0.4);
+    if(this.necklace)v+=this.necklace.defBonus;
     if (this.armor) v += this.armor.defBonus + (this.armor.plus ?? 0) + armorTraitValue(this.armor,'defense');
     if (this.shield && this.shield.dur > 0) v += this.shield.defBonus + (this.shield.plus ?? 0);
     return Math.floor((v + this.transformationDefBonus) * this.fountainBlessingRate);

@@ -1,4 +1,5 @@
 import { runRandom } from './ranking/random';
+import {addLightDarkWeapons,addLightDarkShields} from './townEquipment';
 import type { Weapon, Shield, Item, ItemKind, MonsterDef, MagicCode, EquipmentGrade, Element, MonsterElement, WeaponType, WeaponPassive, ShieldPassive } from './types';
 import { HALLOWEEN_WEAPONS, HALLOWEEN_SHIELDS, HALLOWEEN_MONSTERS } from './halloweenContent';
 
@@ -127,12 +128,14 @@ export const WEAPON_DEFS: WeaponDef[] = [
   ...HALLOWEEN_WEAPONS
 ];
 
+WEAPON_DEFS.push(...addLightDarkWeapons(WEAPON_DEFS));
 export const ELEMENT_INFO: Record<MonsterElement, { name: string; color: number; weakTo?: Element }> = {
   fire: { name: '火', color: 0xff5a36, weakTo: 'water' },
   thunder: { name: '雷', color: 0xffe348, weakTo: 'ice' },
   water: { name: '水', color: 0x3fa9ff, weakTo: 'thunder' },
   ice: { name: '氷', color: 0x82e9ff, weakTo: 'fire' },
-  dark: { name: '闇', color: 0x9867db }
+  light: { name: '光', color: 0xffedaa, weakTo:'dark' },
+  dark: { name: '闇', color: 0x9867db, weakTo:'light' }
 };
 
 export function randomElement(): Element {
@@ -242,6 +245,7 @@ export const SHIELD_DEFS: ShieldDef[] = [
   ...HALLOWEEN_SHIELDS
 ];
 
+SHIELD_DEFS.push(...addLightDarkShields(SHIELD_DEFS));
 // ===== マジック定義 =====
 const MAGIC_LABELS: Record<MagicCode, (lv: number) => string> = {
   B: (lv) => `B${lv}`,

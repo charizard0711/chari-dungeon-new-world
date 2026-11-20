@@ -1,0 +1,27 @@
+{
+  "tool": "built-in image_gen",
+  "transparentBackground": true,
+  "assets": "public/assets/online/equipment-v2; public/assets/online/gacha-v2.webp; public/assets/online/merchant-v2.webp",
+  "prompts": [
+    {
+      "key": "necklaces",
+      "prompt": "Use case stylized-concept. Actual transparent fantasy RPG item icon atlas, EXACTLY 4 columns x2 rows,1536x1024. Each cell384x512. Seven separate complete necklace icons, center each in cell, eighth bottom-right cell completely empty. No text no numbers no grid no background no ground shadows. Clean polished hand-painted fantasy equipment matching ornate dark fantasy JRPG inventory icons, visible chain loop and pendant, strong silhouettes readable at48pixels. In row-major order increasing rarity:1 simple worn bronze chain with small amber pendant;2 silver chain green jade;3 gilded chain bright blue sapphire;4 elaborate silver violet amethyst;5 golden winged ruby necklace;6 platinum sacred white opal with turquoise diamond accents;7 legendary black-gold celestial necklace rainbow crystal centerpiece and delicate sweeping wings. Each isolated fully within its own cell, ample transparent margins, consistent lighting, no extra icons."
+    },
+    {
+      "key": "light",
+      "prompt": "Use case stylized-concept. Actual transparent fantasy RPG equipment icon atlas EXACTLY5columns x2rows, landscape 1536x1024, eachcell307.2x512. TEN separate complete LIGHT-element equipment illustrations in strict row-major order:1 dagger,2 longsword,3 lance,4 bow,5 flintlock handgun,6 greatsword,7 Japanese katana,8 paired dual swords (one icon with two crossed swords),9 paired twin daggers (one icon two knives),10 shield. Elegant ivory steel, gold filigree, luminous pale blue crystals, restrained holy light, high quality hand-painted game inventory icons with crisp edges and transparent background. ALL individual weapons upright vertical, blade tips at top and handles atbottom, bow upright, gun barrelupward. Eachobjectfullbody, centered wholly inside own equal cell, no overlappingcells, ample padding. No words no numbers no labels no borders no backgrounds no ground shadows. Matching professional fantasy sprite icon style, readable at48px, no oversized effects."
+    },
+    {
+      "key": "dark",
+      "prompt": "Use case stylized-concept. Actual transparent fantasy RPG equipment icon atlas EXACTLY5columns x2rows, landscape1536x1024, eachcell307.2x512. TEN separate complete DARK-element equipment illustrations in strict row-major order:1 dagger,2 longsword,3 lance,4 bow,5 flintlock handgun,6 greatsword,7 Japanese katana,8 paired dual swords (one icon two crossed swords),9 paired twin daggers (one icon two knives),10 shield. Beautiful blackened steel, antique silver edges, deep violet crystals and restrained purple glow, shadow-fantasy craftsmanship, high quality hand-painted inventory icons with crisp edges and true transparentbackground. ALL individual weapons upright vertical blade tips attop handles atbottom, bowupright, gunbarrelupward. Every object centered entirely within separate equalcell amplepadding, no overlappingcells. No words no numbers no labels no borders no backgrounds no groundshadows. Professional fantasy sprite icons readableat48px, no smokyclouds."
+    },
+    {
+      "key": "gacha-machine",
+      "prompt": "Use case stylized-concept. A single premium hand-painted/pixel-detail fantasy RPG town prop: medieval GACHA CAPSULE VENDING MACHINE, true transparent background, isolated fullobject, orthographic slightly overhead gamecamera25degrees, sturdy ornate brass-and-darkwood pedestal, large clear crystal sphere on top visibly holding many colorful small magical capsules, a golden crank handle on front and a small collection hatch atbottom. Teal glowing runes, refined gold trim, looks like recognizable capsule toy machine reimagined for a medieval fantasy town. Compact upright silhouette, allpartsreadable at90px tall in top-down2DPhasergame, consistent warm lighting, crisp gameasset quality matching detailed pixelpainted stone-town props. No ground no background no floor tile no drop shadow no text no logo no labels no extra objects, centered generous transparent padding."
+    },
+    {
+      "key": "merchant",
+      "prompt": "Use case stylized-concept. Single full body medieval fantasy town MERCHANT NPC woman, kind adult with brown hair in braid, burgundy hood down, practical green-and-brown traveling coat, leather pouches, small goods satchel slung at her side, holding a ledger. True transparent background, no scene, no floor no shadow no text. 3-head-tall painted pixel-detail 2D fantasy RPG game sprite, front three-quarter orthographic camera slightly overhead25degrees, separated boots, expressive readable face, refined classic detailed JRPG mini sprite matching ornate dark fantasy stone town. Not anime tall character, not low poly, no huge cape. Compact fullbody centered with generous transparent margins, clean silhouette readable at48pixels high, warm light from upperleft."
+    }
+  ]
+}

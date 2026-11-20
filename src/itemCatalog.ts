@@ -4,11 +4,12 @@ import { armorTextureKey, PLAYER_ARMORS, PLAYER_ARMOR_DEFS } from './playerAppea
 import { makeShield, weaponRarity } from './player';
 import type { Element, EquipmentGrade, WeaponType } from './types';
 import { armorTraitDescription } from './equipmentTraits';
+import {NECKLACE_DEFS} from './townEquipment';
 
 export const ITEM_CATALOG_CODE = '19960711';
 export const CATALOG_TABS = [
   { key: 'all', label: 'すべて' }, { key: 'weapon', label: '武器' },
-  { key: 'shield', label: '盾' }, { key: 'armor', label: '服' }, { key: 'item', label: '道具' }
+  { key: 'shield', label: '盾' }, { key: 'armor', label: '服' }, {key:'necklace',label:'首飾り'}, { key: 'item', label: '道具' }
 ] as const;
 export type CatalogCategory = typeof CATALOG_TABS[number]['key'];
 export interface CatalogClaimResult {
@@ -33,6 +34,7 @@ const affinity = (element?: Element) => element ? `${ELEMENT_INFO[element].name}
 
 // 所持状況や到達階で絞らず、ゲーム本体の定義から全種類を作る。
 export const ITEM_CATALOG: readonly CatalogEntry[] = [
+  ...NECKLACE_DEFS.map(n=>({key:n.key,category:'necklace' as const,name:n.name,textureKey:n.key,grade:n.grade,summary:`${n.grade} / ネックレス`,description:`防御力 +${n.defBonus}`})),
   ...WEAPON_DEFS.map((weapon): CatalogEntry => ({
     key: weapon.key, category: 'weapon', name: weapon.name, textureKey: weapon.key,
     grade: weapon.grade, element: weapon.element,

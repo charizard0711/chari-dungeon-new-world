@@ -5,6 +5,6 @@ export const TRAINING_TARGET={x:12,y:5} as const;
 export function townBlocked(x:number,y:number){
   return x<1||y<1||x>23||y>17||(x>=3&&x<=7&&y>=2&&y<=5)||(x>=18&&x<=22&&y>=2&&y<=5)
     ||(x>=11&&x<=13&&y>=8&&y<=10)||(x===16&&y===11)||(x===TRAINING_TARGET.x&&y===TRAINING_TARGET.y)
-    ||(y===12&&x>=6&&x<=8)||(y===12&&x>=17&&x<=19)
+    ||(y===12&&x>=6&&x<=8)||(y===12&&x>=17&&x<=19)||(x===7&&y===9)||(x===18&&y===9)
     ||[...TOWN_TREES,...TOWN_LAMPS].some(([a,b])=>a===x&&b===y);
 }

@@ -2540,7 +2540,7 @@ export class GameScene extends Phaser.Scene {
     const done = intent.markers.length === 0;
     if (!due.length) return { done };
     const apply = () => {
-      const kinds: Record<MonsterElement, BossImpactKind> = { fire: 'fire', water: 'water', ice: 'ice', thunder: 'lightning', dark: 'void' };
+      const kinds: Record<MonsterElement, BossImpactKind> = { fire: 'fire', water: 'water', ice: 'ice', thunder: 'lightning', dark: 'void',light:'lightning' };
       for (const element of FINAL_ELEMENTS) {
         const tiles = due.filter(m => m.element === element).map(({ x, y }) => ({ x, y }));
         if (tiles.length) this.bossImpactFx(tiles, kinds[element]);

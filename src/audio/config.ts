@@ -96,7 +96,7 @@ export const FILE_SE_NAMES: readonly SeName[] = [
 export function elementAttackSe(element?: MonsterElement): SeName {
   if (!element) return 'attack';
   return ({
-    fire: 'elementFire', water: 'elementWater', thunder: 'elementThunder', ice: 'elementIce', dark: 'warp'
+    fire: 'elementFire', water: 'elementWater', thunder: 'elementThunder', ice: 'elementIce', dark: 'warp', light:'elementThunder'
   } as const)[element];
 }
 

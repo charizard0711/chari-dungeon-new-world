@@ -1,7 +1,7 @@
 import type { MonsterDef, MonsterElement, Vec2 } from './types';
 
 export const FINAL_ELEMENTS = ['fire', 'water', 'ice', 'thunder', 'dark'] as const;
-export const FINAL_ELEMENT_LABEL: Record<MonsterElement, string> = { fire: '火', water: '水', ice: '氷', thunder: '雷', dark: '闇' };
+export const FINAL_ELEMENT_LABEL: Record<MonsterElement, string> = { fire: '火', water: '水', ice: '氷', thunder: '雷', dark: '闇', light:'光' };
 export const FINAL_DEPTH_BOSSES: Readonly<Record<number, MonsterDef>> = {
   26: { key: 'm_deep_kraken', name: '深海魔クラーケン', description: '貝殻の装甲を持つ水の海魔。太い触手で直線を叩き、時間差で水の波を送り出す。', hp: 90, atkMin: 17, atkMax: 28, def: 17, exp: 160, gold: 34,  minFloor: 26, maxFloor: 26, behavior: 'chase', element: 'water', color: 0x66c6d5, isDragonType: false },
   27: { key: 'm_valzeon', name: '獄炎騎士ヴァルゼオン', description: '黒鉄の鎧に炎を宿す重装騎士。大剣と二列の炎を避け、振り下ろした後の隙に反撃しよう。', hp: 98, atkMin: 20, atkMax: 33, def: 18, exp: 170, gold: 36,  minFloor: 27, maxFloor: 27, behavior: 'chase', element: 'fire', color: 0xf5a46e, isDragonType: false },
@@ -69,7 +69,7 @@ export function finalAttackPlan(floor: number, phase: number, phaseTwo: boolean,
       case 'water': return line(true, p, 5);
       case 'ice': return line(false, p, 5);
       case 'thunder': return clean([...line(true, p, 2), ...line(false, p, 2)]);
-      case 'dark': return clean([p, ...ring(2, true)]);
+      case 'dark': case 'light': return clean([p, ...ring(2, true)]);
     }
   };
   const ultimate = phaseTwo && phase % 5 === 4;

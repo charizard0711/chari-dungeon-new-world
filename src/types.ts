@@ -29,9 +29,8 @@ export interface Magic {
 
 export type EquipmentGrade = 'D' | 'C' | 'B' | 'A' | 'S' | 'SS' | 'SSS';
 
-export type Element = 'fire' | 'thunder' | 'water' | 'ice';
-// Dark is a monster affinity; equipment rolls retain the original four elements.
-export type MonsterElement = Element | 'dark';
+export type Element = 'fire' | 'thunder' | 'water' | 'ice' | 'light' | 'dark';
+export type MonsterElement = Element;
 export type WeaponType = 'dagger' | 'longsword' | 'lance' | 'bow' | 'handgun' | 'greatsword' | 'katana' | 'dual_sword' | 'twin_daggers';
 
 export interface WeaponPassive {

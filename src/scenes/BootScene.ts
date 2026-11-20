@@ -1,6 +1,7 @@
 import { captureBootAssets } from '../assetStreaming';
 import { VERIFIER } from '../buildFlags';
-import { WEAPON_DEFS } from '../data';
+import { WEAPON_DEFS,SHIELD_DEFS } from '../data';
+import {NECKLACE_DEFS,expansionEquipmentKey,expansionArt} from '../townEquipment';
 import { configureLazyEquipmentArt } from '../lazyEquipmentArt';
 import { ART_REFRESH } from '../artRefresh';
 import { REFRESHED_EFFECT_ART } from '../effectRefresh';
@@ -238,12 +239,14 @@ export class BootScene extends Phaser.Scene {
       updateLoading(this.loadingStage === '画像' ? progress * .65 : .68 + progress * .07,
         this.loadingStage === '画像' ? '冒険の舞台を準備中…' : '冒険の音を準備中…');
     });
-    for (const weapon of WEAPON_DEFS.filter(w => w.weaponType === 'bow')) this.load.image(`arrow_${weapon.key}`, `assets/bow-arrows-v1/arrow_${weapon.key}.webp`);
+    for (const weapon of WEAPON_DEFS.filter(w => w.weaponType === 'bow')) this.load.image(`arrow_${weapon.key}`, expansionEquipmentKey(weapon.key)?`assets/online/equipment-v2/arrow_${weapon.key}.webp`:`assets/bow-arrows-v1/arrow_${weapon.key}.webp`);
     for (const weapon of WEAPON_DEFS.filter(w => w.weaponType === 'katana')) {
-      for (const prefix of ['']) this.load.image(`sheath_${prefix}${weapon.key}`, `assets/katana-sheaths-v1/sheath_${prefix}${weapon.key}.webp`);
+      for (const prefix of ['']) this.load.image(`sheath_${prefix}${weapon.key}`, expansionEquipmentKey(weapon.key)?`assets/online/equipment-v2/sheath_${prefix}${weapon.key}.webp`:`assets/katana-sheaths-v1/sheath_${prefix}${weapon.key}.webp`);
     }
     this.load.spritesheet('fx_katana_tornado_v2', 'assets/katana-v2/fx_katana_tornado.png', {frameWidth:256,frameHeight:256});
     this.load.spritesheet('fx_arcadia', 'assets/effects/arcadia-slash-v1.png', {frameWidth:256,frameHeight:256});
+    for(const item of [...WEAPON_DEFS,...SHIELD_DEFS].filter(d=>expansionEquipmentKey(d.key)))this.load.image(item.key,expansionArt(item.key));
+    for(const item of NECKLACE_DEFS)this.load.image(item.key,expansionArt(item.key));
     for (const art of HELD_EQUIPMENT) {
       this.load.spritesheet(art.textureKey, art.path, {frameWidth:HELD_FRAME_SIZE,frameHeight:HELD_FRAME_SIZE});
     }
@@ -268,7 +271,7 @@ export class BootScene extends Phaser.Scene {
       this.load.image(key, path);
     }
     for (const weapon of WEAPON_DEFS.filter(weapon => weapon.weaponType === 'katana')) {
-      this.load.image(weapon.key, `assets/katana-v1/${weapon.key}.webp`);
+      this.load.image(weapon.key, expansionEquipmentKey(weapon.key)?expansionArt(weapon.key):`assets/katana-v1/${weapon.key}.webp`);
     }
     for (const [key, path] of Object.entries(WEAPON_ART)) {
       this.load.image(key, path);

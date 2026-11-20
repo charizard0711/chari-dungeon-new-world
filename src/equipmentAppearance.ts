@@ -1,4 +1,5 @@
 import { WEAPON_DEFS, SHIELD_DEFS } from './data';
+import {expansionEquipmentKey} from './townEquipment';
 import type { Dir, WeaponType } from './types';
 import { playerFrameIndex, type PlayerGender, type PlayerVisualFrame } from './playerAppearance';
 import { playerAction } from './playerAnimation';
@@ -13,7 +14,7 @@ const DIRECTIONAL_SHIELD_KEYS = new Set([
 ]);
 export const HELD_EQUIPMENT = [...WEAPON_DEFS, ...SHIELD_DEFS]
   .filter(def => !def.key.startsWith('w_katana_') && def.key !== 'w_hero_sword' && !def.key.startsWith('w_hw_') && !def.key.startsWith('w_secret_') && ('weaponType' in def || DIRECTIONAL_SHIELD_KEYS.has(def.key))).map(def => ({
-  itemKey:def.key, textureKey:`held_${def.key}`, path:`assets/equipment/directional/${def.key}.png`
+  itemKey:def.key, textureKey:`held_${def.key}`, path:expansionEquipmentKey(def.key)?`assets/online/equipment-v2/held_${def.key}.png`:`assets/equipment/directional/${def.key}.png`
 }));
 export const HELD_EQUIPMENT_KEYS = new Set([...HELD_EQUIPMENT.map(art=>art.itemKey), 'w_hero_sword', ...WEAPON_DEFS.filter(d => d.key.startsWith('w_secret_') || d.key.startsWith('w_katana_')).map(d => d.key)]);
 

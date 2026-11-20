@@ -1,4 +1,5 @@
 import type Phaser from 'phaser';
+import {interactionAt,canInteract} from './townInteractions';
 import {MAP_X,MAP_Y,MAP_W,MAP_H} from '../layout';
 import {TOWN_TILE,TRAINING_TARGET} from './townLayout';
 import './online.css';
@@ -44,7 +45,9 @@ export function installGamePresentation(game:Phaser.Game,audio?:TownAudioSetting
       if(hud?.overlayMode==='none'&&pointer.x>=MAP_X&&pointer.x<MAP_X+MAP_W&&pointer.y>=MAP_Y&&pointer.y<MAP_Y+MAP_H&&!hud?.isSkillPointer?.(pointer.x,pointer.y)){
         const point=scene.cameras.main.getWorldPoint(pointer.x,pointer.y),size=scene===town?TOWN_TILE:32;
         const x=Math.floor(point.x/size),y=Math.floor(point.y/size);
-        if(scene===town&&scene.skillArmed)cursor='skill';
+        const npc=scene===town?(scene.hoverInteraction??interactionAt(x,y)):undefined;
+        if(npc&&canInteract(scene.player,npc))cursor=npc.cursor;
+        else if(scene===town&&scene.skillArmed)cursor='skill';
         else if(scene===town?x===TRAINING_TARGET.x&&y===TRAINING_TARGET.y:!!scene.enemyAt?.(x,y))cursor='attack';
       }
     }

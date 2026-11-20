@@ -1,0 +1,152 @@
+import type Phaser from 'phaser';
+import {ITEM_CATALOG,type CatalogEntry} from '../itemCatalog';
+import {WEAPON_DEFS,SHIELD_DEFS,ELEMENT_INFO,gradeColor} from '../data';
+import {NECKLACE_DEFS} from '../townEquipment';
+import {equipmentIconTexture} from '../artRefresh';
+import {GAME_W,GAME_H,IS_MOBILE} from '../layout';
+import {canInteract,TOWN_INTERACTIONS} from './townInteractions';
+import type {EquipmentSlot,EquipmentInstance,QuickSlot,OnlineCharacter} from './worldApi';
+import './equipmentUI.css';
+
+type Entry={key:string;category:EquipmentSlot|'item';index:number;instance?:EquipmentInstance;count:number;definition:CatalogEntry;equipped:boolean;price?:number};
+const slots:EquipmentSlot[]=['weapon','armor','shield','necklace'];
+const label:Record<string,string>={all:'すべて',equip:'装備',item:'消耗品',weapon:'武器',armor:'服',shield:'盾',necklace:'ネックレス'};
+const node=<K extends keyof HTMLElementTagNameMap>(tag:K,text='')=>{const e=document.createElement(tag);e.textContent=text;return e;};
+const keyOf=(e:Entry)=>e.instance?.id??`${e.category}:${e.key}`;
+const baseKey=(key:string)=>key.replace(/^star_/,'');
+export function mountTownEquipmentUI(hud:any,gs:any){
+ const root=node('section');root.className='town-equipment-ui'+(IS_MOBILE?' mobile':'');root.setAttribute('aria-label','町の装備とショートカット');document.body.append(root);
+ const quick=node('div');quick.className='town-quickbar';quick.setAttribute('aria-label','クイックアイテム 20枠');
+ const neck=node('button');neck.className='town-necklace-slot';neck.title='ネックレスを変更';neck.onclick=()=>open('inventory','necklace');
+ const shine=node('div');shine.className='town-star-overlay';shine.setAttribute('aria-hidden','true');
+ const modal=node('section');modal.className='town-window';modal.hidden=true;modal.setAttribute('role','dialog');modal.setAttribute('aria-modal','false');modal.setAttribute('aria-label','所持品');
+ const header=node('header'),title=node('h2','所持品'),gold=node('span');gold.className='town-gold';const closeButton=node('button','×');closeButton.type='button';closeButton.setAttribute('aria-label','閉じる');closeButton.onclick=close;header.append(title,gold,closeButton);
+ const tabs=node('nav');tabs.className='town-tabs';tabs.setAttribute('aria-label','所持品の種類');
+ const body=node('div');body.className='town-inventory-body';const grid=node('div');grid.className='town-icon-grid';grid.setAttribute('aria-label','アイテム一覧');const detail=node('section');detail.className='town-item-detail';detail.setAttribute('aria-label','選択したアイテムの詳細');
+ const scrollSync:(()=>void)[]=[];
+ function scrollWrapper(view:HTMLElement){const wrapper=node('div');wrapper.className='town-scroll-wrapper';const track=node('div');track.className='town-scroll-track';const thumb=node('div');thumb.className='town-scroll-thumb';thumb.setAttribute('role','scrollbar');thumb.setAttribute('aria-label',view.getAttribute('aria-label')+'のスクロール');thumb.setAttribute('aria-valuemin','0');thumb.tabIndex=0;track.append(thumb);wrapper.append(view,track);
+  const sync=()=>{const max=Math.max(0,view.scrollHeight-view.clientHeight),height=track.clientHeight,size=max?Math.max(22,height*view.clientHeight/view.scrollHeight):height;thumb.style.height=size+'px';thumb.style.top=(max?(height-size)*view.scrollTop/max:0)+'px';thumb.setAttribute('aria-valuemax',String(max));thumb.setAttribute('aria-valuenow',String(Math.round(view.scrollTop)));track.hidden=!max;};
+  view.addEventListener('scroll',sync);thumb.onpointerdown=e=>{e.preventDefault();thumb.setPointerCapture(e.pointerId);const start=e.clientY,top=view.scrollTop;const move=(ev:PointerEvent)=>{const scale=track.getBoundingClientRect().height/track.clientHeight;view.scrollTop=top+(ev.clientY-start)/scale*(view.scrollHeight-view.clientHeight)/Math.max(1,track.clientHeight-thumb.offsetHeight);};const end=()=>{thumb.removeEventListener('pointermove',move);thumb.removeEventListener('pointerup',end);thumb.removeEventListener('pointercancel',end);};thumb.addEventListener('pointermove',move);thumb.addEventListener('pointerup',end);thumb.addEventListener('pointercancel',end);};
+  track.onpointerdown=e=>{if(e.target===track)view.scrollTop+=(e.clientY<thumb.getBoundingClientRect().top?-1:1)*view.clientHeight*.8;};thumb.onkeydown=e=>{if(['ArrowUp','ArrowDown','PageUp','PageDown','Home','End'].includes(e.key)){e.preventDefault();e.stopPropagation();view.scrollTop+=e.key==='Home'?-view.scrollHeight:e.key==='End'?view.scrollHeight:(e.key.includes('Up')?-1:1)*(e.key.startsWith('Page')?view.clientHeight:45);}};scrollSync.push(sync);return wrapper;
+ }
+ const gridWrapper=scrollWrapper(grid),detailWrapper=scrollWrapper(detail);body.append(gridWrapper,detailWrapper);
+ const footer=node('footer','アイテムを選択すると詳細を表示。下の枠へドラッグして登録できます。');footer.setAttribute('role','status');modal.append(header,tabs,body,footer);root.append(neck,shine,quick,modal);
+ let mode:'inventory'|'shop'|'gacha'|'guide'='inventory',category='all',shopTab='buy',selected='',signature='',pending=false,active=true,notice='',reward:Entry|undefined;
+ let inputState:{hud:boolean;town:boolean;hudKeys:boolean;townKeys:boolean}|undefined;
+ let cancelDrag:(()=>void)|undefined;
+ function pauseGameInput(){if(inputState)return;inputState={hud:hud.input.enabled,town:gs.input.enabled,hudKeys:hud.input.keyboard?.enabled??false,townKeys:gs.input.keyboard?.enabled??false};hud.input.enabled=false;gs.input.enabled=false;if(hud.input.keyboard)hud.input.keyboard.enabled=false;if(gs.input.keyboard)gs.input.keyboard.enabled=false;}
+ function resumeGameInput(){if(!inputState)return;hud.input.enabled=inputState.hud;gs.input.enabled=inputState.town;if(hud.input.keyboard){hud.input.keyboard.resetKeys();hud.input.keyboard.enabled=inputState.hudKeys;}if(gs.input.keyboard){gs.input.keyboard.resetKeys();gs.input.keyboard.enabled=inputState.townKeys;}inputState=undefined;}
+ const urls=new Map<string,string>();
+ const character=()=>gs.packet.active as OnlineCharacter|null;
+ const fit=()=>{const r=gs.game.canvas.getBoundingClientRect();root.style.cssText=`left:${r.left}px;top:${r.top}px;width:${GAME_W}px;height:${GAME_H}px;transform:scale(${r.width/GAME_W},${r.height/GAME_H})`;};
+ const resize=new ResizeObserver(fit);resize.observe(gs.game.canvas);window.addEventListener('resize',fit);window.addEventListener('scroll',fit);fit();
+ function iconURL(key:string){
+  const texture=equipmentIconTexture(key);if(urls.has(texture))return urls.get(texture)!;
+  if(!hud.textures.exists(texture))return '';
+  const frame=hud.textures.getFrame(texture);if(!frame)return '';const image=frame.source.image as CanvasImageSource;
+  const c=document.createElement('canvas');c.width=128;c.height=128;c.getContext('2d')!.drawImage(image,frame.cutX,frame.cutY,frame.cutWidth,frame.cutHeight,0,0,128,128);const url=c.toDataURL();urls.set(texture,url);return url;
+ }
+ function definition(slot:string,key:string){return ITEM_CATALOG.find(d=>d.key===(slot==='armor'?'armor_'+key:baseKey(key)));}
+ function entries():Entry[]{
+  const c=character();if(!c)return [];const result:Entry[]=[];
+  for(const slot of slots){const list=slot==='necklace'?c.equipment?.necklace??[]:c.equipment?.[slot]??[];
+   list.forEach((key,index)=>{const def=definition(slot,key);if(!def)return;const instance=c.instances?.[slot]?.[index];const gear=c.gear as Record<string,unknown>;result.push({key,category:slot,index,instance,count:1,definition:def,equipped:!!gear[slot]&&(instance?gear[slot+'_instance_id']===instance.id:gear[slot+'_key']===key)});});
+  }
+  for(const [key,count]of Object.entries(c.inventory)){const def=definition('item',key);if(count>0&&def)result.push({key,category:'item',index:0,count,definition:def,equipped:false});}
+  return result;
+ }
+ function makeIcon(e:Entry){
+  const b=node('button');b.type='button';b.className='town-icon'+(e.key.startsWith('star_')?' town-starred':'')+(e.instance&&e.instance.max>0&&e.instance.dur===0?' town-broken':'');
+  b.style.setProperty('--grade',e.definition.grade?'#'+gradeColor(e.definition.grade).toString(16).padStart(6,'0'):'#8a9d9d');b.title=`${e.definition.name}${e.key.startsWith('star_')?' ★ 色違い':''}`;b.setAttribute('aria-label',b.title);b.dataset.itemKey=e.key;b.dataset.category=e.category;
+  const image=node('img');image.alt='';const url=iconURL(e.key.startsWith('star_')?e.key:e.definition.textureKey);if(url)image.src=url;b.append(image);
+  if(e.equipped){const eq=node('span','E');eq.className='town-equipped';b.append(eq);}if(e.count>1){const count=node('span',String(e.count));count.className='town-count';b.append(count);}
+  if(e.instance&&e.instance.max>0){const bar=node('span');bar.className='town-dur-bar';const fill=node('i');fill.style.width=`${e.instance.dur/e.instance.max*100}%`;bar.append(fill);b.append(bar);}
+  return b;
+ }
+ function quickRef(e:Entry):QuickSlot{return {category:e.category,key:e.key,...e.instance?{instanceId:e.instance.id}:{}};}
+ function attachDrag(button:HTMLButtonElement,e:Entry){
+  button.draggable=false;button.style.touchAction='none';let suppressClick=false;
+  button.addEventListener('click',event=>{if(suppressClick){event.preventDefault();event.stopImmediatePropagation();suppressClick=false;}},true);
+  button.onpointerdown=event=>{if(event.button!==0)return;event.preventDefault();suppressClick=false;const startX=event.clientX,startY=event.clientY;let moved=false,ghost:HTMLElement|undefined;button.setPointerCapture(event.pointerId);
+   const clear=()=>{ghost?.remove();quick.querySelectorAll('.drag-over').forEach(b=>b.classList.remove('drag-over'));button.removeEventListener('pointermove',move);button.removeEventListener('pointerup',finish);button.removeEventListener('pointercancel',cancel);cancelDrag=undefined;};
+   const target=(x:number,y:number)=>document.elementFromPoint(x,y)?.closest<HTMLElement>('[data-quick-slot]');
+   const move=(ev:PointerEvent)=>{if(!moved&&Math.hypot(ev.clientX-startX,ev.clientY-startY)>6){moved=true;ghost=makeIcon(e);ghost.classList.add('town-drag-ghost');document.body.append(ghost);}if(!moved)return;ev.preventDefault();ghost!.style.left=ev.clientX+'px';ghost!.style.top=ev.clientY+'px';const drop=target(ev.clientX,ev.clientY);quick.querySelectorAll<HTMLElement>('[data-quick-slot]').forEach(b=>b.classList.toggle('drag-over',b===drop));};
+   const finish=(ev:PointerEvent)=>{if(moved){suppressClick=true;const drop=target(ev.clientX,ev.clientY);if(drop){const index=Number(drop.dataset.quickSlot),ref=quickRef(e);if(resolve(ref))void run(async()=>{await gs.action('set_quick_slot',{index,ref});say(`${e.definition.name}をショートカットに登録しました。`);});}}else{selected=keyOf(e);for(const a of grid.children)a.classList.toggle('selected',(a as HTMLElement).dataset.entryId===selected);renderDetail();}clear();};
+   const cancel=()=>clear();cancelDrag=cancel;button.addEventListener('pointermove',move);button.addEventListener('pointerup',finish);button.addEventListener('pointercancel',cancel);
+  };
+ }
+ function resolve(ref:QuickSlot|null|undefined){return ref?entries().find(e=>e.category===ref.category&&e.key===ref.key&&(e.category==='item'||e.instance?.id===ref.instanceId)):undefined;}
+ function renderQuick(){
+  const c=character();const refs=c?.quickSlots??[{category:'item',key:'potion'} as QuickSlot];quick.replaceChildren();
+  for(let i=0;i<20;i++){
+   const e=resolve(refs[i]),b=e?makeIcon(e):node('button');b.classList.add('town-icon','town-quick-slot');b.type='button';b.dataset.quickSlot=String(i);b.setAttribute('aria-label',`ショートカット ${i<10?'':'Shift+'}${(i+1)%10}${e?' '+e.definition.name:' 空き'}`);
+   const number=node('span',`${i>=10?'⇧':''}${(i+1)%10}`);number.className='town-quick-label';b.append(number);b.onclick=()=>{if(e)void use(e,true);};
+   b.oncontextmenu=event=>{event.preventDefault();void run(()=>gs.action('set_quick_slot',{index:i,ref:null}));};
+   b.ondragover=event=>{event.preventDefault();if(event.dataTransfer)event.dataTransfer.dropEffect='copy';b.classList.add('drag-over');};b.ondragleave=()=>b.classList.remove('drag-over');
+   b.ondrop=event=>{event.preventDefault();b.classList.remove('drag-over');try{const ref=JSON.parse(event.dataTransfer?.getData('application/x-chari-item')||'null');if(resolve(ref))void run(()=>gs.action('set_quick_slot',{index:i,ref}));}catch{say('所持品からドラッグしてください。');}};
+   quick.append(b);
+  }
+ }
+ function say(message:string){notice=message;footer.textContent=message;}
+ async function run(fn:()=>Promise<any>){if(pending||gs.requestBusy)return;pending=true;renderDetail();try{const state=await fn();signature='';refresh();return state;}catch(e){say((e as Error).message);}finally{pending=false;if(mode==='gacha'&&!modal.hidden)renderGacha();else renderDetail();}}
+ async function use(e:Entry,equipOnly=false){
+  if(e.category==='item'){
+   if(!['potion','repair','skill_drink'].includes(e.key)){say('この道具は町では使えません。');return;}
+   let target:{}={};if(e.key==='repair'){const broken=entries().find(a=>(a.category==='weapon'||a.category==='shield')&&a.instance&&a.instance.dur<a.instance.max);if(!broken){say('修復が必要な装備はありません。');return;}target={slot:broken.category,index:broken.index,instanceId:broken.instance?.id};}
+   await run(()=>gs.action('use_item',{kind:e.key,...target}));
+  }else await run(()=>gs.action('equip',{slot:e.category,key:e.key,index:e.index,instanceId:e.instance?.id,equipped:equipOnly||!e.equipped}));
+ }
+ function renderNeck(){
+  const c=character(),n=c?.gear.necklace?NECKLACE_DEFS.find(n=>n.key===c.gear.necklace_key):undefined;neck.replaceChildren();
+  if(n){const img=node('img');img.alt=n.name;const url=iconURL(n.key);if(url)img.src=url;neck.append(img);neck.title=`${n.name} [${n.grade}] 防御力 +${n.defBonus}`;}else neck.title='ネックレス 未装備';neck.append(node('span','ネックレス'));
+  shine.hidden=!gs.player.weapon?.starred;
+ }
+ function shopEntries():Entry[]{return (gs.packet.shopCatalog??[]).flatMap((s:{key:string;price:number})=>{const def=ITEM_CATALOG.find(d=>d.key===s.key);return def?[{key:s.key,category:def.category,index:0,count:1,definition:def,equipped:false,price:s.price}]:[];});}
+ function visibleEntries(){let list=mode==='shop'&&shopTab==='buy'?shopEntries():entries();if(mode==='shop'&&shopTab==='repair')list=list.filter(e=>e.instance&&e.instance.max>0&&e.instance.dur<e.instance.max);if(mode==='shop'&&shopTab==='sell')list=list.filter(e=>e.category!=='item');return list.filter(e=>category==='all'||category==='equip'&&e.category!=='item'||e.category===category);}
+ function renderInventory(){
+  tabs.replaceChildren();const choices=mode==='shop'?[['buy','購入'],['repair','修理'],['sell','売却']]:Object.entries(label);
+  for(const [key,name]of choices){const b=node('button',name);b.type='button';b.setAttribute('aria-pressed',String(mode==='shop'?shopTab===key:category===key));b.onclick=()=>{if(mode==='shop'){shopTab=key;category='all';}else category=key;selected='';grid.scrollTop=0;renderInventory();};tabs.append(b);}
+  const list=visibleEntries(),oldScroll=grid.scrollTop;grid.replaceChildren();if(!list.some(e=>keyOf(e)===selected))selected=list[0]?keyOf(list[0]):'';
+  for(const e of list){const b=makeIcon(e);if(keyOf(e)===selected)b.classList.add('selected');b.onclick=()=>{selected=keyOf(e);for(const a of grid.children)a.classList.toggle('selected',(a as HTMLElement).dataset.entryId===selected);renderDetail();};b.dataset.entryId=keyOf(e);if(mode!=='shop'||shopTab!=='buy')attachDrag(b,e);grid.append(b);}
+  if(!list.length)grid.append(node('p',mode==='shop'&&shopTab==='repair'?'修理が必要な装備はありません。':'この種類のアイテムはありません。'));grid.scrollTop=oldScroll;renderDetail();requestAnimationFrame(()=>{const style=getComputedStyle(grid),cols=IS_MOBILE?4:9,width=(grid.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight)-(cols-1)*parseFloat(style.columnGap))/cols;if(width>0)grid.style.gridAutoRows=width+'px';scrollSync.forEach(fn=>fn());});
+ }
+ function renderDetail(){
+  if(modal.hidden||mode==='gacha'||mode==='guide')return;const e=visibleEntries().find(e=>keyOf(e)===selected);detail.replaceChildren();if(!e){detail.append(node('p','左のアイテムを選択してください。'));return;}
+  const heading=node('div');heading.className='town-detail-heading';const icon=makeIcon(e);icon.tabIndex=-1;icon.style.pointerEvents='none';const name=node('h3',`${e.definition.name}${e.key.startsWith('star_')?' ★':''}${e.definition.grade&&!e.definition.name.endsWith('['+e.definition.grade+']')?' ['+e.definition.grade+']':''}`);name.style.setProperty('--grade',e.definition.grade?'#'+gradeColor(e.definition.grade).toString(16).padStart(6,'0'):'#d4dfdf');heading.append(icon,name);detail.append(heading);
+  detail.append(node('p',`${label[e.category]}${e.equipped?' · 装備中':''}${e.key.startsWith('star_')?' · 色違い':''}`));
+  const w=WEAPON_DEFS.find(w=>w.key===baseKey(e.key)),s=SHIELD_DEFS.find(s=>s.key===baseKey(e.key));
+  const stats=w?`攻撃力 ${w.atkMin}–${w.atkMax}`:s?`防御力 +${s.defBonus}`:e.definition.description.split('\n')[0];
+  detail.append(node('p',stats+(e.instance?.max?`\n耐久 ${e.instance.dur} / ${e.instance.max}${e.instance.dur===0?'\n使用不可 · 修理できます':''}`:'')));
+  if(e.definition.element)detail.append(node('p',`${ELEMENT_INFO[e.definition.element].name}属性`));
+  const descriptionText=e.category==='armor'?'':e.definition.description.split('\n').slice(1).join('\n');if(descriptionText)detail.append(node('p',descriptionText));
+  if(e.category==='weapon'&&gs.player.weapon){const compare=node('p',`装備中：${gs.player.weapon.name}\n攻撃力 ${gs.player.weapon.atkMin}–${gs.player.weapon.atkMax}`);compare.className='comparison';detail.append(compare);}
+  if(e.price!==undefined)detail.append(node('p',`価格 ${e.price} G`));
+  const actions=node('div');actions.className='town-detail-actions';const button=(text:string,fn:()=>void,disabled=false)=>{const b=node('button',text);b.type='button';b.disabled=pending||disabled;b.onclick=fn;actions.append(b);return b;};
+  if(mode==='shop'&&shopTab==='buy')button('購入',()=>void run(async()=>{await gs.action('buy',{key:e.definition.key});say(`${e.definition.name}を購入しました。`);}),!character()||character()!.gold!<(e.price??0));
+  else if(mode==='shop'&&shopTab==='repair'){const cost=Math.max(1,Math.ceil(((e.instance?.max??0)-(e.instance?.dur??0))/10));button(`修理 ${cost}G`,()=>void run(async()=>{await gs.action('repair_equipment',{slot:e.category,index:e.index,instanceId:e.instance?.id});say('修理しました。装備し直せます。');}));}
+  else if(mode==='shop'&&shopTab==='sell'){const sale=({D:10,C:25,B:50,A:100,S:200,SS:400,SSS:800} as Record<string,number>)[e.definition.grade??'D'];button(`売却 ${sale}G`,()=>void run(async()=>{await gs.action('sell_equipment',{slot:e.category,index:e.index,instanceId:e.instance?.id});say('売却しました。');}));}
+  else {
+   const broken=!!(e.instance?.max&&e.instance.dur===0);button(e.category==='item'?'使用':e.equipped?'外す':broken?'修理が必要':'装備する',()=>void use(e),broken||e.category==='item'&&!['potion','repair','skill_drink'].includes(e.key));
+   button('落とす',()=>void run(async()=>{const before=new Set<string>((gs.packet.drops??[]).map((d:{id:string})=>d.id));if(e.category==='item')await gs.action('drop_item',{kind:e.key});else await gs.action('drop_equipment',{slot:e.category,index:e.index,key:e.key,instanceId:e.instance?.id});gs.ignoreOwnDrops(before);say(`${e.definition.name}を落としました。`);})).classList.add('danger');
+  }
+  detail.append(actions);requestAnimationFrame(()=>scrollSync.forEach(fn=>fn()));
+ }
+ function renderGacha(){
+  tabs.replaceChildren();body.className='town-gacha-body';body.replaceChildren();const image=node('img');image.src='assets/online/gacha-v2.webp';image.alt='魔法のガチャ';
+  const info=node('div');info.className='town-gacha-info';info.append(node('h3','魔法のカプセルから、新しい装備を。'),node('p','1回 100G\n武器・服・盾・ネックレスのいずれかを獲得します。\nD 35% / C 25% / B 18% / A 12% / S 6% / SS 3% / SSS 1%\n武器は1%の確率で色違いになります。'));
+  const b=node('button',pending?'抽選中…':'ガチャを回す 100G');b.type='button';b.disabled=pending||(character()?.gold??0)<100;b.onclick=()=>void run(async()=>{const state=await gs.action('gacha');const key=state?.reward??gs.packet.reward;if(key){reward=entries().reverse().find(e=>baseKey(e.key)===key||e.definition.key===key);say(`${reward?.definition.name??key}を獲得しました。`);}if(mode==='gacha'&&!modal.hidden)renderGacha();});info.append(b);
+  if(reward){const result=node('div');result.className='town-gacha-result';result.append(makeIcon(reward),node('strong',`${reward.definition.name}${reward.key.startsWith('star_')?' ★ 色違い':''}`));info.append(result);}body.append(image,info);
+ }
+ function renderGuide(){tabs.replaceChildren();body.className='town-guide';body.replaceChildren(node('p','案内人リーフ「ようこそ、はじまりの町へ。\n商人ミラから買い物や装備の修理ができます。\n西のガチャ機では、新しい装備が手に入ります。\nNPCや機械の近くで、右クリックしてみてください。」'));}
+ function open(next:'inventory'|'shop'|'gacha',filter?:string){
+  if(next!=='inventory'){const npc=TOWN_INTERACTIONS.find(n=>n.id===(next==='shop'?'merchant':'gacha'))!;if(!canInteract(gs.player,npc)){gs.log('町の設備に近づいて右クリックしてください。');return;}}
+  pauseGameInput();mode=next;category=filter??'all';selected='';notice='';hud.overlay?.setVisible(false);hud.overlayMode='townInventory';gs.destination=undefined;gs.clearMoveInput?.();modal.hidden=false;title.textContent=next==='inventory'?'所持品':next==='shop'?'商人ミラ · 取引と修理':'魔法のガチャ';modal.setAttribute('aria-label',title.textContent);body.className='town-inventory-body';body.replaceChildren(gridWrapper,detailWrapper);footer.textContent=next==='inventory'?'アイテムを選択して詳細を確認。下の枠にドラッグすると登録できます。':'町の所持金で利用できます。';if(next==='gacha')renderGacha();else renderInventory();refresh();closeButton.focus();
+ }
+ function openGuide(){pauseGameInput();mode='guide';hud.overlayMode='townInventory';modal.hidden=false;title.textContent='案内人リーフ';renderGuide();}
+ function close(){cancelDrag?.();modal.hidden=true;resumeGameInput();if(hud.overlayMode==='townInventory')hud.overlayMode='none';gs.clearMoveInput?.();gs.game.canvas.tabIndex=0;gs.game.canvas.focus();}
+ function refresh(){if(!active)return;const c=character(),next=JSON.stringify([c,gs.packet.shopCatalog]);gold.textContent=`所持金 ${(c?.gold??0).toLocaleString()} G`;if(next===signature)return;signature=next;renderQuick();renderNeck();if(!modal.hidden){if(mode==='gacha')renderGacha();else if(mode!=='guide')renderInventory();}if(notice)footer.textContent=notice;}
+ const onKey=(e:KeyboardEvent)=>{if(e.repeat||e.target instanceof HTMLInputElement||e.target instanceof HTMLTextAreaElement)return;if(e.key==='Escape'&&!modal.hidden){e.preventDefault();close();return;}if(/^Digit\d$/.test(e.code)){const digit=Number(e.code.slice(-1)),i=(digit===0?9:digit-1)+(e.shiftKey?10:0),entry=resolve(character()?.quickSlots?.[i]);if(entry){e.preventDefault();void use(entry,true);}}};window.addEventListener('keydown',onKey);
+ root.addEventListener('keydown',e=>{if(!modal.hidden||/^Digit\d$/.test(e.code)||e.key==='Escape'){onKey(e);e.stopPropagation();}});root.addEventListener('pointerdown',e=>e.stopPropagation());root.addEventListener('contextmenu',e=>e.preventDefault());
+ const textureAdded=()=>{signature='';urls.clear();refresh();};hud.textures.on('addtexture',textureAdded);refresh();
+ return {open,openGuide,close,refresh,destroy(){active=false;cancelDrag?.();resize.disconnect();window.removeEventListener('resize',fit);window.removeEventListener('scroll',fit);window.removeEventListener('keydown',onKey);hud.textures.off('addtexture',textureAdded);root.remove();}};
+}
