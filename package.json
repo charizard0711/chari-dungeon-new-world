@@ -11,6 +11,7 @@
     "test:town:equipment": "node scripts/test-town-expansion.mjs && tsx scripts/test-town-content.ts && tsx scripts/test-pointer-drag.ts && node scripts/test-online-social.mjs && node scripts/test-online-warehouse.mjs && tsx scripts/test-warehouse-presentation.ts",
     "test:adventure": "tsx scripts/test-adventure-map.ts && node scripts/test-online-adventures.mjs && node scripts/test-adventure-turns.mjs",
     "test:gold-audio": "node scripts/test-online-gold-cheat.mjs && node scripts/test-weapon-audio.mjs",
+    "test:exploration": "node scripts/test-online-exploration.mjs && tsx scripts/test-exploration-view.ts",
     "test:input": "node scripts/test-online-input.mjs",
     "email:build": "tsx scripts/build-auth-email.ts",
     "deploy": "node scripts/deploy-pages.mjs"

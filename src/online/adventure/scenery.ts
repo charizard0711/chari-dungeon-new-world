@@ -16,7 +16,7 @@ for(const [x,y]of [[20,23],[28,29],[58,15],[72,26]])prop(11,x,y,2,3,{x,y,w:1,h:1
 for(const [x,y]of [[25,11],[38,11],[29,18],[35,18],[10,2],[18,2]])prop(12,x,y,2.5,2.5,{x,y,w:2,h:1});
 for(const [x,y]of [[47,6],[54,6],[76,15],[84,15],[63,24],[70,24]])prop(15,x,y,1.1,1.4,{x,y,w:1,h:1});
 arch(5,14,10,4,4);arch(5,28,9,4,4);arch(7,50,7,9,7,true);arch(7,51,23,9,7,true);arch(8,80,9,9,7);
-arch(3,14,21,3,6,true);arch(4,21,14,7,3,true);arch(4,60,13,7,3,true);arch(3,65,20,3,6,true);
+
 arch(6,20,30,3,6);arch(6,58,19,3,7);arch(6,72,18,3,7);
 export const WATER:SolidRect[]=[{x:10,y:3,w:6,h:3},{x:34,y:27,w:5,h:2}];
 export const SCENERY_SOLIDS:SolidRect[]=[...SCENERY.flatMap(p=>p.solid?[p.solid]:[]),...WATER,{x:77,y:8,w:2,h:2},{x:83,y:8,w:2,h:2},{x:26,y:9,w:1,h:1},{x:30,y:9,w:1,h:1},{x:30,y:13,w:3,h:2}];
@@ -32,3 +32,5 @@ export function terrainFrame(area:string|undefined,x:number,y:number){
  if(area==='market')return 11;
  return (x*3+y*7)%6===0?1:0;
 }
+
+export const BRIDGES=[{x:13,y:16,w:3,h:5,vertical:true},{x:18,y:12,w:7,h:3,vertical:false},{x:57,y:12,w:7,h:3,vertical:false},{x:64,y:16,w:3,h:5,vertical:true}];

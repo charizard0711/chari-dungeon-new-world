@@ -1,0 +1,50 @@
+{
+  "mode": "built-in image_gen, transparent_background=true. No CLI/API generation.",
+  "runtime_preparation": "scripts/prepare-exploration-v3.mjs: crop equal cells, trim alpha, remove sub-25 alpha noise, normalize species-wide scale/footline, pack WebP. Bridge crops fill the renderer-defined deck dimensions.",
+  "assets": {
+    "capsules": {
+      "source": "art/exploration-v3/capsules-colors.png",
+      "prompt": "Create a production sprite atlas for a Japanese fantasy pixel-painted RPG magical gacha. Transparent background. EXACT grid 7 columns by 3 rows, equal cells, generous clear margins. Each column is one rarity matching these seven colors left to right: D silver gray, C emerald green, B sapphire blue, A violet purple, S gold yellow, SS hot pink, SSS rainbow prismatic crystal with gold. Same exquisite round two-piece magical capsule shape, dark gold filigree equator seam, jewel seal, clean readable 2D painted pixel art, NO text or labels. Row 1: intact closed capsule floating with no shadow. Row 2: separate lifted upper shell only, curved dome and matching color, its open underside visible, no lower shell. Row 3: separate lower hemisphere only with open bowl and matching color, no upper shell. Precisely same capsule diameter for ALL columns, aligned centers. For runtime animation we will move the two halves apart. Opaque artwork with true alpha outside, no embedded glow background, no UI, no characters, no items inside. Each cell complete and isolated. Landscape atlas.",
+      "original": "art/exploration-v3/capsules.png",
+      "color_edit_prompt": "Edit ONLY the material colors of columns six and seven in this transparent seven-column capsule atlas. Keep all pixel positions, 7 columns, 3 rows, complete shapes, shell halves, sizes, ornamental gold filigree and transparency exactly unchanged. Columns one through five remain silver, green, blue, purple, gold. Column SIX (currently pink): recolor enamel and matching gem to warm peach-orange #ffa465, preserving gold metal. Column SEVEN (currently rainbow): recolor enamel and matching gem to bright luminous pink #ff83d9 with subtle pearly pink highlights, preserving gold metal. Apply the same color to intact capsule row, lifted dome row and open bowl row. Do not add any rainbow or extra objects. No text or background. True alpha transparency outside every object."
+    },
+    "mobs-a": {
+      "references": [
+        "public/assets/art-refresh-v1/m_jelly.png",
+        "public/assets/art-refresh-v1/m_bat.png"
+      ],
+      "source": "art/exploration-v3/mobs-a.png",
+      "prompt": "Production directional RPG animation atlas, transparent background, EXACT 4 columns x 6 rows in equal square cells. Match these reference monster identities exactly but render detailed painted pixel sprites at small RPG scale. Columns ALWAYS down/front, left/profile, right/profile, up/back. Rows 1-3 blue crowned jelly reference: idle, stride/squash A, stride/bounce B. Rows 4-6 purple crystal bat reference: idle, wingbeat raised, wingbeat lowered. True back views no face/chest emblem on rear. Profiles face their specified direction. All poses same creature size and foot baseline, fully inside each cell with 12% transparent margin, no scenery, floor, UI, text or gridlines. Whole creatures, consistent overhead three-quarter RPG camera. This is runtime sheet, every cell standalone."
+    },
+    "mobs-b": {
+      "references": [
+        "public/assets/art-refresh-v1/m_moss.png",
+        "public/assets/art-refresh-v1/m_ghost.png"
+      ],
+      "source": "art/exploration-v3/mobs-b-alpha.png",
+      "original": "art/exploration-v3/mobs-b.png",
+      "prompt": "Production directional animation sprite atlas. EXACT 4 equal columns x 6 equal rows on transparent background, no grid/text. Reference 1 moss-covered bronze sword/shield knight occupies rows1-3 idle, left-foot stride A, right-foot stride B. Reference2 purple clock-face hooded ghost rows4-6 idle, floating stride A, floating stride B with drifting cloak. Columns: DOWN front, LEFT profile facing left, RIGHT profile facing right, UP back. Match exact armor, weapon, palette and identity. Back of knight shows backplate and helmet rear, ghost back shows hood and cloak with NO clock face. Detailed painted pixel sprites for top-down three-quarter RPG, full bodies at same consistent scale and footline, 12% transparent margins inside every square cell, no floor or shadows outside body. Walk poses visibly alternate feet/arms; ghost drifts, all art fits cells.",
+      "alpha_edit_prompt": "Edit this sprite atlas ONLY to remove the pale background and cell dividing lines completely to true alpha=0 transparency. Restore monster bodies to fully opaque crisp paint. Preserve exact 4 column x6 row arrangement, all 24 poses, armor, clocks, weapon shapes, scale, position and identity unchanged. No white rectangle, checkerboard, gray tint or shadows outside the creatures. Cut out each complete creature including moss, blades and blue flame carefully. The exterior must be genuinely transparent PNG, not simulated transparency. No added objects/text."
+    },
+    "mobs-c": {
+      "references": [
+        "public/assets/monsters/m_spider.png",
+        "public/assets/art-refresh-v1/m_guard.png"
+      ],
+      "source": "art/exploration-v3/mobs-c.png",
+      "prompt": "Runtime RPG directional walk atlas on transparent background, EXACT 4 columns x 6 rows of equal square cells, no gridlines/no text. Reference1 bronze clockwork spider rows1-3 idle, alternating legs gait A, gait B. Reference2 bronze cyan rune shield-and-mace guardian knight rows4-6 idle, stepping A, stepping B. Columns left to right DOWN/front, LEFT/profile, RIGHT/profile, UP/rear. True full rear views show rear armor/abdomen, NO forward face on backs. Preserve both references identities and palette and weapon designs. Detailed painted pixel sprite style matching a top-down three-quarter fantasy dungeon RPG, all eight spider legs inside cells, all shields/weapons inside cells, clear 12% alpha margin, same body size across each creature's twelve frames, aligned feet. No scenery or ground. Feet clearly alternate between walk poses."
+    },
+    "mobs-d": {
+      "references": [
+        "public/assets/art-refresh-v1/m_wisp.png",
+        "public/assets/monsters/m_mush.png"
+      ],
+      "source": "art/exploration-v3/mobs-d.png",
+      "prompt": "Runtime RPG sprite atlas EXACT four columns and six rows of equal square cells on true transparency. Rows1-3 reference1 blue flame wisp with gold sapphire mask: idle, drift A, drift B with flame trailing. Rows4-6 reference2 lantern mushroom: idle, left-foot step A, right-foot step B. Match exact identities; mushroom has purple cap, orange glowing gills/belly and handheld lantern, wisp is blue/cyan ornamental flame spirit. Columns: front/down, left/profile, right/profile, back/up. Back views show rear mask/hood or rear mushroom cap and back, never duplicate face or belly. Small detailed painted pixel sprites, top-down three-quarter RPG camera. Consistent creature size and footline, whole body and lantern inside each square with clear 12% alpha margins. No ground, no UI, no letters or grid. Walking poses visibly alternate feet/arms and lantern swings."
+    },
+    "bridges": {
+      "source": "art/exploration-v3/bridges.png",
+      "prompt": "Reusable dungeon bridge sprite atlas, EXACT two equal square cells side-by-side, transparent background. Detailed painted pixel RPG top-down orthographic three-quarter visual matching mossy ancient ruins. LEFT cell: long straight north-south stone bridge spanning a chasm, walkable flat paving deck clearly occupies full broad central 80% width, two narrow mossy stone railing strips at outer edges only, no towers, no stairs, no ground islands at ends. RIGHT cell same bridge rotated orientation east-west, wide flat deck and railings outer edges. Entire shapes fit within cells, alpha outside rails, open accessible ends. These will span three logical 48px floor tiles across and six tiles in length; deck must visibly fit two characters side by side. No perspective taper; parallel rails and constant deck width. No watermark, letters, gridlines, background, waterfalls or scenery."
+    }
+  }
+}

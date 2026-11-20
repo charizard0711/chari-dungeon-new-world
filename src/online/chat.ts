@@ -6,7 +6,7 @@ export function mountTownChat(scene:Phaser.Scene,send:(message:string)=>Promise<
  const root=document.createElement('section');root.className='town-chat';root.setAttribute('aria-label','ログと町のチャット');
  const tabs=document.createElement('nav');tabs.className='town-chat-tabs';tabs.setAttribute('aria-label','ログとチャットの切り替え');root.append(tabs);
  const logTab=document.createElement('button'),chatTab=document.createElement('button'),toggle=document.createElement('button');
- logTab.textContent='ログ';chatTab.textContent='チャット';toggle.textContent='開閉';toggle.setAttribute('aria-label','ログとチャットを開閉');
+ logTab.textContent='ログ';chatTab.textContent='チャット';toggle.textContent='✕ 閉じる';toggle.setAttribute('aria-label','ログとチャットを開閉');
  for(const b of [logTab,chatTab,toggle]){b.type='button';tabs.append(b);}
  const list=document.createElement('div');list.className='town-chat-log';list.setAttribute('role','log');const viewport=document.createElement('div');viewport.className='town-chat-viewport';viewport.append(list);root.append(viewport);const bar=document.createElement('div'),up=document.createElement('button'),track=document.createElement('div'),thumb=document.createElement('div'),down=document.createElement('button');bar.className='town-chat-scroll';up.textContent='▲';down.textContent='▼';up.type=down.type='button';up.setAttribute('aria-label','過去の発言へ');down.setAttribute('aria-label','新しい発言へ');track.className='town-chat-track';thumb.className='town-chat-thumb';thumb.setAttribute('role','scrollbar');thumb.setAttribute('aria-label','履歴のスクロール位置');thumb.tabIndex=0;track.append(thumb);bar.append(up,track,down);viewport.append(bar);
  const status=document.createElement('div');status.className='town-chat-status';status.setAttribute('role','status');root.append(status);
@@ -19,9 +19,9 @@ export function mountTownChat(scene:Phaser.Scene,send:(message:string)=>Promise<
  const render=()=>{const rows=mode==='chat'?messages.map(m=>`${m.name}：${m.message}`):logs;list.replaceChildren(...rows.map(text=>{const row=document.createElement('p');row.textContent=text;return row;}));list.setAttribute('aria-label',mode==='chat'?'町の発言':'町の行動ログ');form.hidden=mode!=='chat';logTab.setAttribute('aria-pressed',String(mode==='log'));chatTab.setAttribute('aria-pressed',String(mode==='chat'));};
  const select=(next:'log'|'chat')=>{scroll[mode]=list.scrollTop;mode=next;expanded=true;status.textContent='';render();fit();list.scrollTop=scroll[mode];syncBar();};
  logTab.onclick=()=>select('log');chatTab.onclick=()=>select('chat');toggle.onclick=()=>{expanded=!expanded;fit();};
- const fit=()=>{const r=scene.game.canvas.getBoundingClientRect(),scale=r.width/GAME_W;const x=8,y=IS_MOBILE?(expanded?510:766):568,w=IS_MOBILE?374:700,h=IS_MOBILE?(expanded?280:30):184;
+ const fit=()=>{const r=scene.game.canvas.getBoundingClientRect(),scale=r.width/GAME_W;const x=8,y=IS_MOBILE?(expanded?650:758):568,w=IS_MOBILE?374:700,h=IS_MOBILE?(expanded?142:36):184;
   root.style.cssText=`left:${r.left+x*scale}px;top:${r.top+y*scale}px;width:${w}px;height:${h}px;transform:scale(${scale},${r.height/GAME_H});`;
-  root.classList.toggle('compact',!expanded);toggle.setAttribute('aria-expanded',String(expanded));syncBar();};
+  root.classList.toggle('compact',!expanded);toggle.setAttribute('aria-expanded',String(expanded));toggle.textContent=expanded?'✕ 閉じる':'▴ チャットを開く';toggle.title=expanded?'チャットとログを閉じる':'チャットとログを開く';syncBar();};
  const resize=new ResizeObserver(fit);resize.observe(scene.game.canvas);window.addEventListener('resize',fit);window.addEventListener('scroll',fit);render();fit();
  root.addEventListener('keydown',e=>e.stopPropagation());
  form.onsubmit=async e=>{e.preventDefault();if(composing||sending||!input.value.trim())return;const sent=input.value;sending=true;submit.disabled=true;try{await send(sent.trim());if(input.value===sent)input.value='';status.textContent='';}catch(e){status.textContent=(e as Error).message;}finally{sending=false;submit.disabled=false;}};
