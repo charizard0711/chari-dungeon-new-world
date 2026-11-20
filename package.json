@@ -12,6 +12,7 @@
     "test:adventure": "tsx scripts/test-adventure-map.ts && node scripts/test-online-adventures.mjs && node scripts/test-adventure-turns.mjs",
     "test:gold-audio": "node scripts/test-online-gold-cheat.mjs && node scripts/test-weapon-audio.mjs",
     "test:exploration": "node scripts/test-online-exploration.mjs && tsx scripts/test-exploration-view.ts",
+    "test:map-a": "node scripts/test-online-map-a.mjs",
     "test:input": "node scripts/test-online-input.mjs",
     "email:build": "tsx scripts/build-auth-email.ts",
     "deploy": "node scripts/deploy-pages.mjs"

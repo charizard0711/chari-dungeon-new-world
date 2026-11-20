@@ -2,14 +2,16 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {ADVENTURE_CONFIG as C,ADVENTURE_AREAS,ADVENTURE_MONSTERS,adventureBlocked} from '../src/online/adventure/layout';
 import {townPath} from '../src/online/gridPath';
-const start={x:5,y:14},blocked=(keys:string[])=>(x:number,y:number)=>adventureBlocked(x,y,{keys});
+const start=C.spawn,blocked=(keys:string[])=>(x:number,y:number)=>adventureBlocked(x,y,{keys});
 for(const a of ADVENTURE_AREAS){
  assert.ok(!blocked(['amber','violet'])(a.sx,a.sy),`${a.id} spawn is walkable`);
  assert.ok(a.id==='entry'||townPath(start,{x:a.sx,y:a.sy},[],blocked(['amber','violet'])).length,`${a.id} must be reachable`);
 }
 for(const id of ['guardian','weaver']){const m=ADVENTURE_MONSTERS.find(m=>m.id===id)!;assert.ok(townPath(start,m,[],blocked([])).length,`${id} key must be obtainable before gates open`);}
-assert.equal(townPath(start,{x:78,y:17},[],blocked([])).length,0,'boss sanctum is locked');
-assert.equal(townPath(start,{x:66,y:6},[],blocked([])).length,0,'treasury is locked');
-const migration=fs.readFileSync('supabase/migrations/202611200008_online_exploration.sql','utf8');
+assert.equal(townPath(start,{x:116,y:35},[],blocked([])).length,0,'boss sanctum is locked');
+assert.equal(townPath(start,{x:95,y:11},[],blocked([])).length,0,'treasury is locked');
+const migration=fs.readFileSync('supabase/migrations/202611200009_online_map_a.sql','utf8');
 assert.ok(migration.includes(JSON.stringify(C).replace(/'/g,"''")),'SQL map must match client map');
 console.log('PASS: all areas and key guardians reachable, key gates block sanctum/vault, SQL map matches client.');
+
+assert.equal(C.width,128);assert.equal(C.height,60);const approved=JSON.parse(fs.readFileSync('src/online/adventure/floor1-a.json','utf8'));assert.deepEqual(C.rows,approved.rows);assert.deepEqual(C.solids,approved.solids);console.log('PASS: approved A drawing and live floor share exact cells, solid footprints and dimensions.');
