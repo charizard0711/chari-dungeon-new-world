@@ -46,7 +46,7 @@ export function installGamePresentation(game:Phaser.Game,audio?:TownAudioSetting
         const point=scene.cameras.main.getWorldPoint(pointer.x,pointer.y),size=scene===town?TOWN_TILE:32;
         const x=Math.floor(point.x/size),y=Math.floor(point.y/size);
         const npc=scene===town&&!scene.inDungeon?(scene.hoverInteraction??interactionAt(x,y)):undefined;
-        if(scene.inDungeon&&scene.adventureHover)cursor='interact';else if(npc&&canInteract(scene.player,npc))cursor=npc.cursor;
+        if(scene.hoverHousing)cursor='interact';else if(scene.inDungeon&&scene.adventureHover)cursor='interact';else if(npc&&canInteract(scene.player,npc))cursor=npc.cursor;
         else if(scene===town&&scene.skillArmed)cursor='skill';
         else if(scene===town?(scene.inDungeon?!!scene.enemyAt(x,y):x===TRAINING_TARGET.x&&y===TRAINING_TARGET.y):!!scene.enemyAt?.(x,y))cursor='attack';
       }

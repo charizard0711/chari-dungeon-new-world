@@ -18,7 +18,9 @@
     "test:input": "node scripts/test-online-input.mjs",
     "email:build": "tsx scripts/build-auth-email.ts",
     "deploy": "node scripts/deploy-pages.mjs",
-    "test:responsiveness": "node scripts/test-online-responsiveness.mjs && node scripts/test-online-poll-contention.mjs && node scripts/test-online-equipment-streaming.mjs && node scripts/test-online-presentation.mjs"
+    "test:responsiveness": "node scripts/test-online-responsiveness.mjs && node scripts/test-online-poll-contention.mjs && node scripts/test-online-equipment-streaming.mjs && node scripts/test-online-presentation.mjs",
+    "test:housing": "tsx scripts/test-online-housing.ts",
+    "test:boss-rounds": "node scripts/test-online-boss-rounds.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",

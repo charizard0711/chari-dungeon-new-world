@@ -21,7 +21,7 @@ console.log('PASS: eighteen distance-driven poses, unchanged step speed/stride, 
 
 const bubbleCode=ts.transpileModule(await fs.readFile('src/online/chatBubble.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText;const {chatBubbleText}=await import(`data:text/javascript;base64,${Buffer.from(bubbleCode).toString('base64')}`);assert.equal(chatBubbleText('  hello\n town  '),'hello town');assert.equal(chatBubbleText('あ'.repeat(50)),'あ'.repeat(32)+'…');assert.equal(chatBubbleText('😀'.repeat(33)),'😀'.repeat(32)+'…');console.log('PASS: chat bubble whitespace, Japanese truncation and emoji-safe code points');
 
-const layoutCode=ts.transpileModule(await fs.readFile('src/online/townLayout.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText;
+const layoutCode=ts.transpileModule((await fs.readFile('src/online/housingCatalog.ts','utf8'))+'\n'+(await fs.readFile('src/online/townLayout.ts','utf8')).replace(/^import .*;\r?$/gm,''),{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText;
 const layoutUrl=`data:text/javascript;base64,${Buffer.from(layoutCode).toString('base64')}`;
 const pathCode=ts.transpileModule(await fs.readFile('src/online/gridPath.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText.replace('./townLayout',layoutUrl);
 const {townPath}=await import(`data:text/javascript;base64,${Buffer.from(pathCode).toString('base64')}`),{townBlocked}=await import(layoutUrl);

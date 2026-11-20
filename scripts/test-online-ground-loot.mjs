@@ -3,7 +3,7 @@ import ts from 'typescript';
 import assert from 'node:assert/strict';
 const moduleUrl=code=>`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`;
 const compile=async file=>ts.transpileModule(await fs.readFile(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
-const layout=moduleUrl(await compile('src/online/townLayout.ts'));
+const layout=moduleUrl((await compile('src/online/housingCatalog.ts'))+'\n'+(await compile('src/online/townLayout.ts')).replace(/^import .*;\r?$/gm,''));
 const {groundLootPose,walkoverDrop}=await import(moduleUrl((await compile('src/online/groundLoot.ts')).replace('./townLayout',layout)));
 let minY=Infinity,maxY=-Infinity;for(const phase of [0,1.7,3.4,5.8])for(let time=0;time<10000;time+=17){const p=groundLootPose(12,14,time,phase),a=p.angle*Math.PI/180,half=15*(Math.abs(Math.sin(a))+Math.abs(Math.cos(a)));assert.ok(p.x-half>=12*48&&p.x+half<=13*48);assert.ok(p.y-half>=14*48&&p.y+half<=15*48);minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y);}assert.ok(maxY-minY>4.3);
 const drop={id:'fresh',kind:'w_hunter_bow',category:'weapon',x:12,y:14},ignored=new Set(['fresh']);assert.equal(walkoverDrop([drop],{x:12,y:14},ignored),undefined);assert.equal(walkoverDrop([drop],{x:13,y:14},ignored),undefined);assert.equal(ignored.size,0);assert.equal(walkoverDrop([drop],{x:12,y:14},ignored),drop);ignored.add('gone');walkoverDrop([],{x:12,y:14},ignored);assert.equal(ignored.size,0);

@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import assert from 'node:assert/strict';
 const db=new PGlite();
 await db.exec(`create role anon;create role authenticated;create schema auth;create table auth.users(id uuid primary key);create function auth.uid() returns uuid language sql as $$select nullif(current_setting('test.uid',true),'')::uuid$$;create function auth.jwt() returns jsonb language sql as $$select '{"is_anonymous":false}'::jsonb$$;`);
-for(const file of ['202611180001_online_town.sql','202611180002_online_characters.sql','202611180003_online_drops_collision.sql','202611180004_online_super_commands.sql','202611180005_online_weapon_drops.sql','202611190001_online_training_chat.sql','202611190002_online_grid_equipment.sql','202611190003_online_controls_skills.sql','202611200001_town_equipment_shops.sql'])await db.exec(await fs.readFile(`supabase/migrations/${file}`,'utf8'));
+for(const file of (await fs.readdir('supabase/migrations')).filter(f=>f.includes('_online_')||f.includes('_town_equipment_')).sort())await db.exec(await fs.readFile('supabase/migrations/'+file,'utf8'));
 const a='11111111-1111-4111-8111-111111111111',b='22222222-2222-4222-8222-222222222222';
 await db.query('insert into auth.users values($1),($2)',[a,b]);
 const identity=uid=>db.query("select set_config('test.uid',$1,false)",[uid]);
@@ -27,7 +27,7 @@ state=await rpc('join',{character_id:other});assert.equal(state.players.length,2
 await db.exec('set role authenticated');await assert.rejects(()=>db.exec('update online_characters set inventory=\'{"potion":999}\''));await assert.rejects(()=>db.exec('select online_town(\'join\')'));await db.exec('reset role');
 await identity(a);await rpc('leave');state=await rpc('join',{character_id:first});assert.equal(state.active.gear.weapon,false);assert.equal(state.active.inventory.potion,3);
 // Client/server use exactly the same collision grid, including all lamps and tree trunks.
-const ts=await import('typescript');const layout=ts.default.transpileModule(await fs.readFile('src/online/townLayout.ts','utf8'),{compilerOptions:{module:ts.default.ModuleKind.ESNext}}).outputText;
+const ts=await import('typescript');const layout=ts.default.transpileModule((await fs.readFile('src/online/housingCatalog.ts','utf8'))+'\n'+(await fs.readFile('src/online/townLayout.ts','utf8')).replace(/^import .*;\r?$/gm,''),{compilerOptions:{module:ts.default.ModuleKind.ESNext}}).outputText;
 const {townBlocked}=await import(`data:text/javascript;base64,${Buffer.from(layout).toString('base64')}`);
 const grid=(await db.query('select x,y,online_town_blocked(x,y) blocked from generate_series(0,24)x cross join generate_series(0,18)y')).rows;
 for(const cell of grid)assert.equal(townBlocked(cell.x,cell.y),cell.blocked,`collision ${cell.x},${cell.y}`);
