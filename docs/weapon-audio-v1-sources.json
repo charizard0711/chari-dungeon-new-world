@@ -1,0 +1,18 @@
+{
+  "sword.wav": {
+    "source": "l2-sword-swish.wav",
+    "sha256": "edbf151fe607077b69c39354906f3c40e0306d5374bef182f8e6e3120a0abb23"
+  },
+  "greatsword.wav": {
+    "source": "l2-greatsword-swish.wav",
+    "sha256": "b5ff99f3ada91a753f2b40da70de88384f61a1b5538b31279ae9c3083bdb23ec"
+  },
+  "bow.wav": {
+    "source": "l2-bow_small_1.wav",
+    "sha256": "49c5d52f8777966dab843681fd6c99793fa93dbd3b910f34d6d60bd946a0f4b6"
+  },
+  "handgun.wav": {
+    "source": "l2-sonic-rage-shot.wav",
+    "sha256": "ed2d297c610697fb574284bd42835e849b66bf61145c7c0e5110855a0dd557e1"
+  }
+}
