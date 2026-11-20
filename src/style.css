@@ -77,7 +77,7 @@ body[data-difficulty="master"] #game-container { border-color: #f1c355aa; box-sh
   position: fixed;
   bottom: max(12px, env(safe-area-inset-bottom));
   right: 16px;
-  z-index: 100;
+  z-index: 1200;
   display: flex;
   align-items: center;
   gap: 7px;
