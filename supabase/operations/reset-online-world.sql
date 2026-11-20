@@ -8,8 +8,8 @@ lock table public.online_profiles,public.online_characters,public.online_presenc
 do $$
 begin
   if (select count(*) from auth.users where not coalesce(is_anonymous,false) and email is not null) <> 3
-     or (select count(*) from public.online_profiles) <> 2
-     or (select count(*) from public.online_characters) <> 2 then
+     or (select count(*) from public.online_profiles) <> 3
+     or (select count(*) from public.online_characters) <> 3 then
     raise exception 'Online account/character counts changed. Review scope before resetting.';
   end if;
   if exists(select 1 from public.online_profiles p join auth.users u on u.id=p.user_id
