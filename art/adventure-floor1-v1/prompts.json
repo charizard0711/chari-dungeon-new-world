@@ -1,0 +1,16 @@
+{
+  "mode": "built-in image_gen; transparent_background=true",
+  "reference": "User-supplied exploration-focused cavern map, plan C (2026-11-20)",
+  "prompts": [
+    {
+      "file": "boss.png",
+      "subject": "Vesper, Crystal Gate Warden",
+      "prompt_spec": "New fantasy RPG floor boss matching the supplied cavern map and existing detailed chibi pixel-painted game assets. Full-body dark obsidian and violet-crystal guardian, crescent-blade arms, glowing cyan chest core, ornate crystal crown and armor, intimidating silhouette, viewed from a slightly elevated top-down game angle facing toward the player. Isolated single character, whole body visible with clear margins, no text, no scenery, no ground plate, transparent background. Rich fine painted pixel details readable at small gameplay size."
+    },
+    {
+      "file": "props.png",
+      "prompt_spec": "A clean 3 by 3 sprite atlas of nine separate fantasy cavern dungeon objects, equal square cells, transparent background, no text, no cell borders, no object overlap. Match the supplied exploration map and existing detailed top-down pixel-painted RPG graphics. Row 1: a luminous ancient spirit tree on a circular stone platform; a blue rune teleport pedestal; an ornate gold locked stone gate. Row 2: a cluster of violet crystals; a small underground waterfall and healing spring; an ornate golden treasure chest. Row 3: a stone stair doorway leading onward with warm lanterns; a red laser-trap altar and switch; a wooden town adventure notice board with parchment. Whole objects visible, centered individually, generous transparent margins, consistent elevated top-down perspective and fine readable pixel detail."
+    }
+  ],
+  "note": "Prompt specifications retained for the selected generated assets. Technical alpha trimming, resizing and atlas packing only; generated art was not repainted by code."
+}

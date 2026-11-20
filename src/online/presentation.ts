@@ -45,10 +45,10 @@ export function installGamePresentation(game:Phaser.Game,audio?:TownAudioSetting
       if(hud?.overlayMode==='none'&&pointer.x>=MAP_X&&pointer.x<MAP_X+MAP_W&&pointer.y>=MAP_Y&&pointer.y<MAP_Y+MAP_H&&!hud?.isSkillPointer?.(pointer.x,pointer.y)){
         const point=scene.cameras.main.getWorldPoint(pointer.x,pointer.y),size=scene===town?TOWN_TILE:32;
         const x=Math.floor(point.x/size),y=Math.floor(point.y/size);
-        const npc=scene===town?(scene.hoverInteraction??interactionAt(x,y)):undefined;
-        if(npc&&canInteract(scene.player,npc))cursor=npc.cursor;
+        const npc=scene===town&&!scene.inDungeon?(scene.hoverInteraction??interactionAt(x,y)):undefined;
+        if(scene.inDungeon&&scene.adventureHover)cursor='interact';else if(npc&&canInteract(scene.player,npc))cursor=npc.cursor;
         else if(scene===town&&scene.skillArmed)cursor='skill';
-        else if(scene===town?x===TRAINING_TARGET.x&&y===TRAINING_TARGET.y:!!scene.enemyAt?.(x,y))cursor='attack';
+        else if(scene===town?(scene.inDungeon?!!scene.enemyAt(x,y):x===TRAINING_TARGET.x&&y===TRAINING_TARGET.y):!!scene.enemyAt?.(x,y))cursor='attack';
       }
     }
     if(canvas.dataset.gameCursor!==cursor)canvas.dataset.gameCursor=cursor;

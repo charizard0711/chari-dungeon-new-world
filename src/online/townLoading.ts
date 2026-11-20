@@ -2,12 +2,12 @@ import type Phaser from 'phaser';
 import './online.css';
 
 export type TownLoading=ReturnType<typeof mountTownLoading>;
-export function mountTownLoading(scene:Phaser.Scene){
-  const root=document.createElement('section');root.className='town-entry-loading';root.setAttribute('aria-label','町を読み込み中');root.setAttribute('aria-busy','true');
+export function mountTownLoading(scene:Phaser.Scene,destination?:string){
+  const root=document.createElement('section');root.className='town-entry-loading';root.setAttribute('aria-label',destination?'冒険を読み込み中':'町を読み込み中');root.setAttribute('aria-busy','true');
   const painting=document.createElement('img');painting.src=new URL('assets/new-world/title-world-v1.webp',scene.game.canvas.ownerDocument.baseURI).href;painting.alt='';painting.className='town-entry-painting';root.append(painting);
   const panel=document.createElement('div');panel.className='town-entry-caption';
   const eyebrow=document.createElement('p');eyebrow.textContent='ONLINE · サーバー1';eyebrow.className='town-entry-eyebrow';
-  const title=document.createElement('h2');title.textContent='はじまりの町へ';
+  const title=document.createElement('h2');title.textContent=destination??'はじまりの町へ';
   const status=document.createElement('p');status.setAttribute('role','status');status.textContent='町への道を準備しています…';
   const bar=document.createElement('div');bar.className='town-entry-progress';bar.setAttribute('role','progressbar');bar.setAttribute('aria-label','町の読み込み状況');bar.setAttribute('aria-valuemin','0');bar.setAttribute('aria-valuemax','100');
   const fill=document.createElement('div');bar.append(fill);

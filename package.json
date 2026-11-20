@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test:town": "node scripts/test-online-characters.mjs && node scripts/test-online-ground-loot.mjs && node scripts/test-online-presentation.mjs && node scripts/test-town-walk.mjs",
     "test:town:equipment": "node scripts/test-town-expansion.mjs && tsx scripts/test-town-content.ts && tsx scripts/test-pointer-drag.ts && node scripts/test-online-social.mjs && node scripts/test-online-warehouse.mjs && tsx scripts/test-warehouse-presentation.ts",
+    "test:adventure": "tsx scripts/test-adventure-map.ts && node scripts/test-online-adventures.mjs",
     "email:build": "tsx scripts/build-auth-email.ts",
     "deploy": "node scripts/deploy-pages.mjs"
   },
