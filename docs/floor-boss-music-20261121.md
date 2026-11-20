@@ -8,3 +8,10 @@
 - Key guardians do not select floor boss music. Future floors without mapped areas use a distance of eight cells from a living floor boss.
 - Boss audio is preloaded when entering the dungeon. Existing BGM volume and mute settings apply.
 - Verification: `npx tsx scripts/test-adventure-music.ts`, `npm run build`. Verification plays no sound.
+
+## Exploration music
+
+- Selected Suno candidate 1: Whispers Beneath the Ruins — Chari Dungeon ZERO.
+- Source: https://suno.com/song/cdb0e06c-a01b-4d90-be1d-8429d554d93d
+- Downloaded through Suno MP3 download UI on 2026-11-21.
+- Packaged as `public/assets/audio/floor-whispers-suno-v1.mp3` (approximately 2:28), looping with existing volume settings.

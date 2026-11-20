@@ -17,8 +17,8 @@ export interface AudioDef {
 export const BGM_DEFS = {
   // タイトル画面：「のんびり冒険日和」候補①（Suno、90 BPM指定）
   title:    { key: 'bgm_title',    path: 'assets/audio/title-nonbiri-suno-v1.mp3',    volume: 0.5,  loop: true },
-  // 通常探索：1F〜30Fを通して「古樹と石環（ハープ版）」を流す
-  floor01:  { key: 'bgm_floor01',  path: 'assets/audio/bgm_floors_01_02.mp3', volume: 0.5, loop: true },
+  // 通常探索：Whispers Beneath the Ruins（Suno候補①）
+  floor01:  { key: 'bgm_floor01',  path: 'assets/audio/floor-whispers-suno-v1.mp3', volume: 0.5, loop: true },
   // 7x7中ボス部屋：入口封鎖から撃破まで「紅蓮ブースト」（184 BPM）
   midboss:  { key: 'bgm_midboss',  path: 'assets/audio/bgm_midboss_crimson_boost.mp3', volume: 0.16, loop: true },
   // フロアボス：Sovereign of the Forgotten Depths（Suno候補②）
