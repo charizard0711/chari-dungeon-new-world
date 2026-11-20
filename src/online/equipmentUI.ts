@@ -7,6 +7,8 @@ import {GAME_W,GAME_H,IS_MOBILE} from '../layout';
 import {canInteract,TOWN_INTERACTIONS} from './townInteractions';
 import type {EquipmentSlot,EquipmentInstance,QuickSlot,OnlineCharacter} from './worldApi';
 import './equipmentUI.css';
+import {trackPointerDrag} from './pointerDrag';
+import {createGachaPresentation} from './gachaPresentation';
 
 type Entry={key:string;category:EquipmentSlot|'item';index:number;instance?:EquipmentInstance;count:number;definition:CatalogEntry;equipped:boolean;price?:number};
 const slots:EquipmentSlot[]=['weapon','armor','shield','necklace'];
@@ -34,6 +36,8 @@ export function mountTownEquipmentUI(hud:any,gs:any){
  let mode:'inventory'|'shop'|'gacha'|'guide'='inventory',category='all',shopTab='buy',selected='',signature='',pending=false,active=true,notice='',reward:Entry|undefined;
  let inputState:{hud:boolean;town:boolean;hudKeys:boolean;townKeys:boolean}|undefined;
  let cancelDrag:(()=>void)|undefined;
+ let gacha:ReturnType<typeof createGachaPresentation>|undefined;
+ let gachaRollButton:HTMLButtonElement|undefined,gachaSkip:HTMLButtonElement|undefined,gachaResult:HTMLElement|undefined;
  function pauseGameInput(){if(inputState)return;inputState={hud:hud.input.enabled,town:gs.input.enabled,hudKeys:hud.input.keyboard?.enabled??false,townKeys:gs.input.keyboard?.enabled??false};hud.input.enabled=false;gs.input.enabled=false;if(hud.input.keyboard)hud.input.keyboard.enabled=false;if(gs.input.keyboard)gs.input.keyboard.enabled=false;}
  function resumeGameInput(){if(!inputState)return;hud.input.enabled=inputState.hud;gs.input.enabled=inputState.town;if(hud.input.keyboard){hud.input.keyboard.resetKeys();hud.input.keyboard.enabled=inputState.hudKeys;}if(gs.input.keyboard){gs.input.keyboard.resetKeys();gs.input.keyboard.enabled=inputState.townKeys;}inputState=undefined;}
  const urls=new Map<string,string>();
@@ -58,7 +62,7 @@ export function mountTownEquipmentUI(hud:any,gs:any){
  function makeIcon(e:Entry){
   const b=node('button');b.type='button';b.className='town-icon'+(e.key.startsWith('star_')?' town-starred':'')+(e.instance&&e.instance.max>0&&e.instance.dur===0?' town-broken':'');
   b.style.setProperty('--grade',e.definition.grade?'#'+gradeColor(e.definition.grade).toString(16).padStart(6,'0'):'#8a9d9d');b.title=`${e.definition.name}${e.key.startsWith('star_')?' ★ 色違い':''}`;b.setAttribute('aria-label',b.title);b.dataset.itemKey=e.key;b.dataset.category=e.category;
-  const image=node('img');image.alt='';const url=iconURL(e.key.startsWith('star_')?e.key:e.definition.textureKey);if(url)image.src=url;b.append(image);
+  const image=node('img');image.alt='';image.draggable=false;const url=iconURL(e.key.startsWith('star_')?e.key:e.definition.textureKey);if(url)image.src=url;b.append(image);
   if(e.equipped){const eq=node('span','E');eq.className='town-equipped';b.append(eq);}if(e.count>1){const count=node('span',String(e.count));count.className='town-count';b.append(count);}
   if(e.instance&&e.instance.max>0){const bar=node('span');bar.className='town-dur-bar';const fill=node('i');fill.style.width=`${e.instance.dur/e.instance.max*100}%`;bar.append(fill);b.append(bar);}
   return b;
@@ -67,12 +71,16 @@ export function mountTownEquipmentUI(hud:any,gs:any){
  function attachDrag(button:HTMLButtonElement,e:Entry){
   button.draggable=false;button.style.touchAction='none';let suppressClick=false;
   button.addEventListener('click',event=>{if(suppressClick){event.preventDefault();event.stopImmediatePropagation();suppressClick=false;}},true);
-  button.onpointerdown=event=>{if(event.button!==0)return;event.preventDefault();suppressClick=false;const startX=event.clientX,startY=event.clientY;let moved=false,ghost:HTMLElement|undefined;button.setPointerCapture(event.pointerId);
-   const clear=()=>{ghost?.remove();quick.querySelectorAll('.drag-over').forEach(b=>b.classList.remove('drag-over'));button.removeEventListener('pointermove',move);button.removeEventListener('pointerup',finish);button.removeEventListener('pointercancel',cancel);cancelDrag=undefined;};
-   const target=(x:number,y:number)=>document.elementFromPoint(x,y)?.closest<HTMLElement>('[data-quick-slot]');
-   const move=(ev:PointerEvent)=>{if(!moved&&Math.hypot(ev.clientX-startX,ev.clientY-startY)>6){moved=true;ghost=makeIcon(e);ghost.classList.add('town-drag-ghost');document.body.append(ghost);}if(!moved)return;ev.preventDefault();ghost!.style.left=ev.clientX+'px';ghost!.style.top=ev.clientY+'px';const drop=target(ev.clientX,ev.clientY);quick.querySelectorAll<HTMLElement>('[data-quick-slot]').forEach(b=>b.classList.toggle('drag-over',b===drop));};
-   const finish=(ev:PointerEvent)=>{if(moved){suppressClick=true;const drop=target(ev.clientX,ev.clientY);if(drop){const index=Number(drop.dataset.quickSlot),ref=quickRef(e);if(resolve(ref))void run(async()=>{await gs.action('set_quick_slot',{index,ref});say(`${e.definition.name}をショートカットに登録しました。`);});}}else{selected=keyOf(e);for(const a of grid.children)a.classList.toggle('selected',(a as HTMLElement).dataset.entryId===selected);renderDetail();}clear();};
-   const cancel=()=>clear();cancelDrag=cancel;button.addEventListener('pointermove',move);button.addEventListener('pointerup',finish);button.addEventListener('pointercancel',cancel);
+  button.ondragstart=event=>event.preventDefault();
+  button.onpointerdown=event=>{if(event.button!==0)return;event.preventDefault();cancelDrag?.();suppressClick=false;const startX=event.clientX,startY=event.clientY;let moved=false,ghost:HTMLElement|undefined;
+   const target=(x:number,y:number)=>{const drop=document.elementFromPoint(x,y)?.closest<HTMLElement>('[data-quick-slot]');return drop&&quick.contains(drop)?drop:undefined;};
+   const clear=()=>{ghost?.remove();quick.querySelectorAll('.drag-over').forEach(b=>b.classList.remove('drag-over'));cancelDrag=undefined;if(button.hasPointerCapture(event.pointerId))button.releasePointerCapture(event.pointerId);requestAnimationFrame(refresh);};
+   cancelDrag=trackPointerDrag(window,event,{move:ev=>{if(!moved&&Math.hypot(ev.clientX-startX,ev.clientY-startY)>6){moved=true;ghost=makeIcon(e);ghost.classList.add('town-drag-ghost');ghost.setAttribute('aria-hidden','true');document.body.append(ghost);}if(!moved)return;ev.preventDefault();ghost!.style.left=ev.clientX+'px';ghost!.style.top=ev.clientY+'px';const drop=target(ev.clientX,ev.clientY);quick.querySelectorAll<HTMLElement>('[data-quick-slot]').forEach(b=>b.classList.toggle('drag-over',b===drop));},end:ev=>{
+    const drop=ev&&moved?target(ev.clientX,ev.clientY):undefined;suppressClick=moved;clear();
+    if(drop){const index=Number(drop.dataset.quickSlot),ref=quickRef(e);if(resolve(ref))void run(async()=>{await gs.action('set_quick_slot',{index,ref});say(`${e.definition.name}をショートカットに登録しました。`);});}
+    else if(ev&&!moved){selected=keyOf(e);for(const a of grid.children)a.classList.toggle('selected',(a as HTMLElement).dataset.entryId===selected);renderDetail();}
+    else if(ev&&moved)say('下のショートカット枠に重ねて離してください。');
+   }});button.setPointerCapture(event.pointerId);
   };
  }
  function resolve(ref:QuickSlot|null|undefined){return ref?entries().find(e=>e.category===ref.category&&e.key===ref.key&&(e.category==='item'||e.instance?.id===ref.instanceId)):undefined;}
@@ -88,7 +96,7 @@ export function mountTownEquipmentUI(hud:any,gs:any){
   }
  }
  function say(message:string){notice=message;footer.textContent=message;}
- async function run(fn:()=>Promise<any>){if(pending||gs.requestBusy)return;pending=true;renderDetail();try{const state=await fn();signature='';refresh();return state;}catch(e){say((e as Error).message);}finally{pending=false;if(mode==='gacha'&&!modal.hidden)renderGacha();else renderDetail();}}
+ async function run(fn:()=>Promise<any>){if(pending){say('処理中です。完了してからもう一度お試しください。');return;}pending=true;renderDetail();try{const deadline=Date.now()+3000;while(gs.requestBusy&&active&&Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,30));if(!active)return;if(gs.requestBusy)throw Error('通信中です。少し待ってからもう一度お試しください。');const state=await fn();signature='';refresh();return state;}catch(e){say((e as Error).message);}finally{pending=false;if(mode==='gacha'&&!modal.hidden)renderGacha();else renderDetail();}}
  async function use(e:Entry,equipOnly=false){
   if(e.category==='item'){
    if(!['potion','repair','skill_drink'].includes(e.key)){say('この道具は町では使えません。');return;}
@@ -131,22 +139,33 @@ export function mountTownEquipmentUI(hud:any,gs:any){
   }
   detail.append(actions);requestAnimationFrame(()=>scrollSync.forEach(fn=>fn()));
  }
- function renderGacha(){
-  tabs.replaceChildren();body.className='town-gacha-body';body.replaceChildren();const image=node('img');image.src='assets/online/gacha-v2.webp';image.alt='魔法のガチャ';
-  const info=node('div');info.className='town-gacha-info';info.append(node('h3','魔法のカプセルから、新しい装備を。'),node('p','1回 100G\n武器・服・盾・ネックレスのいずれかを獲得します。\nD 35% / C 25% / B 18% / A 12% / S 6% / SS 3% / SSS 1%\n武器は1%の確率で色違いになります。'));
-  const b=node('button',pending?'抽選中…':'ガチャを回す 100G');b.type='button';b.disabled=pending||(character()?.gold??0)<100;b.onclick=()=>void run(async()=>{const state=await gs.action('gacha');const key=state?.reward??gs.packet.reward;if(key){reward=entries().reverse().find(e=>baseKey(e.key)===key||e.definition.key===key);say(`${reward?.definition.name??key}を獲得しました。`);}if(mode==='gacha'&&!modal.hidden)renderGacha();});info.append(b);
-  if(reward){const result=node('div');result.className='town-gacha-result';result.append(makeIcon(reward),node('strong',`${reward.definition.name}${reward.key.startsWith('star_')?' ★ 色違い':''}`));info.append(result);}body.append(image,info);
+ function updateGachaControls(){
+  if(!gachaRollButton)return;const rolling=!!gacha?.running;gachaRollButton.disabled=rolling||pending||(character()?.gold??0)<100;gachaRollButton.textContent=rolling?'カプセルを開いています…':'ガチャを回す 100G';if(gachaSkip)gachaSkip.hidden=!rolling;closeButton.disabled=rolling;
  }
+ function renderGacha(){
+  if(gacha){updateGachaControls();return;}
+  tabs.replaceChildren();body.className='town-gacha-body';body.replaceChildren();gacha=createGachaPresentation();
+  const info=node('div');info.className='town-gacha-info';info.append(node('h3','運命をひらく、魔法のガチャ'),node('p','1回 100G\n武器・服・盾・ネックレスのいずれかを獲得します。\nD 35% / C 25% / B 18% / A 12% / S 6% / SS 3% / SSS 1%\n武器は1%の確率で色違いになります。'));
+  gachaRollButton=node('button','ガチャを回す 100G');gachaRollButton.type='button';
+  gachaRollButton.onclick=async()=>{if(pending||gs.requestBusy||gacha?.running)return;const presentation=gacha!;gachaResult!.textContent='';const playing=presentation.play(async()=>{const before=new Set(entries().map(keyOf));await gs.action('gacha');const key=gs.packet.reward;reward=entries().find(e=>!before.has(keyOf(e))&&(baseKey(e.key)===key||e.definition.key===key));if(!reward)throw Error('所持品を更新して獲得アイテムを確認してください。');return{name:reward.definition.name,grade:reward.definition.grade??'D',starred:reward.key.startsWith('star_'),icon:makeIcon(reward)};});updateGachaControls();
+   try{const result=await playing;if(result&&active){say(`${result.name}を獲得しました。`);gachaResult!.textContent=result.name+'を獲得！';}}
+   catch(error){if(active)say((error as Error).message);}
+   finally{if(active){signature='';refresh();updateGachaControls();}}
+  };
+  gachaSkip=node('button','演出をスキップ');gachaSkip.type='button';gachaSkip.className='gacha-skip';gachaSkip.onclick=()=>gacha?.skip();
+  const note=node('p','演出中でも獲得した装備は保存されます。');note.className='gacha-roll-note';gachaResult=node('p');gachaResult.className='gacha-result-label';gachaResult.setAttribute('role','status');info.append(gachaRollButton,gachaSkip,gachaResult,note);body.append(gacha.element,info);updateGachaControls();
+ }
+ function clearGacha(){gacha?.dispose();gacha=undefined;gachaRollButton=undefined;gachaSkip=undefined;gachaResult=undefined;closeButton.disabled=false;}
  function renderGuide(){tabs.replaceChildren();body.className='town-guide';body.replaceChildren(node('p','案内人リーフ「ようこそ、はじまりの町へ。\n商人ミラから買い物や装備の修理ができます。\n西のガチャ機では、新しい装備が手に入ります。\nNPCや機械の近くで、右クリックしてみてください。」'));}
  function open(next:'inventory'|'shop'|'gacha',filter?:string){
   if(next!=='inventory'){const npc=TOWN_INTERACTIONS.find(n=>n.id===(next==='shop'?'merchant':'gacha'))!;if(!canInteract(gs.player,npc)){gs.log('町の設備に近づいて右クリックしてください。');return;}}
-  pauseGameInput();mode=next;category=filter??'all';selected='';notice='';hud.overlay?.setVisible(false);hud.overlayMode='townInventory';gs.destination=undefined;gs.clearMoveInput?.();modal.hidden=false;title.textContent=next==='inventory'?'所持品':next==='shop'?'商人ミラ · 取引と修理':'魔法のガチャ';modal.setAttribute('aria-label',title.textContent);body.className='town-inventory-body';body.replaceChildren(gridWrapper,detailWrapper);footer.textContent=next==='inventory'?'アイテムを選択して詳細を確認。下の枠にドラッグすると登録できます。':'町の所持金で利用できます。';if(next==='gacha')renderGacha();else renderInventory();refresh();closeButton.focus();
+  if(gacha?.running)return;cancelDrag?.();clearGacha();pauseGameInput();mode=next;category=filter??'all';selected='';notice='';hud.overlay?.setVisible(false);hud.overlayMode='townInventory';gs.destination=undefined;gs.clearMoveInput?.();modal.hidden=false;title.textContent=next==='inventory'?'所持品':next==='shop'?'商人ミラ · 取引と修理':'魔法のガチャ';modal.setAttribute('aria-label',title.textContent);body.className='town-inventory-body';body.replaceChildren(gridWrapper,detailWrapper);footer.textContent=next==='inventory'?'アイテムを選択して詳細を確認。下の枠にドラッグすると登録できます。':'町の所持金で利用できます。';if(next==='gacha')renderGacha();else renderInventory();refresh();closeButton.focus();
  }
- function openGuide(){pauseGameInput();mode='guide';hud.overlayMode='townInventory';modal.hidden=false;title.textContent='案内人リーフ';renderGuide();}
- function close(){cancelDrag?.();modal.hidden=true;resumeGameInput();if(hud.overlayMode==='townInventory')hud.overlayMode='none';gs.clearMoveInput?.();gs.game.canvas.tabIndex=0;gs.game.canvas.focus();}
- function refresh(){if(!active)return;const c=character(),next=JSON.stringify([c,gs.packet.shopCatalog]);gold.textContent=`所持金 ${(c?.gold??0).toLocaleString()} G`;if(next===signature)return;signature=next;renderQuick();renderNeck();if(!modal.hidden){if(mode==='gacha')renderGacha();else if(mode!=='guide')renderInventory();}if(notice)footer.textContent=notice;}
+ function openGuide(){if(gacha?.running)return;cancelDrag?.();clearGacha();pauseGameInput();mode='guide';hud.overlayMode='townInventory';modal.hidden=false;title.textContent='案内人リーフ';renderGuide();}
+ function close(){if(gacha?.running){gacha.skip();return;}cancelDrag?.();clearGacha();modal.hidden=true;resumeGameInput();if(hud.overlayMode==='townInventory')hud.overlayMode='none';gs.clearMoveInput?.();gs.game.canvas.tabIndex=0;gs.game.canvas.focus();}
+ function refresh(){if(!active||cancelDrag)return;const c=character(),next=JSON.stringify([c,gs.packet.shopCatalog]);gold.textContent=`所持金 ${(c?.gold??0).toLocaleString()} G`;if(next===signature)return;signature=next;renderQuick();renderNeck();if(!modal.hidden){if(mode==='gacha')renderGacha();else if(mode!=='guide')renderInventory();}if(notice)footer.textContent=notice;}
  const onKey=(e:KeyboardEvent)=>{if(e.repeat||e.target instanceof HTMLInputElement||e.target instanceof HTMLTextAreaElement)return;if(e.key==='Escape'&&!modal.hidden){e.preventDefault();close();return;}if(/^Digit\d$/.test(e.code)){const digit=Number(e.code.slice(-1)),i=(digit===0?9:digit-1)+(e.shiftKey?10:0),entry=resolve(character()?.quickSlots?.[i]);if(entry){e.preventDefault();void use(entry,true);}}};window.addEventListener('keydown',onKey);
  root.addEventListener('keydown',e=>{if(!modal.hidden||/^Digit\d$/.test(e.code)||e.key==='Escape'){onKey(e);e.stopPropagation();}});root.addEventListener('pointerdown',e=>e.stopPropagation());root.addEventListener('contextmenu',e=>e.preventDefault());
  const textureAdded=()=>{signature='';urls.clear();refresh();};hud.textures.on('addtexture',textureAdded);refresh();
- return {open,openGuide,close,refresh,destroy(){active=false;cancelDrag?.();resize.disconnect();window.removeEventListener('resize',fit);window.removeEventListener('scroll',fit);window.removeEventListener('keydown',onKey);hud.textures.off('addtexture',textureAdded);root.remove();}};
+ return {open,openGuide,close,refresh,destroy(){active=false;cancelDrag?.();clearGacha();resize.disconnect();window.removeEventListener('resize',fit);window.removeEventListener('scroll',fit);window.removeEventListener('keydown',onKey);hud.textures.off('addtexture',textureAdded);root.remove();}};
 }

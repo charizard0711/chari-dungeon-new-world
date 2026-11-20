@@ -8,7 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test:town": "node scripts/test-online-characters.mjs && node scripts/test-online-ground-loot.mjs && node scripts/test-online-presentation.mjs && node scripts/test-town-walk.mjs",
-    "test:town:equipment": "node scripts/test-town-expansion.mjs && tsx scripts/test-town-content.ts",
+    "test:town:equipment": "node scripts/test-town-expansion.mjs && tsx scripts/test-town-content.ts && tsx scripts/test-pointer-drag.ts",
     "email:build": "tsx scripts/build-auth-email.ts",
     "deploy": "node scripts/deploy-pages.mjs"
   },
