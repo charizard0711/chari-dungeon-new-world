@@ -179,7 +179,7 @@ export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)
    for(const [actorId,a]of this.actors){
     const dx=a.anchor.x-a.previousX,dy=a.anchor.y-a.previousY,moved=Math.hypot(dx,dy),dt=Math.max(0,Math.min(100,time-a.lastPoseTime));
     a.previousX=a.anchor.x;a.previousY=a.anchor.y;a.lastPoseTime=time;a.distance+=moved;
-    const stamping=time<a.movingUntil;if(stamping)a.distance+=dt*TILE/TOWN_STEP_MS;const walking=moved>.02||stamping;a.weight+=(Number(walking)-a.weight)*Math.min(1,dt/65);
+    const stamping=time<a.movingUntil;if(stamping)a.distance+=dt*TILE/TOWN_STEP_MS;const walking=moved>.02||stamping||a.stepping||a.queue.length>0;a.weight+=(Number(walking)-a.weight)*Math.min(1,dt/65);
     const attacking=time<a.attackUntil;if(attacking){if(time-a.attackStarted>=a.attackWindup&&a.animation.action!=='attack')a.animation.play('atk',time);}else a.animation.play(walking?'walk1':'idle',time);const pose=townWalkPose(a.distance,a.weight,a.dir);
     const frame=attacking?a.animation.sample(time):walking?pose.frame:a.animation.sample(time),strikeElapsed=time-a.attackStarted-a.attackWindup,ranged=a.weapon?.weaponType==='bow'||a.weapon?.weaponType==='handgun',lungeMs=a.weapon?.key==='w_hero_sword'?130:116*.45,lunge=attacking&&!ranged&&strikeElapsed>=0&&strikeElapsed<lungeMs*2?15*(1-Math.pow(1-Math.min(strikeElapsed,2*lungeMs-strikeElapsed)/lungeMs,2)):0;a.body.setPosition(a.anchor.x+(attacking?(a.dir==='left'?-lunge:a.dir==='right'?lunge:0):pose.sway),a.anchor.y+(attacking?(a.dir==='up'?-lunge:a.dir==='down'?lunge:0):pose.bob)).setAngle(attacking?0:pose.angle).setFrame(playerFrameIndex(a.dir,frame));
     a.label.setPosition(a.anchor.x,a.anchor.y+30);

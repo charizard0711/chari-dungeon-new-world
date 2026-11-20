@@ -1,11 +1,13 @@
 import fs from 'node:fs/promises';
 import ts from 'typescript';
 import assert from 'node:assert/strict';
-const code=ts.transpileModule(await fs.readFile('src/online/walkPose.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText;
+const framesCode=ts.transpileModule(await fs.readFile('src/playerWalkFrames.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText;
+const framesUrl=`data:text/javascript;base64,${Buffer.from(framesCode).toString('base64')}`;
+const code=ts.transpileModule(await fs.readFile('src/online/walkPose.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText.replace('../playerWalkFrames',framesUrl);
 const {townWalkPose,TOWN_STEP_MS}=await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 assert.equal(TOWN_STEP_MS,150);
 const poses=Array.from({length:96},(_,distance)=>townWalkPose(distance,1,'down'));
-assert.equal(new Set(poses.map(p=>p.frame)).size,6);
+assert.equal(new Set(poses.map(p=>p.frame)).size,18);
 assert.ok(Math.min(...poses.map(p=>p.bob))<-2.5);
 assert.ok(Math.max(...poses.map(p=>p.bob))>-.01);
 assert.ok(poses.some(p=>p.leftFoot>p.rightFoot));assert.ok(poses.some(p=>p.rightFoot>p.leftFoot));
@@ -13,9 +15,9 @@ for(const dir of ['up','down','left','right']){
  const rest=townWalkPose(37,0,dir);assert.equal(Math.abs(rest.bob),0);assert.equal(Math.abs(rest.sway),0);assert.equal(Math.abs(rest.angle),0);
  const cycle=townWalkPose(17+96,1,dir),start=townWalkPose(17,1,dir);assert.equal(cycle.frame,start.frame);assert.ok(Math.abs(cycle.bob-start.bob)<1e-9);
 }
-assert.equal(townWalkPose(48,1,'down').frame,'walk4');
+assert.equal(townWalkPose(48,1,'down').frame,'walk10');
 assert.ok(townWalkPose(0,1,'left').angle<0);assert.ok(townWalkPose(0,1,'right').angle>0);
-console.log('PASS: six distance-driven poses, foot alternation, body lift, directional lean, neutral rest and continuous stride');
+console.log('PASS: eighteen distance-driven poses, unchanged step speed/stride, foot alternation, body lift, directional lean, neutral rest and continuous stride');
 
 const bubbleCode=ts.transpileModule(await fs.readFile('src/online/chatBubble.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText;const {chatBubbleText}=await import(`data:text/javascript;base64,${Buffer.from(bubbleCode).toString('base64')}`);assert.equal(chatBubbleText('  hello\n town  '),'hello town');assert.equal(chatBubbleText('あ'.repeat(50)),'あ'.repeat(32)+'…');assert.equal(chatBubbleText('😀'.repeat(33)),'😀'.repeat(32)+'…');console.log('PASS: chat bubble whitespace, Japanese truncation and emoji-safe code points');
 

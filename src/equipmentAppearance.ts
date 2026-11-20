@@ -2,7 +2,7 @@ import { WEAPON_DEFS, SHIELD_DEFS } from './data';
 import type { Dir, WeaponType } from './types';
 import { playerFrameIndex, type PlayerGender, type PlayerVisualFrame } from './playerAppearance';
 import { playerAction } from './playerAnimation';
-import { PLAYER_HAND_ANCHORS } from './playerHandAnchors';
+import { SMOOTH_WALK_HAND_ANCHORS as PLAYER_HAND_ANCHORS } from './smoothWalkHandAnchors';
 
 export const HELD_FRAME_SIZE = 64;
 export const HELD_DIRECTION_FRAME: Record<Dir, number> = {down:0,left:1,right:2,up:3};

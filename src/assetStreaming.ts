@@ -26,7 +26,7 @@ export function captureBootAssets(scene: Phaser.Scene): () => void {
     manifest.set(entry.key, entry);
     // Verification uses the built-in small fallback textures, never downloaded artwork.
     if (VERIFIER) return loader;
-    if (titleKeys.has(entry.key) || /player-painted-v1\/(male|female)-leather\./.test(entry.path)) {
+    if (titleKeys.has(entry.key) || /(?:player-painted-v1|smooth-walk-v1)\/(male|female)-leather\./.test(entry.path)) {
       loader.once(`filecomplete-${entry.kind}-${entry.key}`, () => loaded.add(entry.key));
       if (entry.kind === 'image') image(entry.key, assetUrl(entry.path));
       else sheet(entry.key, assetUrl(entry.path), entry.config!);

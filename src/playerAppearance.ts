@@ -1,5 +1,7 @@
 import type { Armor, Dir, EquipmentGrade } from './types';
 import { rollArmorTrait } from './equipmentTraits';
+import { PLAYER_WALK_FRAMES } from './playerWalkFrames';
+export { PLAYER_WALK_FRAMES } from './playerWalkFrames';
 
 export const PLAYER_GENDERS = ['male', 'female'] as const;
 export type PlayerGender = typeof PLAYER_GENDERS[number];
@@ -8,7 +10,7 @@ export const PLAYER_ARMORS = ['leather', 'chain', 'plate', 'arcane', 'dragon', '
 export type PlayerArmor = typeof PLAYER_ARMORS[number];
 
 export const PLAYER_VISUAL_FRAMES = [
-  'idle', 'idle2', 'walk1', 'walk2', 'walk3', 'walk4', 'walk5', 'walk6',
+  'idle', 'idle2', ...PLAYER_WALK_FRAMES,
   'atkWindup', 'atkWindup2', 'atk', 'atk2', 'atkFollow', 'atkRecover', 'hurt', 'down'
 ] as const;
 export type PlayerVisualFrame = typeof PLAYER_VISUAL_FRAMES[number];
@@ -116,8 +118,8 @@ export function playerFrameIndex(dir: Dir, frame: PlayerVisualFrame): number {
 
 export function playerSheetPath(gender:PlayerGender,armor:PlayerArmor='leather'):string {
   const selected=armor.startsWith('pumpkin_')?`pumpkin_${gender}`:armor;
-  return versionedPlayerAssetPath(selected.startsWith('pumpkin_')?`assets/characters/halloween-v1/${gender}-${selected}.png`:`assets/characters/player-painted-v1/${gender}-${selected}.png`);
+  return `assets/characters/smooth-walk-v1/${gender}-${selected}.webp`;
 }
 export function versionedPlayerAssetPath(path:string):string {
-  return path.replace(/^assets\/characters\/player-painted-v1\/(male-(?:crimson|aqua)\.png)$/,'assets/characters/hooded-back-v2/$1');
+  return path.replace(/^assets\/characters\/(?:player-painted-v1|halloween-v1|hooded-back-v2)\/((?:male|female)-[^/]+)\.png$/,'assets/characters/smooth-walk-v1/$1.webp');
 }

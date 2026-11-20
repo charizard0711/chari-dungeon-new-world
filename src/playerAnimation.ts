@@ -1,6 +1,7 @@
 import type { PlayerVisualFrame } from './playerAppearance';
+import { PLAYER_WALK_FRAMES } from './playerWalkFrames';
 
-const WALK = ['walk1', 'walk2', 'walk3', 'walk4', 'walk5', 'walk6'] as const;
+const WALK = PLAYER_WALK_FRAMES;
 const STRIKE = ['atk', 'atk2', 'atkFollow', 'atkRecover'] as const;
 export type PlayerAction = 'idle' | 'walk' | 'windup' | 'attack' | 'hurt' | 'down';
 
@@ -15,7 +16,7 @@ export function playerAction(frame: PlayerVisualFrame): PlayerAction {
 export class PlayerAnimation {
   action: PlayerAction = 'idle';
   since = 0;
-  walkFrameMs = 48;
+  walkFrameMs = 16;
   attackFrameMs = 26;
   windupFrameMs = 29;
   private walkPhase = 0;
