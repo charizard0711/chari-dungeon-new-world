@@ -10,6 +10,6 @@ for(const a of ADVENTURE_AREAS){
 for(const id of ['guardian','weaver']){const m=ADVENTURE_MONSTERS.find(m=>m.id===id)!;assert.ok(townPath(start,m,[],blocked([])).length,`${id} key must be obtainable before gates open`);}
 assert.equal(townPath(start,{x:78,y:17},[],blocked([])).length,0,'boss sanctum is locked');
 assert.equal(townPath(start,{x:66,y:6},[],blocked([])).length,0,'treasury is locked');
-const migration=fs.readFileSync('supabase/migrations/202611200005_online_adventures.sql','utf8');
+const migration=fs.readFileSync('supabase/migrations/202611200007_online_dungeon_rebuild.sql','utf8');
 assert.ok(migration.includes(JSON.stringify(C).replace(/'/g,"''")),'SQL map must match client map');
 console.log('PASS: all areas and key guardians reachable, key gates block sanctum/vault, SQL map matches client.');

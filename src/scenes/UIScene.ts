@@ -2445,7 +2445,7 @@ export class UIScene extends Phaser.Scene {
     const displayText = this.add.text(centerX, displayY + 19, this.codeDigits || 'コードを入力', {
       fontFamily: 'Consolas, monospace', fontSize: '18px', color: this.codeDigits ? '#ffffff' : '#63787b',
       letterSpacing: 5
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setName('settings-code-digits');
     this.overlay.add([displayBg, displayText]);
 
     const buttonW = IS_MOBILE ? 58 : 54;
@@ -2486,6 +2486,6 @@ export class UIScene extends Phaser.Scene {
     const messageText = this.add.text(centerX, actionY + 43, this.codeMessage, {
       fontFamily: '"Yu Gothic UI"', fontSize: '13px', color: '#ff7777', fontStyle: 'bold'
     }).setOrigin(0.5);
-    this.overlay.add(messageText);
+    messageText.setName('settings-code-message');this.overlay.add(messageText);
   }
 }
