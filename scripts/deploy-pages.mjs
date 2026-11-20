@@ -18,9 +18,9 @@ if(!resolved.startsWith(fs.realpathSync(path.join(root,'tmp'))+path.sep))throw E
 for(const entry of fs.readdirSync(target)){if(entry==='.git')continue;const file=path.resolve(target,entry);if(path.dirname(file)!==path.resolve(target))throw Error('Invalid release path');fs.rmSync(file,{recursive:true,force:true});}
 fs.cpSync(path.join(root,'dist'),target,{recursive:true});
 fs.writeFileSync(path.join(target,'.nojekyll'),'');
-fs.writeFileSync(path.join(target,'new-world-release.json'),JSON.stringify({name:'Chari Dungeon: NEW WORLD',source:git(['rev-parse','HEAD']),builtAt:new Date().toISOString(),mode:'online-only'},null,2)+'\n');
+fs.writeFileSync(path.join(target,'new-world-release.json'),JSON.stringify({name:'Chari Dungeon: ZERO',source:git(['rev-parse','HEAD']),builtAt:new Date().toISOString(),mode:'online-only'},null,2)+'\n');
 git(['add','-A'],target);
 if(!git(['diff','--cached','--name-only'],target)){console.log('No deployment changes');process.exit(0);}
-git(['commit','-m','Publish Chari Dungeon: NEW WORLD'],target);
+git(['commit','-m','Publish Chari Dungeon: ZERO'],target);
 console.log(git(['push','origin','HEAD:gh-pages'],target));
 console.log('Published branch commit: '+git(['rev-parse','HEAD'],target));

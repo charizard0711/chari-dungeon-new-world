@@ -31,7 +31,7 @@ export function mountOnlineLobby(scene:Phaser.Scene) {
   const close=()=>{if(disposed)return;disposed=true;revision++;clearInterval(timer);clearCaptcha();if(joined)void town('leave').catch(()=>{});resize.disconnect();window.removeEventListener('resize',fit);window.removeEventListener('scroll',fit);root.remove();scene.input.enabled=sceneInputEnabled;if(keyboard)keyboard.enabled=enabled??true;scene.events.off('shutdown',close);};
   scene.events.once('shutdown',close);
   const button=(label:string,fn:()=>void)=>{const b=node('button',label);b.type='button';b.onclick=fn;return b;};
-  const shell=(title:string)=>{clearCaptcha();root.replaceChildren();const header=node('header');const logo=node('img');logo.src='assets/new-world/logo-v1.png';logo.alt='Chari Dungeon: NEW WORLD';header.append(logo);header.append(node('h2',title),button('タイトルへ',()=>{close();scene.scene.start('TitleScene');}));root.append(header);};
+  const shell=(title:string)=>{clearCaptcha();root.replaceChildren();const header=node('header');const logo=node('img');logo.src='assets/new-world/logo-zero-v1.png';logo.alt='Chari Dungeon: ZERO';header.append(logo);header.append(node('h2',title),button('タイトルへ',()=>{close();scene.scene.start('TitleScene');}));root.append(header);};
   const notice=node('p');notice.setAttribute('role','status');
   const error=(e:unknown)=>{notice.textContent=e instanceof Error?e.message:'接続できませんでした。';};
   const enter=async(characterId:string)=>{
@@ -120,7 +120,7 @@ export function mountOnlineLobby(scene:Phaser.Scene) {
     if(mode==='login')root.append(button('確認メールが届かない方',()=>auth('resend',email.value)));
     if(resend)root.append(button('ログイン画面へ戻る',()=>auth('login',email.value)));
     if(mode==='login')for(const provider of ['Google','Microsoft']){const b=button(`${provider}でログイン（準備中）`,()=>{});b.disabled=true;root.append(b);}
-    root.append(node('p','Chari Dungeon: NEW WORLD のアカウントです。'));
+    root.append(node('p','Chari Dungeon: ZERO のアカウントです。'));
   };
   auth();
   void online?.auth.getSession().then(({data})=>{if(!disposed&&data.session&&!data.session.user.is_anonymous){userId=data.session.user.id;servers();}}).catch(error);

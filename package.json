@@ -1,7 +1,7 @@
 {
-  "name": "chari-dungeon-new-world",
+  "name": "chari-dungeon-zero",
   "version": "1.0.0",
-  "description": "Chari Dungeon: NEW WORLD — online fantasy RPG",
+  "description": "Chari Dungeon: ZERO — online fantasy RPG",
   "type": "module",
   "scripts": {
     "dev": "vite",

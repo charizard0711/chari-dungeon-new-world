@@ -28,7 +28,7 @@ export class TitleScene extends Phaser.Scene {
     const start=document.createElement('button');start.type='button';start.className='new-world-start';start.onclick=()=>{Audio.playSe('click');openOnline(this,Audio);};
     const settings=document.createElement('button');settings.type='button';settings.className='new-world-settings';settings.onclick=()=>{Audio.playSe('click');openOnlineSettings(this,Audio);};
     const caption=document.createElement('p');caption.className='new-world-caption';
-    const footer=document.createElement('p');footer.className='new-world-footer';footer.textContent='CHARI DUNGEON : NEW WORLD';
+    const footer=document.createElement('p');footer.className='new-world-footer';footer.textContent='CHARI DUNGEON : ZERO';
     const refresh=()=>{const language=getLanguage();start.textContent=({ja:'スタート',en:'START',ko:'시작','zh-CN':'开始'})[language];settings.textContent=({ja:'設定',en:'SETTINGS',ko:'설정','zh-CN':'设置'})[language];caption.textContent=({ja:'まだ見ぬ世界へ、仲間と。',en:'A new world. An adventure together.',ko:'동료와 함께, 새로운 세계로.','zh-CN':'与伙伴一起，前往崭新的世界。'})[language];};
     refresh();actions.append(start,settings);root.append(languages,logo,caption,actions,footer);document.body.append(root);
     const key=(event:KeyboardEvent)=>{if(event.key==='Enter'&&document.activeElement===document.body){event.preventDefault();start.click();}};

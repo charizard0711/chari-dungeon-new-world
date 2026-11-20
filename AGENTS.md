@@ -1,4 +1,4 @@
-# Chari Dungeon: NEW WORLD
+# Chari Dungeon: ZERO
 
 - This is the independent online-only TypeScript / Phaser / Vite game.
 - Production URL: https://charizard0711.github.io/chari-dungeon-new-world/
