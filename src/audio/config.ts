@@ -21,8 +21,8 @@ export const BGM_DEFS = {
   floor01:  { key: 'bgm_floor01',  path: 'assets/audio/bgm_floors_01_02.mp3', volume: 0.5, loop: true },
   // 7x7中ボス部屋：入口封鎖から撃破まで「紅蓮ブースト」（184 BPM）
   midboss:  { key: 'bgm_midboss',  path: 'assets/audio/bgm_midboss_crimson_boost.mp3', volume: 0.16, loop: true },
-  // 5階ごとの大ボス部屋：氷晶大聖堂（チェレスタ＋弦楽＋控えめな合唱）
-  boss:     { key: 'bgm_boss',     path: 'assets/audio/bgm_boss.mp3', volume: 0.46, loop: true },
+  // フロアボス：Sovereign of the Forgotten Depths（Suno候補②）
+  boss:     { key: 'bgm_boss',     path: 'assets/audio/boss-sovereign-suno-v2.mp3', volume: 0.46, loop: true },
   halloweenMap: { key: 'bgm_halloween_map', path: 'assets/audio/halloween-v1/map_01.wav', volume: 0.46, loop: true },
   halloweenMidboss: { key: 'bgm_halloween_midboss', path: 'assets/audio/halloween-v1/mid_01.wav', volume: 0.40, loop: true },
   halloweenBoss: { key: 'bgm_halloween_boss', path: 'assets/audio/halloween-v1/boss_01.wav', volume: 0.42, loop: true },

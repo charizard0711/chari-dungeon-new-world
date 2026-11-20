@@ -1,4 +1,6 @@
 import {requestEquipmentArt} from '../lazyEquipmentArt';
+import {Audio} from '../audio/manager';
+import {adventureBgm} from './adventure/music';
 import {predictedWorld, movementAccepted, lootSoundForAction} from './responsiveness';
 import {installTownTextInput} from './textInput';
 import {WEAPON_AUDIO,playTownWeaponSound} from './weaponAudio';
@@ -41,7 +43,7 @@ export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)
   create(){const image=this.add.image(GAME_W/2,GAME_H/2,'title_citadel_v1');image.setScale(Math.max(GAME_W/image.width,GAME_H/image.height));lobby(this as Phaser.Scene);}
  }
  class Town extends SceneBase{
-  playerSignature='';adventureBoardPending=false;
+  playerSignature='';adventureBoardPending=false;musicName='';
   moveQueue:TownTile[]=[];moveSending=false;lastMoveSent=0;confirmedPacket?:WorldState;
   async queueMove(x:number,y:number){
    if(this.moveQueue.length>=3)return;
@@ -97,6 +99,7 @@ export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)
    this.load.image('online_town_fountain','assets/terrain/objects/healing-fountain-pixel.png');
   }
   create(){
+   this.musicName='';if(this.inDungeon)Audio.preloadBgm('boss');
    this.busy=true;this.entryLoading?.update(.98,this.inDungeon?'遺跡と冒険者を準備中…':'町と冒険者を準備中…');
    const loading=this.game.canvas.ownerDocument.getElementById('loading-screen');if(loading)loading.style.display='none';
    if(this.inDungeon){this.npcSprites.clear();this.groundSprites=[];this.groundMotions=[];this.groundSignature='';this.trainingBarrel=undefined;this.adventureView=mountAdventureView(this);this.cursorTile=this.add.rectangle(0,0,TILE,TILE,0xffffff,.12).setStrokeStyle(1,0xffffff,.3).setDepth(34).setVisible(false);}else{
@@ -134,7 +137,7 @@ export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)
    const entryLoading=this.entryLoading;this.events.once('shutdown',()=>entryLoading?.destroy());this.game.events.once('postrender',()=>{if(!this.scene.isActive())return;entryLoading?.finish(()=>{this.busy=false;});if(!entryLoading)this.busy=false;});
    const generation=this.generation;
    this.pollTimer=setInterval(()=>{if(this.preview||this.moveSending||this.requestBusy||this.pollBusy||!this.scene.isActive()||document.hidden)return;if(Date.now()-(this as any).lastTownPoll<(this.inDungeon?300:500))return;(this as any).lastTownPoll=Date.now();this.pollBusy=true;const revision=this.requestRevision;void world('poll').then(state=>{if(generation===this.generation&&revision===this.requestRevision&&!this.requestBusy){this.confirmedPacket=state;this.packet=state;this.syncPlayer();this.drawPlayers();}}).catch(e=>this.log((e as Error).message)).finally(()=>{this.pollBusy=false;});},100);
-   this.events.once('shutdown',()=>{this.generation++;clearInterval(this.pollTimer);this.chat?.destroy();this.chat=undefined;this.scene.stop('OnlineUIScene');if(!this.preview&&!this.transitioning)void world('leave').catch(()=>{});});
+   this.events.once('shutdown',()=>{this.generation++;clearInterval(this.pollTimer);this.chat?.destroy();this.chat=undefined;this.scene.stop('OnlineUIScene');if(!this.transitioning)void Audio.playBgm('title');if(!this.preview&&!this.transitioning)void world('leave').catch(()=>{});});
   }
   approachAdventureBoard(){if(this.busy||this.requestBusy||this.hud?.overlayMode!=='none')return;if(Math.abs(this.player.x-3)+Math.abs(this.player.y-9)<=3){this.stopClickPath();this.hud?.townUI?.openBoard();}else{this.adventureBoardPending=true;this.destination={x:4,y:10};}}
   addNpc(n:TownInteraction,row:number,size:number){const sprite=this.add.image((n.x+.5)*TILE,(n.y+1)*TILE,'online_npcs_v1',row*4).setOrigin(.5,1).setDisplaySize(size,size).setDepth(n.y+.9).setInteractive();this.npcSprites.set(n.id,{sprite,x:(n.x+.5)*TILE,y:(n.y+1)*TILE,size,row});sprite.on('pointerover',()=>this.hoverInteraction=n);sprite.on('pointerout',()=>this.hoverInteraction=undefined);sprite.on('pointerdown',(pointer:any,_x:any,_y:any,event:any)=>{if(pointer.rightButtonDown()){event?.stopPropagation();this.tryInteract(n);}});}
@@ -223,6 +226,7 @@ export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)
    for(const [id,n]of this.npcSprites){const pose=npcIdlePose(time,n.row*2),state=this.packet.npcs?.find(s=>s.id===id),dir=state?.dir??'down';n.sprite.setFrame(n.row*4+NPC_DIRECTION_FRAME[dir]).setPosition(n.x,n.y+pose.y).setDisplaySize(n.size,n.size*pose.scaleY).setAngle(pose.angle);}
    this.updateCursorTile();for(const item of this.groundMotions){const pose=groundLootPose(item.x,item.y,time,item.phase);item.sprite.setPosition(pose.x,pose.y).setAngle(pose.angle);item.glow.setAlpha(.16+pose.pulse*.06).setScale(.9+pose.pulse*.08);item.glints.clear();drawSmallGlints(item.glints,pose.x,pose.y,time,item.phase,item.starred?8:3,17,item.starred?.75:.45,item.starred?0xffe6a0:0xd4f1e4);}
    if(this.chat)this.chat.root.style.visibility=this.hud?.overlayMode==='none'?'visible':'hidden';
+   const music=adventureBgm(this.packet.adventure);if(this.musicName!==music){this.musicName=music;void Audio.playBgm(music);}
    if(this.hud?.topText)this.hud.topText.setText(this.inDungeon?`${this.packet.adventure?.name} · ${this.packet.adventure?.floor}層`:'はじまりの町 · サーバー1');this.adventureView?.update();
    this.showSkillRangePreview(this.skillArmed||!!this.hud?.skillHovered);
    for(const [actorId,a]of this.actors){
