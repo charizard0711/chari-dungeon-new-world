@@ -1,0 +1,5 @@
+import assert from 'node:assert/strict';import fs from 'node:fs/promises';import {npcIdlePose,NPC_DIRECTION_FRAME} from '../src/online/npcPresentation';import {drawSmallGlints} from '../src/online/smallGlints';
+assert.deepEqual(Object.values(NPC_DIRECTION_FRAME),[0,1,2,3]);const a=npcIdlePose(0,0),b=npcIdlePose(850,0);assert.notEqual(a.y,b.y);assert.ok(Math.abs(b.y)<.6&&Math.abs(b.scaleY-1)<.009&&Math.abs(b.angle)<.4);
+const sizes:number[]=[];let rectangles=0;const g={fillStyle(){return this;},fillRect(_x:number,_y:number,w:number,h:number){sizes.push(w,h);rectangles++;return this;}};drawSmallGlints(g as any,0,0,1000,0,9,18,.8);assert.equal(rectangles,18);assert.ok(Math.max(...sizes)<=1.6);
+await fs.access('public/assets/online/item-icons-v3/star_w_blackpowder_handgun.webp');await fs.access('public/assets/online/warehouse-v1/npcs.webp');await fs.access('public/assets/online/warehouse-v1/friends.webp');
+console.log('PASS: subtle bounded NPC idle poses, four facing frames, nine tiny glints, and separate inventory/drop variant artwork.');

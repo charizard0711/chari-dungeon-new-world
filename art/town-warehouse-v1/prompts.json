@@ -1,0 +1,17 @@
+{
+  "mode": "built-in image_gen with transparent_background=true; no API key or CLI fallback",
+  "npcs": {
+    "references": [
+      "public/assets/online/town-props-v2.png",
+      "public/assets/online/merchant-v2.webp"
+    ],
+    "prompt": "Create a production transparent-background 4 columns x 2 rows NPC directional sprite sheet for a top-down fantasy RPG. Reference the elderly white-bearded brown-robed teal-mantled guide and young brown-haired female merchant Mira with brown traveling coat, scarf, belt pouches and boots. Row 1 guide, row 2 merchant. Columns exactly front/down, left profile, right profile, back/up. Eight separate complete full-body figures, same scale and baseline, generous transparent padding. Consistent compact 2.5D hand-painted pixel RPG style readable at 50 pixels tall. No text, grid, floor, shadows, buildings or background. True alpha."
+  },
+  "warehouse": {
+    "reference": "public/assets/online/town-props-v2.png",
+    "prompt": "Edit the top-middle warehouse into one standalone transparent game prop. Preserve painted pixel RPG style, slate blue pitched roof, tan timber front, gray stone arch and barrels on either side. Both wooden doors fully open outward, accessible wide dark doorway with warm wood floor and crates glimpsed inside. Whole roof and footprint visible, same almost frontal top-down camera. No character, lettering, grass, exterior tile floor or background. True alpha."
+  },
+  "friends": {
+    "prompt": "A single compact fantasy RPG FRIENDS menu icon with two friendly adventurer busts side by side, teal-hooded traveler and warm brown-haired traveler linked by a small antique gold ring/clasp. Jewel-like gold edging, painterly pixel detail matching classic hand-painted fantasy inventory icons. Clear silhouettes at 32x32 pixels, centered with transparent margin. No text, frame, landscape, scene or UI panel. True alpha."
+  }
+}

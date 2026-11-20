@@ -9,9 +9,10 @@ import type {EquipmentSlot,EquipmentInstance,QuickSlot,OnlineCharacter} from './
 import './equipmentUI.css';
 import {playTownSound} from './presentation';
 import {trackPointerDrag} from './pointerDrag';
+import {mountWarehouseUI} from './warehouseUI';
 import {createGachaPresentation} from './gachaPresentation';
 
-type Entry={key:string;category:EquipmentSlot|'item';index:number;instance?:EquipmentInstance;count:number;definition:CatalogEntry;equipped:boolean;price?:number};
+export type Entry={key:string;category:EquipmentSlot|'item';index:number;instance?:EquipmentInstance;count:number;definition:CatalogEntry;equipped:boolean;price?:number};
 const slots:EquipmentSlot[]=['weapon','armor','shield','necklace'];
 const label:Record<string,string>={all:'すべて',equip:'装備',item:'消耗品',weapon:'武器',armor:'服',shield:'盾',necklace:'ネックレス'};
 const node=<K extends keyof HTMLElementTagNameMap>(tag:K,text='')=>{const e=document.createElement(tag);e.textContent=text;return e;};
@@ -68,6 +69,7 @@ export function mountTownEquipmentUI(hud:any,gs:any){
   const image=node('img');image.alt='';image.draggable=false;const url=iconURL(e.key.startsWith('star_')?e.key:e.definition.textureKey);if(url)image.src=url;b.append(image);
   if(e.equipped){const eq=node('span','E');eq.className='town-equipped';b.append(eq);}if(e.count>1||e.key==='gold'){const count=node('span',e.key==='gold'?`${e.count.toLocaleString()}G`:String(e.count));count.className='town-count';b.append(count);}
   if(e.instance&&e.instance.max>0){const bar=node('span');bar.className='town-dur-bar';const fill=node('i');fill.style.width=`${e.instance.dur/e.instance.max*100}%`;bar.append(fill);b.append(bar);}
+  if(e.key.startsWith('star_')){const glints=node('span');glints.className='town-glints';glints.setAttribute('aria-hidden','true');for(let i=0;i<7;i++){const dot=node('i');dot.style.setProperty('--i',String(i));dot.style.left=(9+(i*31)%81)+'%';dot.style.top=(8+(i*23)%80)+'%';glints.append(dot);}b.append(glints);}
   return b;
  }
  function quickRef(e:Entry):QuickSlot{return {category:e.category,key:e.key,...e.instance?{instanceId:e.instance.id}:{}};}
@@ -176,9 +178,10 @@ export function mountTownEquipmentUI(hud:any,gs:any){
  }
  function openGuide(){if(gacha?.running)return;cancelDrag?.();clearGacha();pauseGameInput();mode='guide';hud.overlayMode='townInventory';modal.hidden=false;title.textContent='案内人リーフ';renderGuide();refresh();}
  function close(){if(gacha?.running){gacha.skip();return;}cancelDrag?.();clearGacha();modal.hidden=true;resumeGameInput();if(hud.overlayMode==='townInventory')hud.overlayMode='none';gs.clearMoveInput?.();gs.game.canvas.tabIndex=0;gs.game.canvas.focus();refresh();}
- function refresh(){if(!active)return;const inventoryOpen=!modal.hidden&&mode==='inventory',overlay=hud.overlayMode;quick.hidden=!(overlay==='none'||inventoryOpen);neck.hidden=overlay!=='none';shine.style.display=overlay==='none'?'':'none';if(cancelDrag)return;const c=character(),next=JSON.stringify([c,gs.packet.shopCatalog,gs.packet.friends]);gold.textContent=`所持金 ${(c?.gold??0).toLocaleString()} G`;if(next===signature)return;signature=next;renderQuick();renderNeck();if(!modal.hidden){if(mode==='gacha')renderGacha();else if(mode==='friends')renderFriends();else if(mode!=='guide')renderInventory();}if(notice)footer.textContent=notice;}
- const onKey=(e:KeyboardEvent)=>{if(e.repeat||e.target instanceof HTMLInputElement||e.target instanceof HTMLTextAreaElement)return;if(e.key==='Escape'&&!modal.hidden){e.preventDefault();close();return;}if((hud.overlayMode==='none'||!modal.hidden&&mode==='inventory')&&/^Digit\d$/.test(e.code)){const digit=Number(e.code.slice(-1)),i=(digit===0?9:digit-1)+(e.shiftKey?10:0),entry=resolve(character()?.quickSlots?.[i]);if(entry){e.preventDefault();void use(entry,true);}}};window.addEventListener('keydown',onKey);
+ function refresh(){if(!active)return;warehouseUI?.refresh();if(character()?.location==='warehouse'){cancelDrag?.();modal.hidden=true;pauseGameInput();hud.overlayMode='townWarehouse';quick.hidden=true;neck.hidden=true;shine.style.display='none';return;}if(hud.overlayMode==='townWarehouse'){resumeGameInput();hud.overlayMode='none';signature='';gs.clearMoveInput?.();}const inventoryOpen=!modal.hidden&&mode==='inventory',overlay=hud.overlayMode;quick.hidden=!(overlay==='none'||inventoryOpen);neck.hidden=overlay!=='none';shine.style.display=overlay==='none'?'':'none';if(cancelDrag)return;const c=character(),next=JSON.stringify([c,gs.packet.shopCatalog,gs.packet.friends]);gold.textContent=`所持金 ${(c?.gold??0).toLocaleString()} G`;if(next===signature)return;signature=next;renderQuick();renderNeck();if(!modal.hidden){if(mode==='gacha')renderGacha();else if(mode==='friends')renderFriends();else if(mode!=='guide')renderInventory();}if(notice)footer.textContent=notice;}
+ const onKey=(e:KeyboardEvent)=>{if(e.repeat||e.target instanceof HTMLInputElement||e.target instanceof HTMLTextAreaElement)return;if(e.key==='Escape'&&character()?.location==='warehouse'){e.preventDefault();void warehouseUI.exit();return;}if(e.key==='Escape'&&!modal.hidden){e.preventDefault();close();return;}if((hud.overlayMode==='none'||!modal.hidden&&mode==='inventory')&&/^Digit\d$/.test(e.code)){const digit=Number(e.code.slice(-1)),i=(digit===0?9:digit-1)+(e.shiftKey?10:0),entry=resolve(character()?.quickSlots?.[i]);if(entry){e.preventDefault();void use(entry,true);}}};window.addEventListener('keydown',onKey);
  root.addEventListener('keydown',e=>{if(!modal.hidden||/^Digit\d$/.test(e.code)||e.key==='Escape'){onKey(e);e.stopPropagation();}});root.addEventListener('pointerdown',e=>e.stopPropagation());root.addEventListener('contextmenu',e=>e.preventDefault());
+ const warehouseUI=mountWarehouseUI(root,gs,entries,makeIcon,refresh);
  const textureAdded=()=>{signature='';urls.clear();refresh();};hud.textures.on('addtexture',textureAdded);refresh();
- return {open,openGuide,close,refresh,destroy(){active=false;cancelDrag?.();clearGacha();resize.disconnect();window.removeEventListener('resize',fit);window.removeEventListener('scroll',fit);window.removeEventListener('keydown',onKey);hud.textures.off('addtexture',textureAdded);root.remove();}};
+ return {open,openGuide,close,refresh,destroy(){active=false;warehouseUI.destroy();cancelDrag?.();clearGacha();resize.disconnect();window.removeEventListener('resize',fit);window.removeEventListener('scroll',fit);window.removeEventListener('keydown',onKey);hud.textures.off('addtexture',textureAdded);root.remove();}};
 }

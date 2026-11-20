@@ -1,3 +1,4 @@
+import {drawSmallGlints} from './online/smallGlints';
 import {expansionEquipmentKey} from './townEquipment';
 import { katanaSlashColor } from './equipmentAccessories';
 import { requestEquipmentArt } from './lazyEquipmentArt';
@@ -52,7 +53,7 @@ export class EquipmentRenderer {
     }
     const show = enabled && body.visible && body.active && frame !== 'down';
     this.sparkles.clear().setVisible(show&&!!weapon?.starred).setDepth(body.depth+.4);
-    if(show&&weapon?.starred){const time=this.scene.time.now,unit=Math.abs(body.displayWidth)/64;for(let i=0;i<3;i++){const phase=time*.003+i*2.1,alpha=Math.pow((Math.sin(phase)+1)/2,3),x=body.x+Math.sin(phase+i)*19*unit,y=body.y-9*unit+Math.cos(phase*.8+i)*20*unit,r=(1.4+alpha*1.2)*unit;this.sparkles.fillStyle(0xffe8a3,alpha);this.sparkles.fillTriangle(x-r,y,x,y-r*1.7,x+r,y);this.sparkles.fillTriangle(x-r,y,x,y+r*1.7,x+r,y);}}
+    if(show&&weapon?.starred){const unit=Math.abs(body.displayWidth)/64;drawSmallGlints(this.sparkles,body.x,body.y-9*unit,this.scene.time.now,0,9,18*unit,.8*unit);}
     const katana = show && weapon?.weaponType === 'katana';
     const action = playerAction(frame);
     const unit = Math.abs(body.scaleY) * (body.frame.realWidth || PLAYER_FRAME_SIZE) / 40;

@@ -247,6 +247,8 @@ export class BootScene extends Phaser.Scene {
     this.load.spritesheet('fx_arcadia', 'assets/effects/arcadia-slash-v1.png', {frameWidth:256,frameHeight:256});
     for(const item of [...WEAPON_DEFS,...SHIELD_DEFS].filter(d=>expansionEquipmentKey(d.key)))this.load.image(item.key,expansionArt(item.key));
     for(const item of NECKLACE_DEFS)this.load.image(item.key,expansionArt(item.key));
+    for(const def of WEAPON_DEFS)this.load.image(`icon_star_${def.key}`,`assets/online/item-icons-v3/star_${def.key}.webp`);
+    this.load.image('ui_nav_friends','assets/online/warehouse-v1/friends.webp');
     for (const art of HELD_EQUIPMENT) {
       this.load.spritesheet(art.textureKey, art.path, {frameWidth:HELD_FRAME_SIZE,frameHeight:HELD_FRAME_SIZE});
     }
