@@ -90,11 +90,11 @@ export function mountOnlineLobby(scene:Phaser.Scene) {
       if(signup&&password.value!==confirmation.value)throw new Error('確認用パスワードが一致しません。');
       requireCaptcha();
       if(resend){
-        const {error:e}=await online!.auth.resend({type:'signup',email:email.value.trim(),options:{captchaToken,emailRedirectTo:'https://charizard0711.github.io/chari-dungeon-new-world/'}});
+        const {error:e}=await online!.auth.resend({type:'signup',email:email.value.trim(),options:{captchaToken,emailRedirectTo:'https://charidungeon.com/'}});
         captcha?.reset();if(e)throw e;notice.textContent='確認メールを再送しました。メール内のリンクを開いてください。';return;
       }
       if(signup){
-        const {data,error:e}=await online!.auth.signUp({email:email.value.trim(),password:password.value,options:{data:{language:emailLanguage()},emailRedirectTo:'https://charizard0711.github.io/chari-dungeon-new-world/',captchaToken}});
+        const {data,error:e}=await online!.auth.signUp({email:email.value.trim(),password:password.value,options:{data:{language:emailLanguage()},emailRedirectTo:'https://charidungeon.com/',captchaToken}});
         captcha?.reset();if(e)throw e;
         password.value='';confirmation.value='';
         if(data.session){userId=data.session.user.id;servers();}

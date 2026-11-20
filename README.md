@@ -2,7 +2,7 @@
 
 Online-only successor to Chari Dungeon, built with TypeScript, Phaser and Vite.
 
-Production: https://charizard0711.github.io/chari-dungeon-new-world/
+Production: https://charidungeon.com/
 
 The original solo game remains at https://charizard0711.github.io/chari-dungeon/.
 
