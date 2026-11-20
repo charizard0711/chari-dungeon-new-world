@@ -62,6 +62,7 @@ export class EquipmentRenderer {
     if (katana) {
       const sheathKey = `sheath_${weapon?.starred ? 'star_' : ''}${weapon!.key}`;
       requestEquipmentArt(sheathKey);
+      this.scabbard.setVisible(dir !== 'down' && this.scene.textures.exists(sheathKey));
       if (this.scene.textures.exists(sheathKey)) this.scabbard.setTexture(sheathKey);
       this.scabbard.setOrigin(.78, .5).setDisplaySize(unit * 25, unit * 5)
         .setPosition(body.x + unit * (dir === 'left' ? 5 : -2), body.y + unit * 5)
@@ -89,8 +90,10 @@ export class EquipmentRenderer {
       const key = `held_${'starred' in item&&item.starred&&expansionEquipmentKey(item.key)?'star_':''}${item.key}`;
       // Keep old saves readable if an asset fails to load.
       const starred = 'starred' in item && item.starred;
-      const hasArt = (!starred||expansionEquipmentKey(item.key)) && this.scene.textures.exists(key), texture = hasArt ? key : starred ? starWeaponKey(item.key) : item.key;
+      requestEquipmentArt(key);
+      const hasArt = (!starred||expansionEquipmentKey(item.key)) && this.scene.textures.exists(key) && this.scene.textures.get(key).has(String(HELD_DIRECTION_FRAME[dir])), texture = hasArt ? key : starred ? starWeaponKey(item.key) : item.key;
       requestEquipmentArt(texture);
+      if(!this.scene.textures.exists(texture)){sprite.setVisible(false);continue;}
       const artFrame = hasArt ? HELD_DIRECTION_FRAME[dir] : undefined;
       if (sprite.texture.key !== texture || (hasArt && String(sprite.frame.name) !== String(artFrame))) sprite.setTexture(texture,artFrame);
       const pose = heldHandPose(dir,frame,gender,offhand,elapsed,type,body.texture.key);

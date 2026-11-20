@@ -1,3 +1,4 @@
+import {expansionEquipmentKey} from '../townEquipment';
 import type Phaser from 'phaser';
 import {EquipmentRenderer} from '../equipmentRenderer';
 import {makeWeapon,makeShield} from '../player';
@@ -14,7 +15,7 @@ export function equippedCharacterAppearance(character:OnlineCharacter){
 
 async function loadAppearance(scene:Phaser.Scene,character:OnlineCharacter){
   const look=equippedCharacterAppearance(character),keys=new Set([look.sheet,'w_soldier_blade','s_iron_round','katana_waist_fitting_v3','katana_scabbard_v2','fx_hw_aura_a','fx_hw_aura_b']);
-  for(const id of [look.weapon,look.shield])if(id){const key=id.replace(/^star_/,'');for(const art of [id,key,`held_${key}`,`sheath_${id}`])keys.add(art);}
+  for(const id of [look.weapon,look.shield])if(id){const key=id.replace(/^star_/,'');for(const art of [id,key,`held_${key}`,`held_${id}`,`sheath_${id}`])keys.add(art);}
   const manifest=scene.registry.get('assetManifest') as any[]??[];
   let queued=0;
   for(const entry of manifest.filter(e=>keys.has(e.key))){
@@ -25,8 +26,8 @@ async function loadAppearance(scene:Phaser.Scene,character:OnlineCharacter){
     if(entry.kind==='spritesheet')scene.load.spritesheet(entry.key,path,entry.config);else scene.load.image(entry.key,path);
     queued++;
   }
-  if(look.weapon?.startsWith('star_')&&!(scene.textures.exists(look.weapon)&&(scene.textures.get(look.weapon).getSourceImage() as HTMLImageElement).src?.includes('/star-weapons-v1/'))){if(scene.textures.exists(look.weapon))scene.textures.remove(look.weapon);scene.load.image(look.weapon,`assets/star-weapons-v1/${look.weapon}.webp`);queued++;}
-  if(look.weapon?.startsWith('star_w_katana_')){const key=`sheath_${look.weapon}`;if(!scene.textures.exists(key)){scene.load.image(key,`assets/katana-sheaths-v1/${key}.webp`);queued++;}}
+  if(look.weapon?.startsWith('star_')&&!(scene.textures.exists(look.weapon)&&(scene.textures.get(look.weapon).getSourceImage() as HTMLImageElement).src?.includes('/star-weapons-v1/'))){if(scene.textures.exists(look.weapon))scene.textures.remove(look.weapon);scene.load.image(look.weapon,`assets/${expansionEquipmentKey(look.weapon.replace(/^star_/,''))?'online/equipment-v2':'star-weapons-v1'}/${look.weapon}.webp`);queued++;}
+  if(look.weapon?.startsWith('star_w_katana_')){const key=`sheath_${look.weapon}`;if(!scene.textures.exists(key)){scene.load.image(key,`assets/${expansionEquipmentKey(look.weapon.replace(/^star_/,''))?'online/equipment-v2':'katana-sheaths-v1'}/${key}.webp`);queued++;}}
   if(queued)await new Promise<void>(resolve=>{const done=()=>{scene.load.off('complete',done);scene.events.off('shutdown',done);resolve();};scene.load.once('complete',done);scene.events.once('shutdown',done);scene.load.start();});
   return look;
 }

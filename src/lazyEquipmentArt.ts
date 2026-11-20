@@ -1,43 +1,41 @@
 import type Phaser from 'phaser';
-
-let game: Phaser.Game | undefined;
-const pending = new Set<string>();
-const ready = new Set<string>();
-export function configureLazyEquipmentArt(value: Phaser.Game) { game = value; pending.clear(); ready.clear(); }
-
-/** Keep a readable placeholder while loading only the rare artwork being displayed. */
-export function requestEquipmentArt(key: string): string {
-  if (!game || !(key.startsWith('star_w_') || key.startsWith('sheath_star_'))) return key;
-  if (ready.has(key) || pending.has(key)) return key;
-  const base = key.replace('star_', '');
-  if (!game.textures.exists(key) && game.textures.exists(base)) {
-    game.textures.addImage(key, game.textures.get(base).getSourceImage() as HTMLImageElement);
-  }
-  const scene = game.scene.getScene('GameScene');
-  if (!scene?.sys.isActive()) return key;
-  pending.add(key);
-  const temporary = `lazy_${key}`;
-  const folder = key.startsWith('sheath_') ? 'katana-sheaths-v1' : 'star-weapons-v1';
-  scene.load.image(temporary, `assets/${folder}/${key}.webp`);
-  scene.load.once(`filecomplete-image-${temporary}`, () => {
-    const images: Phaser.GameObjects.Image[] = [];
-    const visit = (objects: Phaser.GameObjects.GameObject[]) => {
-      for (const object of objects) {
-        const image = object as Phaser.GameObjects.Image;
-        if (image.texture?.key === key) images.push(image);
-        const list = (object as Phaser.GameObjects.Container).list;
-        if (Array.isArray(list)) visit(list);
-      }
-    };
-    for (const active of game!.scene.getScenes(true)) visit(active.children.list);
-    const replacements = images.map(image => ({ image, width: image.displayWidth, height: image.displayHeight }));
-    game!.textures.remove(key);
-    game!.textures.renameTexture(temporary, key);
-    for (const { image, width, height } of replacements) {
-      image.setTexture(key).setDisplaySize(width, height);
-    }
-    ready.add(key); pending.delete(key);
-  });
-  scene.load.start();
-  return key;
+import {expansionEquipmentKey} from './townEquipment';
+let game:Phaser.Game|undefined;
+const pending=new Set<string>();
+const failedUntil=new Map<string,number>();
+export function configureLazyEquipmentArt(value:Phaser.Game){game=value;pending.clear();failedUntil.clear();}
+/** Swap a fully loaded texture atomically, preserving atlas frames and sprite sizes. */
+export function requestEquipmentArt(key:string):string {
+ if(!game||pending.has(key)||(failedUntil.get(key)??0)>Date.now())return key;
+ if(game.textures.exists(key)){
+  const source=game.textures.get(key).getSourceImage() as HTMLImageElement;
+  if(source?.tagName==='IMG'&&!source.src.startsWith('data:'))return key;
+ }
+ const scene=game.scene.getScenes(true).find(s=>s.sys.settings.key==='OnlineTownScene')??game.scene.getScenes(true)[0];
+ if(!scene)return key;
+ const manifest=game.registry.get('assetManifest') as {key:string;kind:string;path:string;config?:any}[]|undefined;
+ const entry=manifest?.find(e=>e.key===key);
+ const starred=key.startsWith('star_w_')||key.startsWith('sheath_star_');
+ if(!entry&&!starred)return key;
+ const folder=expansionEquipmentKey(key.replace(/^sheath_/, '').replace(/^star_/,''))?'online/equipment-v2':key.startsWith('sheath_')?'katana-sheaths-v1':'star-weapons-v1';
+ const path=entry?.path??`assets/${folder}/${key}.webp`,kind=entry?.kind==='spritesheet'?'spritesheet':'image',temporary=`lazy_${key}`;
+ pending.add(key);
+ const stopped=()=>{pending.delete(key);scene.load.off('loaderror',failed);scene.load.off(`filecomplete-${kind}-${temporary}`,complete);};
+ const failed=(file:any)=>{if(file.key!==temporary)return;scene.events.off('shutdown',stopped);pending.delete(key);failedUntil.set(key,Date.now()+10000);scene.load.off('loaderror',failed);scene.load.off(`filecomplete-${kind}-${temporary}`,complete);};
+ const complete=()=>{
+  scene.events.off('shutdown',stopped);scene.load.off('loaderror',failed);
+  if(!game?.textures.exists(temporary)){pending.delete(key);return;}
+  const images:Phaser.GameObjects.Image[]=[];
+  const visit=(objects:Phaser.GameObjects.GameObject[])=>{for(const object of objects){const image=object as Phaser.GameObjects.Image;if(image.texture?.key===key)images.push(image);const children=(object as Phaser.GameObjects.Container).list;if(Array.isArray(children))visit(children);}};
+  for(const active of game.scene.getScenes(true))visit(active.children.list);
+  const replacements=images.map(image=>({image,width:image.displayWidth,height:image.displayHeight,frame:image.frame.name}));
+  if(game.textures.exists(key))game.textures.remove(key);
+  game.textures.renameTexture(temporary,key);
+  const texture=game.textures.get(key);
+  for(const {image,width,height,frame} of replacements)if(image.active)image.setTexture(key,texture.has(frame)?frame:undefined).setDisplaySize(width,height);
+  pending.delete(key);game.textures.emit('addtexture',key,texture);scene.events.emit('refresh');
+ };
+ scene.events.once('shutdown',stopped);scene.load.once(`filecomplete-${kind}-${temporary}`,complete);scene.load.on('loaderror',failed);
+ if(kind==='spritesheet')scene.load.spritesheet(temporary,path,entry!.config);else scene.load.image(temporary,path);
+ scene.load.start();return key;
 }
