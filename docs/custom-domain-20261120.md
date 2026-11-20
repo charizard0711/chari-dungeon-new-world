@@ -37,3 +37,5 @@ TypeScript and Vite production build pass. DNS resolves to all four published Gi
 HTTPS provisioning is complete. GitHub's certificate is approved for both `charidungeon.com` and `www.charidungeon.com`, and HTTPS enforcement is enabled. `https://charidungeon.com/` returns HTTP 200 with the ZERO title. HTTP, www and the previous GitHub Pages project URL all return HTTP 301 to `https://charidungeon.com/`.
 
 The Pages custom domain was re-registered after GitHub's DNS health check passed, following GitHub's certificate provisioning guidance. No TLS warnings were bypassed. The published game was checked in the browser with `?mute=1`; no production account was created or deleted by this domain setup.
+
+Final browser QA: the HTTPS title and Start -> login screen render correctly. The managed Turnstile widget displays its green success state automatically on the custom domain. The check was silent (`?mute=1`); no login password, signup, real confirmation email, or production player data was submitted. Screenshots are in the ignored local `outputs/custom-domain-20261120/` folder.
