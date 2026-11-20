@@ -9,9 +9,10 @@ export interface WorldPlayer { character_id:string; name:string; gender:'male'|'
 export interface GroundItem {amount?:number;id:string;kind:string;category?:'item'|'weapon'|'armor'|'shield'|'necklace';x:number;y:number;}
 export interface TrainingHit {id:number;character_id:string;damage:number;dir:WorldPlayer['dir'];weapon_key?:string|null;origin_x?:number;origin_y?:number;action_kind?:string;skill_type?:string|null;hit_target?:boolean;}
 export interface PlayerInspection{name:string;gender:string;hp:number;equipment:{slot:EquipmentSlot;key:string;dur?:number;max?:number}[];}
-export interface WorldState {inspection?:PlayerInspection;adventure?:AdventureState|null;rooms?:{id:string;name:string;locked:boolean;members:number;status:string}[];roomHistory?:{name:string;status:string;created:string}[];npcs?:{id:string;dir:'up'|'down'|'left'|'right';until:number}[];friends?:{id:string;name:string;status:"pending"|"accepted";incoming:boolean;online:boolean}[];reward?:string;shopCatalog?:{key:string;price:number}[]; characters:OnlineCharacter[];active:OnlineCharacter|null;players:WorldPlayer[];messages:{id:number;name:string;message:string;character_id?:string}[];drops?:GroundItem[];trainingHits?:TrainingHit[];superAccount:boolean; }
+export interface WorldState {serverTime?:number;clockReceivedAt?:number;clockLatencyMs?:number;inspection?:PlayerInspection;adventure?:AdventureState|null;rooms?:{id:string;name:string;locked:boolean;members:number;status:string}[];roomHistory?:{name:string;status:string;created:string}[];npcs?:{id:string;dir:'up'|'down'|'left'|'right';until:number}[];friends?:{id:string;name:string;status:"pending"|"accepted";incoming:boolean;online:boolean}[];reward?:string;shopCatalog?:{key:string;price:number}[]; characters:OnlineCharacter[];active:OnlineCharacter|null;players:WorldPlayer[];messages:{id:number;name:string;message:string;character_id?:string}[];drops?:GroundItem[];trainingHits?:TrainingHit[];superAccount:boolean; }
 export async function world(action:string,payload:Record<string,unknown>={}):Promise<WorldState>{
   if(!online)throw Error('オンラインに接続できません。');
+  const started=performance.now();
   const {data,error}=await online.rpc('online_world',{action,payload});
-  if(error)throw Error(error.message);return data as WorldState;
+  if(error)throw Error(error.message);const received=performance.now();return {...data,clockReceivedAt:received,clockLatencyMs:Math.min(250,(received-started)/2)} as WorldState;
 }
