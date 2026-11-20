@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "frameSize": 96,
+  "framesPerDirection": 28,
+  "walkFrames": 18,
+  "files": [
+    {
+      "id": "male-leather",
+      "source": "assets/characters/player-painted-v1/male-leather.png",
+      "walkFrames": 18,
+      "totalFrames": 112
+    },
+    {
+      "id": "male-chain",
+      "source": "assets/characters/player-painted-v1/male-chain.png",
+      "walkFrames": 18,
+      "totalFrames": 112
+    },
+    {
+      "id": "male-plate",
+      "source": "assets/characters/player-painted-v1/male-plate.png",
+      "walkFrames": 18,
+      "totalFrames": 112
+    },
+    {
+      "id": "male-arcane",
+      "source": "assets/characters/player-painted-v1/male-arcane.png",
+      "walkFrames": 18,
+      "totalFrames": 112
+    },
+    {
+      "id": "male-dragon",
+      "source": "assets/characters/player-painted-v1/male-dragon.png",
+      "walkFrames": 18,
+      "totalFrames": 112
+    },
+    {
+      "id": "male-dawn",
+      "source": "assets/characters/player-painted-v1/male-dawn.png",
+      "walkFrames": 18,
+      "totalFrames": 112
+    },
+    {
+      "id": "male-aqua",
+      "source": "assets/characters/hooded-back-v2/male-aqua.png",
+      "walkFrames": 18,
+      "totalFrames": 112
+    },
+    {
+      "id": "male-crimson",
+      "source": "assets/characters/hooded-back-v2/male-crimson.png",
+      "walkFrames": 18,
+      "totalFrames": 112
+    },
+    {
+      "id": "male-pumpkin_male",
+      "source": "assets/characters/halloween-v1/male-pumpkin_male.png",
+      "walkFrames": 18,
+      "totalFrames": 112
+    },
+    {
+      "id": "female-leather",
+      "source": "assets/characters/player-painted-v1/female-leather.png",
+      "walkFrames": 18,
+      "totalFrames": 112
+    },
+    {
+      "id": "female-chain",
+      "source": "assets/characters/player-painted-v1/female-chain.png",
+      "walkFrames": 18,
+      "totalFrames": 112
+    },
+    {
+      "id": "female-plate",
+      "source": "assets/characters/player-painted-v1/female-plate.png",
+      "walkFrames": 18,
+      "totalFrames": 112
+    },
+    {
+      "id": "female-arcane",
+      "source": "assets/characters/player-painted-v1/female-arcane.png",
+      "walkFrames": 18,
+      "totalFrames": 112
+    },
+    {
+      "id": "female-dragon",
+      "source": "assets/characters/player-painted-v1/female-dragon.png",
+      "walkFrames": 18,
+      "totalFrames": 112
+    },
+    {
+      "id": "female-dawn",
+      "source": "assets/characters/player-painted-v1/female-dawn.png",
+      "walkFrames": 18,
+      "totalFrames": 112
+    },
+    {
+      "id": "female-aqua",
+      "source": "assets/characters/player-painted-v1/female-aqua.png",
+      "walkFrames": 18,
+      "totalFrames": 112
+    },
+    {
+      "id": "female-crimson",
+      "source": "assets/characters/player-painted-v1/female-crimson.png",
+      "walkFrames": 18,
+      "totalFrames": 112
+    },
+    {
+      "id": "female-pumpkin_female",
+      "source": "assets/characters/halloween-v1/female-pumpkin_female.png",
+      "walkFrames": 18,
+      "totalFrames": 112
+    }
+  ]
+}
