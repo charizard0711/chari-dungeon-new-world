@@ -2,7 +2,8 @@ import { translate } from './i18n';
 import Phaser from 'phaser';
 import { GAME_W, GAME_H, IS_MOBILE } from './layout';
 let game: Phaser.Game | undefined;
-let large = false;
+// Fill the available desktop viewport from the first frame, keeping the game's aspect ratio.
+let large = !IS_MOBILE;
 const sizeButtons: HTMLButtonElement[] = [];
 function applySize() {
   if(!game)return;
