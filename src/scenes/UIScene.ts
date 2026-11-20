@@ -25,7 +25,7 @@ import { GameScene } from './GameScene';
 import { weaponSkill, joystickDirection } from '../weaponSkills';
 import { skillIconKey } from '../skillArt';
 import type { GachaResult, GachaPool } from './GameScene';
-import { GAME_W, GAME_H } from '../main';
+import { GAME_W, GAME_H } from '../layout';
 import { IS_MOBILE, MAP_X, MAP_Y, MAP_W, MAP_H } from '../layout';
 import { durabilityRisk } from '../combat';
 import { DurabilityWarnings } from '../durabilityWarnings';

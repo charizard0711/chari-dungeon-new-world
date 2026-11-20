@@ -13,9 +13,10 @@ const DIRECTIONAL_SHIELD_KEYS = new Set([
   's_flame_aegis', 's_tidal_aegis', 's_storm_aegis', 's_frost_aegis'
 ]);
 export const HELD_EQUIPMENT = [...WEAPON_DEFS, ...SHIELD_DEFS]
-  .filter(def => !def.key.startsWith('w_katana_') && def.key !== 'w_hero_sword' && !def.key.startsWith('w_hw_') && !def.key.startsWith('w_secret_') && ('weaponType' in def || DIRECTIONAL_SHIELD_KEYS.has(def.key))).map(def => ({
+  .filter(def => !def.key.startsWith('w_katana_') && def.key !== 'w_hero_sword' && !def.key.startsWith('w_hw_') && !def.key.startsWith('w_secret_') && ('weaponType' in def || DIRECTIONAL_SHIELD_KEYS.has(def.key) || expansionEquipmentKey(def.key))).map(def => ({
   itemKey:def.key, textureKey:`held_${def.key}`, path:expansionEquipmentKey(def.key)?`assets/online/equipment-v2/held_${def.key}.png`:`assets/equipment/directional/${def.key}.png`
 }));
+HELD_EQUIPMENT.push(...WEAPON_DEFS.filter(def=>expansionEquipmentKey(def.key)).map(def=>({itemKey:'star_'+def.key,textureKey:`held_star_${def.key}`,path:`assets/online/equipment-v2/held_star_${def.key}.png`})));
 export const HELD_EQUIPMENT_KEYS = new Set([...HELD_EQUIPMENT.map(art=>art.itemKey), 'w_hero_sword', ...WEAPON_DEFS.filter(d => d.key.startsWith('w_secret_') || d.key.startsWith('w_katana_')).map(d => d.key)]);
 
 export function heldArtSize(type: WeaponType | 'shield') {

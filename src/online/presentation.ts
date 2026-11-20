@@ -7,12 +7,12 @@ import './online.css';
 export interface TownAudioSettings {seOn:boolean;seVolume:number;}
 
 /** Read the shared audio settings at playback time, including after opening settings. */
-export function townSoundLevel(audio:TownAudioSettings|undefined,muted:boolean,noAudio:boolean,kind:'hit'|'step') {
+export function townSoundLevel(audio:TownAudioSettings|undefined,muted:boolean,noAudio:boolean,kind:'hit'|'step'|'equip'|'jingle') {
   if(!audio?.seOn||muted||noAudio)return 0;
-  return Math.max(0,Math.min(1,audio.seVolume))*(kind==='hit'?.5:.12);
+  return Math.max(0,Math.min(1,audio.seVolume))*(kind==='step'?.12:kind==='hit'?.5:.35);
 }
 
-export function playTownSound(scene:Phaser.Scene,kind:'hit'|'step') {
+export function playTownSound(scene:Phaser.Scene,kind:'hit'|'step'|'equip'|'jingle') {
   const volume=townSoundLevel(scene.registry.get('onlineAudio'),scene.sound.mute,
     scene.game.config.audio.noAudio||new URLSearchParams(location.search).get('mute')==='1',kind);
   const key=`online_charia_${kind}`;

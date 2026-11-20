@@ -4,7 +4,7 @@ import { ensureSceneAssets } from '../assetStreaming';
 import { presentVictory } from '../victoryPresentation';
 import { DIFFICULTY_RULES, difficultyOf, type Difficulty } from '../difficulty';
 import Phaser from 'phaser';
-import { GAME_W, GAME_H } from '../main';
+import { GAME_W, GAME_H } from '../layout';
 import { Audio } from '../audio/manager';
 import { getSelectedGender, type PlayerGender } from '../playerAppearance';
 import { createDamageJournal } from '../damageJournalUI';

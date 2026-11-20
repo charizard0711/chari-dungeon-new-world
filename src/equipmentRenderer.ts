@@ -1,3 +1,4 @@
+import {expansionEquipmentKey} from './townEquipment';
 import { katanaSlashColor } from './equipmentAccessories';
 import { requestEquipmentArt } from './lazyEquipmentArt';
 import { isTwoHanded } from './equipmentRules';
@@ -81,13 +82,13 @@ export class EquipmentRenderer {
       }
     }
     for (const [sprite,item,offhand] of [[this.weapon,weapon,false],[this.offhand,second,true]] as const) {
-      if (!show || !item || (offhand && weapon?.starred && weapon.dual) || ('weaponType' in item && !HELD_EQUIPMENT_KEYS.has(item.key) && !item.key.startsWith('w_hw_'))) { sprite.setVisible(false); continue; }
+      if (!show || !item || (offhand && weapon?.starred && weapon.dual && !expansionEquipmentKey(weapon.key)) || ('weaponType' in item && !HELD_EQUIPMENT_KEYS.has(item.key) && !item.key.startsWith('w_hw_'))) { sprite.setVisible(false); continue; }
       const type = 'weaponType' in item ? item.weaponType : 'shield';
       if (type === 'katana' && action !== 'attack') { sprite.setVisible(false); continue; }
-      const key = `held_${item.key}`;
+      const key = `held_${'starred' in item&&item.starred&&expansionEquipmentKey(item.key)?'star_':''}${item.key}`;
       // Keep old saves readable if an asset fails to load.
       const starred = 'starred' in item && item.starred;
-      const hasArt = !starred && this.scene.textures.exists(key), texture = starred ? starWeaponKey(item.key) : hasArt ? key : item.key;
+      const hasArt = (!starred||expansionEquipmentKey(item.key)) && this.scene.textures.exists(key), texture = hasArt ? key : starred ? starWeaponKey(item.key) : item.key;
       requestEquipmentArt(texture);
       const artFrame = hasArt ? HELD_DIRECTION_FRAME[dir] : undefined;
       if (sprite.texture.key !== texture || (hasArt && String(sprite.frame.name) !== String(artFrame))) sprite.setTexture(texture,artFrame);
@@ -135,8 +136,8 @@ export class EquipmentRenderer {
         pose.depth = .22;
         if (recover >= 1) { sprite.setVisible(false); continue; }
       }
-      if (starred && 'dual' in item && item.dual) pose.x = 20;
-      if (starred) pose.angle += type === 'katana' ? Math.PI / 2 : type === 'handgun' ? Math.PI * 3 / 4 : Math.PI / 4;
+      if (starred && !hasArt && 'dual' in item && item.dual) pose.x = 20;
+      if (starred && !hasArt) pose.angle += type === 'katana' ? Math.PI / 2 : type === 'handgun' ? Math.PI * 3 / 4 : Math.PI / 4;
       // Hand anchors use a 40-unit art space, independent of atlas resolution.
       const frameSize = body.frame.realWidth || PLAYER_FRAME_SIZE;
       const artScale = frameSize / 40;
@@ -144,7 +145,8 @@ export class EquipmentRenderer {
       const dy = (pose.y - body.originY * 40) * body.scaleY * artScale;
       const cosine = Math.cos(body.rotation), sine = Math.sin(body.rotation);
       // Pin the actual center of Arcadia's handle to the per-frame hand anchor.
-      const [ox,oy] = starred ? (type === 'bow' || type === 'handgun' ? [.5,.5] : 'dual' in item && item.dual ? [.5,.8] : [.8,.8]) : type === 'katana' ? [.2,.8] : item.key === 'w_hw_coffin' ? [.5,.16] : item.key === 'w_hero_sword' ? [.5,.823] : hasArt || paintedWeapon ? heldGrip(type,dir) : [.5,.65];
+      if(type==='katana'&&hasArt&&expansionEquipmentKey(item.key))pose.angle+=Math.PI/4;
+      const [ox,oy] = hasArt&&expansionEquipmentKey(item.key)?(type==='handgun'?([dir==='left'?.78:dir==='right'?.22:.5,dir==='left'||dir==='right'?.5:.78] as [number,number]):heldGrip(type,dir)):starred ? (type === 'bow' || type === 'handgun' ? [.5,.5] : 'dual' in item && item.dual ? [.5,.8] : [.8,.8]) : type === 'katana' ? [.2,.8] : item.key === 'w_hw_coffin' ? [.5,.16] : item.key === 'w_hero_sword' ? [.5,.823] : hasArt || paintedWeapon ? heldGrip(type,dir) : [.5,.65];
       const size = heldArtSize(type) * (item.key === 's_hw_emerald' ? 1.2 : item.key === 'w_hero_sword' ? 1.35 : 1) * Math.abs(body.scaleY) * artScale / .85;
       sprite.setVisible(true).setOrigin(ox,oy).setPosition(body.x + dx*cosine - dy*sine,body.y + dx*sine + dy*cosine)
         .setDisplaySize(size,size).setRotation(body.rotation + pose.angle).setFlipX(paintedWeapon && type === 'handgun' ? dir === 'left' : !!weapon?.dual && offhand && (dir === 'down' || dir === 'up'))

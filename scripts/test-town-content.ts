@@ -15,6 +15,6 @@ for(const element of ['light','dark'] as const){
 assert.equal(elementMultiplier('light','dark'),1.5);assert.equal(elementMultiplier('dark','light'),1.5);assert.equal(elementMultiplier('dark','dark'),.75);
 for(const item of [...added,...SHIELD_DEFS.filter(s=>expansionEquipmentKey(s.key)),...NECKLACE_DEFS]){
  await fs.access(`public/assets/online/equipment-v2/${item.key}.webp`);
- if('weaponType'in item){await fs.access(`public/assets/online/equipment-v2/held_${item.key}.png`);await fs.access(`public/assets/online/equipment-v2/star_${item.key}.webp`);if(item.weaponType==='bow')await fs.access(`public/assets/online/equipment-v2/arrow_${item.key}.webp`);if(item.weaponType==='katana')for(const prefix of ['','star_'])await fs.access(`public/assets/online/equipment-v2/sheath_${prefix}${item.key}.webp`);}
+ if('weaponType'in item){await fs.access(`public/assets/online/equipment-v2/held_star_${item.key}.png`);await fs.access(`public/assets/online/equipment-v2/held_${item.key}.png`);await fs.access(`public/assets/online/equipment-v2/star_${item.key}.webp`);if(item.weaponType==='bow')await fs.access(`public/assets/online/equipment-v2/arrow_${item.key}.webp`);if(item.weaponType==='katana')for(const prefix of ['','star_'])await fs.access(`public/assets/online/equipment-v2/sheath_${prefix}${item.key}.webp`);}
 }
 console.log(`PASS: seven necklace ranks, ${added.length} light/dark weapons match every existing elemental type/rank, matching shield tiers, reciprocal light/dark affinities, and all consumable icon/held/star/accessory files.`);
