@@ -1,0 +1,481 @@
+{
+  "status": "concept; no town geometry changed",
+  "tileSize": 48,
+  "central": {
+    "keepExisting": true,
+    "bounds": {
+      "x": 1,
+      "y": 1,
+      "w": 23,
+      "h": 17
+    }
+  },
+  "districts": [
+    {
+      "id": "north",
+      "name": "北・蒼樹住宅区",
+      "x": -4,
+      "y": -34
+    },
+    {
+      "id": "east",
+      "name": "東・朝陽住宅区",
+      "x": 26,
+      "y": -7
+    },
+    {
+      "id": "south",
+      "name": "南・花灯住宅区",
+      "x": -4,
+      "y": 20
+    },
+    {
+      "id": "west",
+      "name": "西・夕月住宅区",
+      "x": -34,
+      "y": -7
+    }
+  ],
+  "houses": [
+    {
+      "id": "north-1",
+      "name": "北1番地 · 小さなコテージ",
+      "district": "north",
+      "districtName": "北・蒼樹住宅区",
+      "tier": 1,
+      "price": 500000,
+      "x": 0,
+      "y": -29,
+      "w": 3,
+      "h": 3,
+      "doorX": 1,
+      "doorY": -27,
+      "width": 10,
+      "height": 9,
+      "collision": {
+        "x": 0,
+        "y": -29,
+        "w": 3,
+        "h": 3
+      },
+      "garden": {
+        "x": -1,
+        "y": -30,
+        "w": 5,
+        "h": 6
+      },
+      "gate": {
+        "x": 1,
+        "y": -25
+      }
+    },
+    {
+      "id": "north-5",
+      "name": "北5番地 · 二階建ての家",
+      "district": "north",
+      "districtName": "北・蒼樹住宅区",
+      "tier": 5,
+      "price": 2500000,
+      "x": 10,
+      "y": -20,
+      "w": 5,
+      "h": 5,
+      "doorX": 12,
+      "doorY": -16,
+      "width": 14,
+      "height": 12,
+      "collision": {
+        "x": 10,
+        "y": -20,
+        "w": 5,
+        "h": 5
+      },
+      "garden": {
+        "x": 9,
+        "y": -21,
+        "w": 7,
+        "h": 8
+      },
+      "gate": {
+        "x": 12,
+        "y": -14
+      }
+    },
+    {
+      "id": "north-9",
+      "name": "北9番地 · 王宮の大邸宅",
+      "district": "north",
+      "districtName": "北・蒼樹住宅区",
+      "tier": 9,
+      "price": 10000000,
+      "x": 20,
+      "y": -11,
+      "w": 7,
+      "h": 7,
+      "doorX": 23,
+      "doorY": -5,
+      "width": 24,
+      "height": 18,
+      "collision": {
+        "x": 20,
+        "y": -11,
+        "w": 7,
+        "h": 7
+      },
+      "garden": {
+        "x": 19,
+        "y": -12,
+        "w": 9,
+        "h": 10
+      },
+      "gate": {
+        "x": 23,
+        "y": -3
+      }
+    },
+    {
+      "id": "east-1",
+      "name": "東1番地 · 小さなコテージ",
+      "district": "east",
+      "districtName": "東・朝陽住宅区",
+      "tier": 1,
+      "price": 500000,
+      "x": 30,
+      "y": -2,
+      "w": 3,
+      "h": 3,
+      "doorX": 31,
+      "doorY": 0,
+      "width": 10,
+      "height": 9,
+      "collision": {
+        "x": 30,
+        "y": -2,
+        "w": 3,
+        "h": 3
+      },
+      "garden": {
+        "x": 29,
+        "y": -3,
+        "w": 5,
+        "h": 6
+      },
+      "gate": {
+        "x": 31,
+        "y": 2
+      }
+    },
+    {
+      "id": "east-5",
+      "name": "東5番地 · 二階建ての家",
+      "district": "east",
+      "districtName": "東・朝陽住宅区",
+      "tier": 5,
+      "price": 2500000,
+      "x": 40,
+      "y": 7,
+      "w": 5,
+      "h": 5,
+      "doorX": 42,
+      "doorY": 11,
+      "width": 14,
+      "height": 12,
+      "collision": {
+        "x": 40,
+        "y": 7,
+        "w": 5,
+        "h": 5
+      },
+      "garden": {
+        "x": 39,
+        "y": 6,
+        "w": 7,
+        "h": 8
+      },
+      "gate": {
+        "x": 42,
+        "y": 13
+      }
+    },
+    {
+      "id": "east-9",
+      "name": "東9番地 · 王宮の大邸宅",
+      "district": "east",
+      "districtName": "東・朝陽住宅区",
+      "tier": 9,
+      "price": 10000000,
+      "x": 50,
+      "y": 16,
+      "w": 7,
+      "h": 7,
+      "doorX": 53,
+      "doorY": 22,
+      "width": 24,
+      "height": 18,
+      "collision": {
+        "x": 50,
+        "y": 16,
+        "w": 7,
+        "h": 7
+      },
+      "garden": {
+        "x": 49,
+        "y": 15,
+        "w": 9,
+        "h": 10
+      },
+      "gate": {
+        "x": 53,
+        "y": 24
+      }
+    },
+    {
+      "id": "south-1",
+      "name": "南1番地 · 小さなコテージ",
+      "district": "south",
+      "districtName": "南・花灯住宅区",
+      "tier": 1,
+      "price": 500000,
+      "x": 0,
+      "y": 25,
+      "w": 3,
+      "h": 3,
+      "doorX": 1,
+      "doorY": 27,
+      "width": 10,
+      "height": 9,
+      "collision": {
+        "x": 0,
+        "y": 25,
+        "w": 3,
+        "h": 3
+      },
+      "garden": {
+        "x": -1,
+        "y": 24,
+        "w": 5,
+        "h": 6
+      },
+      "gate": {
+        "x": 1,
+        "y": 29
+      }
+    },
+    {
+      "id": "south-5",
+      "name": "南5番地 · 二階建ての家",
+      "district": "south",
+      "districtName": "南・花灯住宅区",
+      "tier": 5,
+      "price": 2500000,
+      "x": 10,
+      "y": 34,
+      "w": 5,
+      "h": 5,
+      "doorX": 12,
+      "doorY": 38,
+      "width": 14,
+      "height": 12,
+      "collision": {
+        "x": 10,
+        "y": 34,
+        "w": 5,
+        "h": 5
+      },
+      "garden": {
+        "x": 9,
+        "y": 33,
+        "w": 7,
+        "h": 8
+      },
+      "gate": {
+        "x": 12,
+        "y": 40
+      }
+    },
+    {
+      "id": "south-9",
+      "name": "南9番地 · 王宮の大邸宅",
+      "district": "south",
+      "districtName": "南・花灯住宅区",
+      "tier": 9,
+      "price": 10000000,
+      "x": 20,
+      "y": 43,
+      "w": 7,
+      "h": 7,
+      "doorX": 23,
+      "doorY": 49,
+      "width": 24,
+      "height": 18,
+      "collision": {
+        "x": 20,
+        "y": 43,
+        "w": 7,
+        "h": 7
+      },
+      "garden": {
+        "x": 19,
+        "y": 42,
+        "w": 9,
+        "h": 10
+      },
+      "gate": {
+        "x": 23,
+        "y": 51
+      }
+    },
+    {
+      "id": "west-1",
+      "name": "西1番地 · 小さなコテージ",
+      "district": "west",
+      "districtName": "西・夕月住宅区",
+      "tier": 1,
+      "price": 500000,
+      "x": -30,
+      "y": -2,
+      "w": 3,
+      "h": 3,
+      "doorX": -29,
+      "doorY": 0,
+      "width": 10,
+      "height": 9,
+      "collision": {
+        "x": -30,
+        "y": -2,
+        "w": 3,
+        "h": 3
+      },
+      "garden": {
+        "x": -31,
+        "y": -3,
+        "w": 5,
+        "h": 6
+      },
+      "gate": {
+        "x": -29,
+        "y": 2
+      }
+    },
+    {
+      "id": "west-5",
+      "name": "西5番地 · 二階建ての家",
+      "district": "west",
+      "districtName": "西・夕月住宅区",
+      "tier": 5,
+      "price": 2500000,
+      "x": -20,
+      "y": 7,
+      "w": 5,
+      "h": 5,
+      "doorX": -18,
+      "doorY": 11,
+      "width": 14,
+      "height": 12,
+      "collision": {
+        "x": -20,
+        "y": 7,
+        "w": 5,
+        "h": 5
+      },
+      "garden": {
+        "x": -21,
+        "y": 6,
+        "w": 7,
+        "h": 8
+      },
+      "gate": {
+        "x": -18,
+        "y": 13
+      }
+    },
+    {
+      "id": "west-9",
+      "name": "西9番地 · 王宮の大邸宅",
+      "district": "west",
+      "districtName": "西・夕月住宅区",
+      "tier": 9,
+      "price": 10000000,
+      "x": -10,
+      "y": 16,
+      "w": 7,
+      "h": 7,
+      "doorX": -7,
+      "doorY": 22,
+      "width": 24,
+      "height": 18,
+      "collision": {
+        "x": -10,
+        "y": 16,
+        "w": 7,
+        "h": 7
+      },
+      "garden": {
+        "x": -11,
+        "y": 15,
+        "w": 9,
+        "h": 10
+      },
+      "gate": {
+        "x": -7,
+        "y": 24
+      }
+    }
+  ],
+  "assetsToDraw": [
+    {
+      "name": "cobblestone",
+      "cell": 48,
+      "variants": 6
+    },
+    {
+      "name": "grass-edge",
+      "cell": 48,
+      "variants": 16
+    },
+    {
+      "name": "stone-fence",
+      "cell": 48,
+      "variants": 12
+    },
+    {
+      "name": "garden-flowers",
+      "cell": 48,
+      "variants": 8
+    },
+    {
+      "name": "small-house",
+      "footprint": "3x3",
+      "variants": 4
+    },
+    {
+      "name": "medium-house",
+      "footprint": "5x5",
+      "variants": 4
+    },
+    {
+      "name": "palace",
+      "footprint": "7x7",
+      "variants": 4
+    },
+    {
+      "name": "trees",
+      "footprint": "2x2",
+      "variants": 6
+    }
+  ],
+  "layers": [
+    "ground",
+    "ground-detail",
+    "collision",
+    "objects sorted by feet Y",
+    "canopy"
+  ],
+  "rules": [
+    "Central plaza keeps existing art and collision.",
+    "Outside house ownership IDs and entry points stay stable.",
+    "Generated overview is an art concept, not an exact coordinate screenshot.",
+    "Draw new isolated tile/object assets; never use overview as one background.",
+    "Keep a minimum 3-tile main path; do not block garden gates."
+  ]
+}

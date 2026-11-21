@@ -21,4 +21,4 @@ export function addLightDarkShields<T extends {key:string;name:string;element?:E
  return [...prototypes.values()].flatMap(d=>NEW_ELEMENTS.map(element=>({...d,key:`s_${element}_${d.grade.toLowerCase()}`,name:`${element==='light'?'黎光':'宵闇'}の護盾 [${d.grade}]`,element,exclusiveLoot:false,passive:{...d.passive,key:'element_guard',name:element==='light'?'光明障壁':'暗影障壁',description:`${element==='light'?'光':'闇'}属性の攻撃に強い`}})));
 }
 export const expansionEquipmentKey=(key:string)=>/^(?:w|s)_(?:light|dark)_/.test(key.replace(/^star_/,''));
-export const expansionArt=(key:string)=>`assets/online/equipment-v2/${key.replace(/^star_/,'')}.webp`;
+export const expansionArt=(key:string)=>/^w_dark_handgun_[cbs]$/.test(key.replace(/^star_/,''))?`assets/online/dark-gun-v4/${key.startsWith('star_')?'star':'normal'}.png`:`assets/online/equipment-v2/${key.replace(/^star_/,'')}.webp`;

@@ -1,3 +1,4 @@
+import {isTap} from './tapActions';
 import {HAIR_COLORS} from '../motionLab/wardrobe';
 import {mountCharacterPreview} from './characterPreview';
 import type {TownInteraction} from './townInteractions';
@@ -12,7 +13,7 @@ export function drawBarber(scene:any,n:TownInteraction){
  for(let i=0;i<6;i++){pole.fillStyle(i%2?0x28628b:0xb94749).fillRect(-3,i*8,10,4);}
  scene.add.text(x,y-76,'✂',{fontSize:'25px',color:'#ffe9ab',backgroundColor:'#163c45',padding:{x:9,y:2}}).setOrigin(.5).setDepth(n.y+1);
  booth.on('pointerover',()=>scene.hoverInteraction=n);booth.on('pointerout',()=>scene.hoverInteraction=undefined);
- booth.on('pointerdown',(p:any,_x:any,_y:any,e:any)=>{if(p.rightButtonDown()){e?.stopPropagation();void scene.tryInteract(n);}});
+ booth.on('pointerdown',(p:any,_x:any,_y:any,e:any)=>{if(p.rightButtonDown()||isTap(p)){e?.stopPropagation();if(isTap(p))scene.tapNpc(n);else void scene.tryInteract(n);}});
 }
 
 export function openBarber(scene:any){

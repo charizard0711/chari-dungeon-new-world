@@ -1,3 +1,4 @@
+import {isTap,startTapAction} from '../tapActions';
 import {EncounterClock,telegraphLabel,enemyMoveDuration} from './encounterClock';
 import {partyCanSee,partySightRadius} from './visibility';
 import {ADVENTURE_CONFIG as C,ADVENTURE_AREAS,ADVENTURE_PROPS,adventureAreaAt} from './layout';
@@ -26,7 +27,7 @@ export function mountAdventureView(scene:any){
  for(const p of interactProps){
   const key=p.kind==='chest'?`online_chest_${p.chestType??'common'}`:ATLAS[p.atlas??'detail'],frame=p.kind==='chest'?undefined:p.frame;
   const image=scene.add.image((p.x+.5)*T,(p.y+1)*T,key,frame).setOrigin(.5,1).setDisplaySize(p.w?p.w*T:p.size,p.h?p.h*T:p.size).setDepth(p.y+.8).setInteractive();props.set(p.id,image);
-  image.on('pointerdown',(pointer:any,_x:any,_y:any,event:any)=>{event?.stopPropagation();if(!pointer.rightButtonDown()||scene.busy||scene.hud?.overlayMode!=='none')return;scene.interactAdventure(p.id);});image.on('pointerover',()=>scene.adventureHover=p.id);image.on('pointerout',()=>scene.adventureHover=undefined);
+  image.on('pointerdown',(pointer:any,_x:any,_y:any,event:any)=>{event?.stopPropagation();if(!(pointer.rightButtonDown()||isTap(pointer))||scene.busy||scene.hud?.overlayMode!=='none')return;if(isTap(pointer))startTapAction(scene,{x:p.x,y:p.y,reach:1,run:()=>scene.interactAdventure(p.id)});else scene.interactAdventure(p.id);});image.on('pointerover',()=>scene.adventureHover=p.id);image.on('pointerout',()=>scene.adventureHover=undefined);
  }
  let signature='',warningSignature='',hp=scene.player.hp;const encounterClock=new EncounterClock();
  function hit(n:any){n.hitUntil=scene.time.now+220;scene.tweens.killTweensOf(n.body);n.body.setAngle(-5).setX(-3).setTint(0xffced5);scene.tweens.add({targets:n.body,angle:4,x:3,duration:45,yoyo:true,repeat:1,onComplete:()=>{if(n.body.active)n.body.setAngle(0).setX(0).clearTint();}});}
@@ -35,7 +36,7 @@ export function mountAdventureView(scene:any){
   const body=scene.add.image(0,0,key,directional?(e.elite?(e.id==='weaver'?4:0):(mob?.row??0)*4)+(DIRECTION[e.dir as keyof typeof DIRECTION]??0):undefined).setOrigin(.5,1).setDisplaySize(size,size).setInteractive();
   const shadow=scene.add.ellipse(0,-2,size*.45,8,0x000000,.25),bar=scene.add.graphics(),label=scene.add.text(0,-size-12,e.name,{fontFamily:'Meiryo',fontSize:e.boss?'14px':'10px',color:e.boss?'#ffceef':'#e4d9bd',stroke:'#081018',strokeThickness:3}).setOrigin(.5),root=scene.add.container((e.x+.5)*T,(e.y+.95)*T,[shadow,body,bar,label]).setDepth(e.y+.85).setName('adventure-enemy-'+e.id);
   const n={mob,key,root,body,bar,label,size,hp:e.hp,x:e.x,y:e.y,dir:e.dir??'down',moving:false,attackBeat:e.attackBeat??-1,hitUntil:0,dead:false,queue:[] as {x:number;y:number}[],stepTarget:undefined as {x:number;y:number}|undefined,stepping:false,stepDuration:480,lastFacing:e.dir??'down'};
-  body.on('pointerdown',(pointer:any,_x:any,_y:any,event:any)=>{event?.stopPropagation();if(scene.busy||scene.hud?.overlayMode!=='none')return;const target=scene.packet.adventure.snapshot.enemies.find((m:any)=>m.id===e.id);if(!target||target.hp<=0)return;if(pointer.rightButtonDown()){const dx=target.x-scene.player.x,dy=target.y-scene.player.y;void scene.performAttack(Math.abs(dx)>Math.abs(dy)?dx>0?'right':'left':dy>0?'down':'up');}else{const choices=[[1,0],[-1,0],[0,1],[0,-1]].map(([dx,dy])=>({x:target.x+dx,y:target.y+dy})).filter(p=>!scene.blocked(p.x,p.y)&&!scene.enemyAt(p.x,p.y));choices.sort((a,b)=>Math.abs(a.x-scene.player.x)+Math.abs(a.y-scene.player.y)-Math.abs(b.x-scene.player.x)-Math.abs(b.y-scene.player.y));scene.destination=choices[0];}});return n;
+  body.on('pointerdown',(pointer:any,_x:any,_y:any,event:any)=>{event?.stopPropagation();if(scene.busy||scene.hud?.overlayMode!=='none')return;const target=scene.packet.adventure.snapshot.enemies.find((m:any)=>m.id===e.id);if(!target||target.hp<=0)return;if(isTap(pointer)){scene.tapEnemy(target.x,target.y);return;}if(pointer.rightButtonDown()){const dx=target.x-scene.player.x,dy=target.y-scene.player.y;void scene.performAttack(Math.abs(dx)>Math.abs(dy)?dx>0?'right':'left':dy>0?'down':'up');}else{const choices=[[1,0],[-1,0],[0,1],[0,-1]].map(([dx,dy])=>({x:target.x+dx,y:target.y+dy})).filter(p=>!scene.blocked(p.x,p.y)&&!scene.enemyAt(p.x,p.y));choices.sort((a,b)=>Math.abs(a.x-scene.player.x)+Math.abs(a.y-scene.player.y)-Math.abs(b.x-scene.player.x)-Math.abs(b.y-scene.player.y));scene.destination=choices[0];}});return n;
  }
  function advanceEnemy(n:any){
   if(n.stepping||n.dead||!n.root.active)return;

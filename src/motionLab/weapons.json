@@ -1562,12 +1562,12 @@
     "weaponType": "handgun",
     "element": "dark",
     "exclusiveLoot": false,
-    "icon": "/assets/online/equipment-v2/w_dark_handgun_s.webp",
+    "icon": "/assets/online/dark-gun-v4/normal.png",
     "held": "/assets/online/equipment-v2/held_w_dark_handgun_s.png",
     "directional": true,
     "star": "/assets/online/equipment-v2/held_star_w_dark_handgun_s.png",
     "starDirectional": true,
-    "starIcon": "/assets/online/item-icons-v3/star_w_dark_handgun_s.webp"
+    "starIcon": "/assets/online/dark-gun-v4/star.png"
   },
   {
     "key": "w_light_dagger_d",
@@ -1794,12 +1794,12 @@
     "weaponType": "handgun",
     "element": "dark",
     "exclusiveLoot": false,
-    "icon": "/assets/online/equipment-v2/w_dark_handgun_c.webp",
+    "icon": "/assets/online/dark-gun-v4/normal.png",
     "held": "/assets/online/equipment-v2/held_w_dark_handgun_c.png",
     "directional": true,
     "star": "/assets/online/equipment-v2/held_star_w_dark_handgun_c.png",
     "starDirectional": true,
-    "starIcon": "/assets/online/item-icons-v3/star_w_dark_handgun_c.webp"
+    "starIcon": "/assets/online/dark-gun-v4/star.png"
   },
   {
     "key": "w_light_handgun_b",
@@ -1832,12 +1832,12 @@
     "weaponType": "handgun",
     "element": "dark",
     "exclusiveLoot": false,
-    "icon": "/assets/online/equipment-v2/w_dark_handgun_b.webp",
+    "icon": "/assets/online/dark-gun-v4/normal.png",
     "held": "/assets/online/equipment-v2/held_w_dark_handgun_b.png",
     "directional": true,
     "star": "/assets/online/equipment-v2/held_star_w_dark_handgun_b.png",
     "starDirectional": true,
-    "starIcon": "/assets/online/item-icons-v3/star_w_dark_handgun_b.webp"
+    "starIcon": "/assets/online/dark-gun-v4/star.png"
   },
   {
     "key": "w_light_lance_b",

@@ -17,3 +17,5 @@
 .town-chat,.town-chat *:not(input),.online-screen button,.online-panel button,.town-chat button,.town-entry-loading{cursor:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2232%22%20height%3D%2232%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cpath%20d%3D%22M4%203L25%2018%2015%2019%2010%2029Z%22%20fill%3D%22%23d9b562%22%20stroke%3D%22%23171810%22%20stroke-width%3D%222%22%2F%3E%3Cpath%20d%3D%22M7%207L20%2016%2013%2016%2010%2023Z%22%20fill%3D%22%23fff0b2%22%2F%3E%3C%2Fsvg%3E") 4 3,default!important}
 
 .town-chat-tabs button:last-child{min-width:100px;padding:5px 10px;border:1px solid #b6a16d;border-radius:4px;color:#fff0bb;background:#244343;font-size:12px}.town-chat.compact .town-chat-tabs button:last-child{background:#325954}
+
+.town-chat-tabs button{padding:3px 7px;white-space:nowrap}.town-chat-tabs button:last-child{min-width:0;padding:3px 6px}.town-chat-tabs{gap:4px}.town-chat-tabs button:nth-child(3){color:#77ed96}.town-chat-tabs button:nth-child(4){color:#cd9aff}
