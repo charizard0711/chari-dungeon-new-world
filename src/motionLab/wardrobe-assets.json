@@ -1,0 +1,294 @@
+{
+  "leather_male": {
+    "path": "/assets/characters/weapon-rig-v4/body.png",
+    "cols": 8,
+    "rows": 4,
+    "directions": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "arms": "/assets/characters/weapon-rig-v4/arms.png"
+  },
+  "crimson_male": {
+    "path": "/assets/characters/hood-face-v6/crimson_male.png",
+    "cols": 8,
+    "rows": 4,
+    "directions": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "arms": "/assets/characters/wardrobe-v5/crimson-arms.png"
+  },
+  "crimson_female": {
+    "path": "/assets/characters/hood-face-v6/crimson_female.png",
+    "cols": 8,
+    "rows": 4,
+    "directions": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "arms": "/assets/characters/wardrobe-v5/crimson-arms.png"
+  },
+  "aqua_male": {
+    "path": "/assets/characters/hood-face-v6/aqua.png",
+    "cols": 7,
+    "rows": 8,
+    "directions": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "arms": "/assets/characters/wardrobe-v5/aqua-arms.png",
+    "rowBounds": [
+      0,
+      162,
+      316,
+      471,
+      630,
+      790,
+      944,
+      1099,
+      1254
+    ]
+  },
+  "aqua_female": {
+    "path": "/assets/characters/hood-face-v6/aqua.png",
+    "cols": 7,
+    "rows": 8,
+    "directions": [
+      4,
+      5,
+      6,
+      7
+    ],
+    "arms": "/assets/characters/wardrobe-v5/aqua-arms.png",
+    "rowBounds": [
+      0,
+      162,
+      316,
+      471,
+      630,
+      790,
+      944,
+      1099,
+      1254
+    ]
+  },
+  "plate_male": {
+    "path": "/assets/characters/wardrobe-v5/plate.png",
+    "cols": 7,
+    "rows": 8,
+    "directions": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "arms": "/assets/characters/wardrobe-v5/plate-arms.png",
+    "rowBounds": [
+      0,
+      172,
+      332,
+      487,
+      645,
+      819,
+      967,
+      1110,
+      1254
+    ]
+  },
+  "plate_female": {
+    "path": "/assets/characters/wardrobe-v5/plate.png",
+    "cols": 7,
+    "rows": 8,
+    "directions": [
+      4,
+      5,
+      6,
+      7
+    ],
+    "arms": "/assets/characters/wardrobe-v5/plate-arms.png",
+    "rowBounds": [
+      0,
+      172,
+      332,
+      487,
+      645,
+      819,
+      967,
+      1110,
+      1254
+    ]
+  },
+  "arcane_male": {
+    "path": "/assets/characters/wardrobe-v5/arcane.png",
+    "cols": 6,
+    "rows": 8,
+    "directions": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "arms": "/assets/characters/wardrobe-v5/arcane-arms.png",
+    "rowBounds": [
+      0,
+      165,
+      321,
+      475,
+      630,
+      790,
+      948,
+      1102,
+      1254
+    ]
+  },
+  "arcane_female": {
+    "path": "/assets/characters/wardrobe-v5/arcane.png",
+    "cols": 6,
+    "rows": 8,
+    "directions": [
+      4,
+      5,
+      6,
+      7
+    ],
+    "arms": "/assets/characters/wardrobe-v5/arcane-arms.png",
+    "rowBounds": [
+      0,
+      165,
+      321,
+      475,
+      630,
+      790,
+      948,
+      1102,
+      1254
+    ]
+  },
+  "chain_male": {
+    "path": "/assets/characters/wardrobe-v5/chain.png",
+    "cols": 6,
+    "rows": 7,
+    "directions": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "arms": "/assets/characters/wardrobe-v5/chain-arms.png",
+    "rowBounds": [
+      0,
+      196,
+      376,
+      552,
+      737,
+      899,
+      1046,
+      1254
+    ]
+  },
+  "leather_female": {
+    "path": "/assets/characters/wardrobe-v5/leather_female.png",
+    "cols": 8,
+    "rows": 4,
+    "directions": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "arms": "/assets/characters/weapon-rig-v4/arms.png"
+  },
+  "dragon_male": {
+    "path": "/assets/characters/wardrobe-v5/dragon_male.png",
+    "cols": 8,
+    "rows": 4,
+    "directions": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "arms": "/assets/characters/wardrobe-v5/dragon-arms.png"
+  },
+  "dawn_male": {
+    "path": "/assets/characters/wardrobe-v5/dawn_male.png",
+    "cols": 8,
+    "rows": 4,
+    "directions": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "arms": "/assets/characters/wardrobe-v5/dawn-arms.png"
+  },
+  "pumpkin_male_male": {
+    "path": "/assets/characters/wardrobe-v5/pumpkin_male.png",
+    "cols": 8,
+    "rows": 4,
+    "directions": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "arms": "/assets/characters/wardrobe-v5/pumpkin-arms.png"
+  },
+  "dragon_female": {
+    "path": "/assets/characters/wardrobe-v5/dragon_female.png",
+    "cols": 8,
+    "rows": 4,
+    "directions": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "arms": "/assets/characters/wardrobe-v5/dragon-arms.png"
+  },
+  "dawn_female": {
+    "path": "/assets/characters/wardrobe-v5/dawn_female.png",
+    "cols": 8,
+    "rows": 4,
+    "directions": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "arms": "/assets/characters/wardrobe-v5/dawn-arms.png"
+  },
+  "pumpkin_female_female": {
+    "path": "/assets/characters/wardrobe-v5/pumpkin_female.png",
+    "cols": 8,
+    "rows": 4,
+    "directions": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "arms": "/assets/characters/wardrobe-v5/pumpkin-arms.png"
+  },
+  "chain_female": {
+    "path": "/assets/characters/wardrobe-v5/chain_female.png",
+    "cols": 8,
+    "rows": 4,
+    "directions": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "arms": "/assets/characters/wardrobe-v5/chain-arms.png"
+  }
+}

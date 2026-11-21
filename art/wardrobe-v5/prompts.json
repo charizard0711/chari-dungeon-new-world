@@ -1,0 +1,366 @@
+{
+  "manifest": {
+    "leather_male": {
+      "path": "/assets/characters/weapon-rig-v4/body.png",
+      "cols": 8,
+      "rows": 4,
+      "directions": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "arms": "/assets/characters/weapon-rig-v4/arms.png"
+    },
+    "crimson_male": {
+      "path": "/assets/characters/wardrobe-v5/crimson_male.png",
+      "cols": 8,
+      "rows": 4,
+      "directions": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "arms": "/assets/characters/wardrobe-v5/crimson-arms.png"
+    },
+    "crimson_female": {
+      "path": "/assets/characters/wardrobe-v5/crimson_female.png",
+      "cols": 8,
+      "rows": 4,
+      "directions": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "arms": "/assets/characters/wardrobe-v5/crimson-arms.png"
+    },
+    "aqua_male": {
+      "path": "/assets/characters/wardrobe-v5/aqua.png",
+      "cols": 7,
+      "rows": 8,
+      "directions": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "arms": "/assets/characters/wardrobe-v5/aqua-arms.png"
+    },
+    "aqua_female": {
+      "path": "/assets/characters/wardrobe-v5/aqua.png",
+      "cols": 7,
+      "rows": 8,
+      "directions": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "arms": "/assets/characters/wardrobe-v5/aqua-arms.png"
+    },
+    "plate_male": {
+      "path": "/assets/characters/wardrobe-v5/plate.png",
+      "cols": 7,
+      "rows": 8,
+      "directions": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "arms": "/assets/characters/wardrobe-v5/plate-arms.png"
+    },
+    "plate_female": {
+      "path": "/assets/characters/wardrobe-v5/plate.png",
+      "cols": 7,
+      "rows": 8,
+      "directions": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "arms": "/assets/characters/wardrobe-v5/plate-arms.png"
+    },
+    "arcane_male": {
+      "path": "/assets/characters/wardrobe-v5/arcane.png",
+      "cols": 6,
+      "rows": 8,
+      "directions": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "arms": "/assets/characters/wardrobe-v5/arcane-arms.png"
+    },
+    "arcane_female": {
+      "path": "/assets/characters/wardrobe-v5/arcane.png",
+      "cols": 6,
+      "rows": 8,
+      "directions": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "arms": "/assets/characters/wardrobe-v5/arcane-arms.png"
+    },
+    "chain_male": {
+      "path": "/assets/characters/wardrobe-v5/chain.png",
+      "cols": 6,
+      "rows": 7,
+      "directions": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "arms": "/assets/characters/wardrobe-v5/chain-arms.png"
+    },
+    "leather_female": {
+      "path": "/assets/characters/wardrobe-v5/leather_female.png",
+      "cols": 8,
+      "rows": 4,
+      "directions": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "arms": "/assets/characters/weapon-rig-v4/arms.png"
+    },
+    "dragon_male": {
+      "path": "/assets/characters/wardrobe-v5/dragon_male.png",
+      "cols": 8,
+      "rows": 4,
+      "directions": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "arms": "/assets/characters/wardrobe-v5/dragon-arms.png"
+    },
+    "dawn_male": {
+      "path": "/assets/characters/wardrobe-v5/dawn_male.png",
+      "cols": 8,
+      "rows": 4,
+      "directions": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "arms": "/assets/characters/wardrobe-v5/dawn-arms.png"
+    },
+    "pumpkin_male_male": {
+      "path": "/assets/characters/wardrobe-v5/pumpkin_male.png",
+      "cols": 8,
+      "rows": 4,
+      "directions": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "arms": "/assets/characters/wardrobe-v5/pumpkin-arms.png"
+    },
+    "dragon_female": {
+      "path": "/assets/characters/wardrobe-v5/dragon_female.png",
+      "cols": 8,
+      "rows": 4,
+      "directions": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "arms": "/assets/characters/wardrobe-v5/dragon-arms.png"
+    },
+    "dawn_female": {
+      "path": "/assets/characters/wardrobe-v5/dawn_female.png",
+      "cols": 8,
+      "rows": 4,
+      "directions": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "arms": "/assets/characters/wardrobe-v5/dawn-arms.png"
+    },
+    "pumpkin_female_female": {
+      "path": "/assets/characters/wardrobe-v5/pumpkin_female.png",
+      "cols": 8,
+      "rows": 4,
+      "directions": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "arms": "/assets/characters/wardrobe-v5/pumpkin-arms.png"
+    },
+    "chain_female": {
+      "path": "/assets/characters/wardrobe-v5/chain_female.png",
+      "cols": 8,
+      "rows": 4,
+      "directions": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "arms": "/assets/characters/wardrobe-v5/chain-arms.png"
+    }
+  },
+  "generations": [
+    {
+      "key": "leather",
+      "kind": "body",
+      "prompt": "Create a production transparent RPG character BODY animation atlas. Input 1 is exact body proportions, detailed painted sprite style and walking layout reference; input 2 is the exact equipment costume design to faithfully wear. chestnut brown leather cross-body armor, diagonal leather chest strap, brass buckles, dark navy trousers, brown boots; dark teal scarf as the character reference. Strong opaque saturated colors, no washed-out areas. EXACTLY 8 columns x 8 rows, 64 equal square cells. 2048x2048 image. Each cell full figure centered, head at 8%, feet near 90%; generous margins, no clipping. First 4 rows male: front/down, left, right, back/up. Last 4 rows female: front/down, left, right, back/up. Female has a more elegant narrower waist/shoulders and feminine face, same adventurer body height, fully clothed. Each row shows 8 distinct evenly spaced walking poses covering one complete left/right leg gait. THIS IS A MODULAR BODY LAYER: show head, torso, shoulder caps and legs, OMIT both arms/hands below the shoulder sockets so game-controlled arm layers can be attached. Not injured people, a puppet animation asset. No weapons, shields, text, borders, labels or ground shadows. Brown hair: short tousled male hair, female swept bangs and short tied-back bob not covering shoulders. Preserve the attractive 3-head-tall proportions of reference. Match costume icon ornament, material and colors, including back of costume; no generic costume replacement.",
+      "source": "Generated images are saved to C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9 as C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9\\exec-af298658-e39a-4daf-acda-eff9626918fc.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link."
+    },
+    {
+      "key": "leather_female",
+      "kind": "body",
+      "prompt": "Redraw input1 as a visibly FEMALE adventurer wearing input2 leather armor and teal scarf. Keep exact 8 columns x4 rows, wide 2:1 atlas, 32 walking cells. ROW1 FRONT toward viewer, ROW2 LEFT, ROW3 RIGHT, ROW4 BACK. Eight walking gait phases each. Adult woman, attractive feminine face, large expressive eyes, brown swept bangs and short tied bob, elegant slim fully clothed body, fitted leather breastplate and narrow waist, navy pants brown boots. Keep 3-head-tall RPG sprite proportion and world height. Detailed richly colored game illustration, not a male recolor. Modular body layer: head, torso with shoulder caps, legs/boots, scarf; no arms or hands below shoulder sockets. Exact walking leg phases and even cell placement from input1, feet baseline90% eachcell, head8%, all parts insidecell. Match brown leather straps, buckles and chest design from equipment icon. Transparent background, no weapons, no labels, no borders, no shadows. Do not add rows or genders, ALL 32 are the SAME WOMAN.",
+      "source": "Generated images are saved to C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9 as C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9\\exec-6acb54e0-f439-489d-b8b0-9e2a3a5cda85.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link."
+    },
+    {
+      "key": "chain",
+      "kind": "body",
+      "prompt": "Use input1 only as RPG body proportions and painterly sprite style reference, input2 as EXACT armor clothing design. Make a new transparent SQUARE atlas, precisely SEVEN columns and EIGHT rows (56 full body puppet sprites). Costume: dense silver interlocking chainmail tunic with dark brown leather neck trim and belt, charcoal trousers, steel-capped dark boots; no teal scarf. All 7 poses in a row are successive phases of a full smooth walking cycle. Rows 1,2,3,4: MALE front, left profile, right profile, BACK. Rows 5,6,7,8: FEMALE front, left profile, right profile, BACK. Back rows show back of head/coat, no face/chest. Distinct feminine face and slimmer waist for female, same 3-head-tall heroic proportions and body height. Brown hair, short tousled male / short swept-back bob female. These are modular animation body parts: heads, clothed torso with shoulder caps, legs and boots only, OMIT both arms below shoulder joints; no floating hands. Every sprite centered in its equal cell, same size, full feet and hair inside the cell. Opaque saturated high-contrast detailed fantasy game sprites, accurate metallic/material details from icon. No weapons, no shields, no labels, no lines, no ground or shadows. Transparent background. Do not add extra columns or merge rows.",
+      "source": "Generated images are saved to C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9 as C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9\\exec-de903db7-dfb7-4af8-8676-c474938beb78.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link."
+    },
+    {
+      "key": "chain_female",
+      "kind": "body",
+      "prompt": "EDIT input1 into a distinctly FEMALE adventurer wearing exact costume input2. Preserve exactly 8 columns and 4 rows, wide 2:1 atlas, 32 sprites. Row1 FRONT, row2 LEFT, row3 RIGHT, row4 BACK with back of head/coat and no face. Do not omit back row. Eight different consecutive walking phases eachrow. All 32 are the SAME adult woman, feminine face, swept brown short bob, elegant narrower shoulder/waist, same 3-head-tall body proportion. Costume: dense silver interlocking chainmail tunic with dark brown leather neck trim and belt, charcoal trousers, steel-capped dark boots; no teal scarf.  Closely match armor icon ornaments, colors, materials and chest shape. Saturated opaque painted fantasy game style with dark detailed outlines. Technical modular body layer: head, torso, shoulder caps, legs only, OMIT both arms and hands below shoulders. Fully clothed, clean puppet sockets, no injuries. Keep all sprites entirely inside equalcells, no clipping. Transparent background. No weapons, shields, shadows, text, border, additional rows, other genders.",
+      "source": "Generated images are saved to C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9 as C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9\\exec-221a6ea0-71f5-4c92-b836-5314ec736670.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link."
+    },
+    {
+      "key": "chain",
+      "kind": "arms",
+      "prompt": "Create transparent modular game-character ARM CLOTHING PARTS matching this equipment icon precisely. dense silver interlocking chainmail tunic with dark brown leather neck trim and belt, charcoal trousers, steel-capped dark boots; no teal scarf. EXACTLY 4 columns x 3 rows, twelve isolated puppet costume pieces, no complete characters. Row1 four upper arm sleeves (shoulder at top, elbow bottom), frontal/left/right/back view. Row2 four forearm bracers (elbow top wrist bottom), same views. Row3 four armored gripping gloves with curled fingers around an invisible handle, wrist at top, same views. Rich painted game sprite style with dark outlines, strong opaque materials, gold/metal/cloth detail matching input icon. Each object centered with 20% transparent padding in uniform cells. No weapons, no background, no text, no shadows, no extra pieces. Upper arm and forearm similar length, gloves smaller. These are animation puppet clothing components.",
+      "source": "Generated images are saved to C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9 as C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9\\exec-6ab329fb-9a61-462f-8112-3c71097a4be6.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link."
+    },
+    {
+      "key": "plate",
+      "kind": "body",
+      "prompt": "Use input1 only as RPG body proportions and painterly sprite style reference, input2 as EXACT armor clothing design. Make a new transparent SQUARE atlas, precisely SEVEN columns and EIGHT rows (56 full body puppet sprites). Costume: polished cool silver steel knight breastplate, layered round silver shoulder caps, brown diagonal shoulder straps and belt, black undersuit, steel greaves; no scarf. All 7 poses in a row are successive phases of a full smooth walking cycle. Rows 1,2,3,4: MALE front, left profile, right profile, BACK. Rows 5,6,7,8: FEMALE front, left profile, right profile, BACK. Back rows show back of head/coat, no face/chest. Distinct feminine face and slimmer waist for female, same 3-head-tall heroic proportions and body height. Brown hair, short tousled male / short swept-back bob female. These are modular animation body parts: heads, clothed torso with shoulder caps, legs and boots only, OMIT both arms below shoulder joints; no floating hands. Every sprite centered in its equal cell, same size, full feet and hair inside the cell. Opaque saturated high-contrast detailed fantasy game sprites, accurate metallic/material details from icon. No weapons, no shields, no labels, no lines, no ground or shadows. Transparent background. Do not add extra columns or merge rows.",
+      "source": "Generated images are saved to C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9 as C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9\\exec-b88a3af4-6a5a-4bcd-bba8-faa946d4ab4a.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link."
+    },
+    {
+      "key": "plate",
+      "kind": "arms",
+      "prompt": "Make a transparent 4-COLUMN 3-ROW sprite atlas of TWELVE separated single ARM animation puppet parts, matching the equipment icon material: smooth silver steel upper-arm plates and gauntlets over black cloth. Row1: four SINGLE UPPER ARM sleeve tubes, shoulder socket at top elbow bottom; front,left,right,back view. Row2: four SINGLE FOREARM bracers, elbow top wrist bottom; same views. Row3: four single closed gripping gloved hands, wrist top curled fingers bottom; same views. Each part is isolated centered in equalcell, 25%padding, no crossing cell boundaries. One arm ONLY per cell. Upper arm just a sleeve tube, NOT pauldrons or torso. NO head, hood, cape, cloak, chest, body, legs, shoulder decorations, weapons, labels or shadows. Detailed opaque saturated fantasy game artwork matching icon.",
+      "source": "Generated images are saved to C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9 as C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9\\exec-80285fd8-b46a-44c4-8759-a77f813ed1a6.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link."
+    },
+    {
+      "key": "arcane",
+      "kind": "body",
+      "prompt": "Use input1 only as RPG body proportions and painterly sprite style reference, input2 as EXACT armor clothing design. Make a new transparent SQUARE atlas, precisely SEVEN columns and EIGHT rows (56 full body puppet sprites). Costume: deep midnight navy arcane long coat with gold piping and vivid cyan runic center panel, high collar, pointed gold hem and blue gems, dark boots; no scarf. All 7 poses in a row are successive phases of a full smooth walking cycle. Rows 1,2,3,4: MALE front, left profile, right profile, BACK. Rows 5,6,7,8: FEMALE front, left profile, right profile, BACK. Back rows show back of head/coat, no face/chest. Distinct feminine face and slimmer waist for female, same 3-head-tall heroic proportions and body height. Brown hair, short tousled male / short swept-back bob female. These are modular animation body parts: heads, clothed torso with shoulder caps, legs and boots only, OMIT both arms below shoulder joints; no floating hands. Every sprite centered in its equal cell, same size, full feet and hair inside the cell. Opaque saturated high-contrast detailed fantasy game sprites, accurate metallic/material details from icon. No weapons, no shields, no labels, no lines, no ground or shadows. Transparent background. Do not add extra columns or merge rows.",
+      "source": "Generated images are saved to C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9 as C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9\\exec-88c20777-b3f2-4600-a707-170bdda18962.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link."
+    },
+    {
+      "key": "arcane",
+      "kind": "arms",
+      "prompt": "Make a transparent 4-COLUMN 3-ROW sprite atlas of TWELVE separated single ARM animation puppet parts, matching the equipment icon material: midnight navy sleeves with thin ornate gold piping, cyan rune wrist bracers, navy leather gloves. Row1: four SINGLE UPPER ARM sleeve tubes, shoulder socket at top elbow bottom; front,left,right,back view. Row2: four SINGLE FOREARM bracers, elbow top wrist bottom; same views. Row3: four single closed gripping gloved hands, wrist top curled fingers bottom; same views. Each part is isolated centered in equalcell, 25%padding, no crossing cell boundaries. One arm ONLY per cell. Upper arm just a sleeve tube, NOT pauldrons or torso. NO head, hood, cape, cloak, chest, body, legs, shoulder decorations, weapons, labels or shadows. Detailed opaque saturated fantasy game artwork matching icon.",
+      "source": "Generated images are saved to C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9 as C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9\\exec-cb6ec5f0-98a3-4e2d-be6f-ac5921e359fd.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link."
+    },
+    {
+      "key": "dragon_male",
+      "kind": "body",
+      "prompt": "EDIT the first reference into a MALE character wearing exactly the second reference costume. Preserve EXACT 8 columns x4 rows, 32 walking poses, wide 2:1 sheet. Row1 front toward viewer, row2 left profile, row3 right profile, row4 BACK facing away (no face). Preserve eight gait phases, leg positions and even cell layout. Costume: jet black segmented dragon-scale plate with rich crimson V chest plates, gold hornlike shoulder ornaments, ruby center gem and crimson/gold fauld, black greaves; no scarf. ALL characters male. Short tousled brown hair, adult male adventurer. Detailed saturated painted fantasy sprite, opaque colors. Match equipment icon chest, shoulders, belts, materials and colors. Modular BODY layer only: head, torso and shoulder caps, legs; omit arms and hands below shoulder sockets. No weapons or shields. Characters fully contained in cells, same height. Transparent background, no text/borders/shadows. Do not add rows or genders.",
+      "source": "Generated images are saved to C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9 as C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9\\exec-51188c06-267c-4e13-8f2d-5ae47e9d4aee.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link."
+    },
+    {
+      "key": "dragon_female",
+      "kind": "body",
+      "prompt": "EDIT input1 into a distinctly FEMALE adventurer wearing exact costume input2. Preserve exactly 8 columns and 4 rows, wide 2:1 atlas, 32 sprites. Row1 FRONT, row2 LEFT, row3 RIGHT, row4 BACK with back of head/coat and no face. Do not omit back row. Eight different consecutive walking phases eachrow. All 32 are the SAME adult woman, feminine face, swept brown short bob, elegant narrower shoulder/waist, same 3-head-tall body proportion. Costume: jet black segmented dragon-scale plate with rich crimson V chest plates, gold hornlike shoulder ornaments, ruby center gem and crimson/gold fauld, black greaves; no scarf.  Closely match armor icon ornaments, colors, materials and chest shape. Saturated opaque painted fantasy game style with dark detailed outlines. Technical modular body layer: head, torso, shoulder caps, legs only, OMIT both arms and hands below shoulders. Fully clothed, clean puppet sockets, no injuries. Keep all sprites entirely inside equalcells, no clipping. Transparent background. No weapons, shields, shadows, text, border, additional rows, other genders.",
+      "source": "Generated images are saved to C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9 as C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9\\exec-fc253ab6-7d78-4f8f-b08b-1cab857fc239.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link."
+    },
+    {
+      "key": "dragon",
+      "kind": "arms",
+      "prompt": "Make a transparent 4-COLUMN 3-ROW sprite atlas of TWELVE separated single ARM animation puppet parts, matching the equipment icon material: black and crimson segmented plate, narrow gold trims, red gem wrist bracers, black gold gauntlets. Row1: four SINGLE UPPER ARM sleeve tubes, shoulder socket at top elbow bottom; front,left,right,back view. Row2: four SINGLE FOREARM bracers, elbow top wrist bottom; same views. Row3: four single closed gripping gloved hands, wrist top curled fingers bottom; same views. Each part is isolated centered in equalcell, 25%padding, no crossing cell boundaries. One arm ONLY per cell. Upper arm just a sleeve tube, NOT pauldrons or torso. NO head, hood, cape, cloak, chest, body, legs, shoulder decorations, weapons, labels or shadows. Detailed opaque saturated fantasy game artwork matching icon.",
+      "source": "Generated images are saved to C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9 as C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9\\exec-dbaf442e-31b2-459b-9c5d-412c8a5dd9e3.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link."
+    },
+    {
+      "key": "dawn_male",
+      "kind": "body",
+      "prompt": "EDIT the first reference into a MALE character wearing exactly the second reference costume. Preserve EXACT 8 columns x4 rows, 32 walking poses, wide 2:1 sheet. Row1 front toward viewer, row2 left profile, row3 right profile, row4 BACK facing away (no face). Preserve eight gait phases, leg positions and even cell layout. Costume: opaque ivory-white holy plate, engraved gold filigree and solar motifs, broad gold/white pauldrons, white gold fauld, elegant white greaves; head uncovered, no scarf. ALL characters male. Short tousled brown hair, adult male adventurer. Detailed saturated painted fantasy sprite, opaque colors. Match equipment icon chest, shoulders, belts, materials and colors. Modular BODY layer only: head, torso and shoulder caps, legs; omit arms and hands below shoulder sockets. No weapons or shields. Characters fully contained in cells, same height. Transparent background, no text/borders/shadows. Do not add rows or genders.",
+      "source": "Generated images are saved to C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9 as C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9\\exec-76891bcf-b647-4c13-b6a0-897e91a5932f.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link."
+    },
+    {
+      "key": "dawn_female",
+      "kind": "body",
+      "prompt": "EDIT input1 into a distinctly FEMALE adventurer wearing exact costume input2. Preserve exactly 8 columns and 4 rows, wide 2:1 atlas, 32 sprites. Row1 FRONT, row2 LEFT, row3 RIGHT, row4 BACK with back of head/coat and no face. Do not omit back row. Eight different consecutive walking phases eachrow. All 32 are the SAME adult woman, feminine face, swept brown short bob, elegant narrower shoulder/waist, same 3-head-tall body proportion. Costume: opaque ivory-white holy plate, engraved gold filigree and solar motifs, broad gold/white pauldrons, white gold fauld, elegant white greaves; head uncovered, no scarf.  Closely match armor icon ornaments, colors, materials and chest shape. Saturated opaque painted fantasy game style with dark detailed outlines. Technical modular body layer: head, torso, shoulder caps, legs only, OMIT both arms and hands below shoulders. Fully clothed, clean puppet sockets, no injuries. Keep all sprites entirely inside equalcells, no clipping. Transparent background. No weapons, shields, shadows, text, border, additional rows, other genders.",
+      "source": "Generated images are saved to C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9 as C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9\\exec-92c73ec8-19b3-4c3f-b7b5-6e85617b2f63.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link."
+    },
+    {
+      "key": "dawn",
+      "kind": "arms",
+      "prompt": "Make a transparent 4-COLUMN 3-ROW sprite atlas of TWELVE separated single ARM animation puppet parts, matching the equipment icon material: ivory-white steel sleeves with fine gold filigree, white gold wrist bracers and gloves. Row1: four SINGLE UPPER ARM sleeve tubes, shoulder socket at top elbow bottom; front,left,right,back view. Row2: four SINGLE FOREARM bracers, elbow top wrist bottom; same views. Row3: four single closed gripping gloved hands, wrist top curled fingers bottom; same views. Each part is isolated centered in equalcell, 25%padding, no crossing cell boundaries. One arm ONLY per cell. Upper arm just a sleeve tube, NOT pauldrons or torso. NO head, hood, cape, cloak, chest, body, legs, shoulder decorations, weapons, labels or shadows. Detailed opaque saturated fantasy game artwork matching icon.",
+      "source": "Generated images are saved to C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9 as C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9\\exec-1d7200d7-bd02-497c-91ed-aa4066205f91.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link."
+    },
+    {
+      "key": "aqua",
+      "kind": "body",
+      "prompt": "Create a production transparent RPG character BODY animation atlas. Input 1 is exact body proportions, detailed painted sprite style and walking layout reference; input 2 is the exact equipment costume design to faithfully wear. majestic IVORY WHITE HOODED DARK LORD armor, full raised pointed white hood covering ALL hair and crown from EVERY direction, shadowed face inside a dark teal hood opening; ivory plate with gold filigree, cyan blue gems and dragon-head shoulder armor; white cape with teal lining; regal angular silhouette exactly as icon. Strong opaque saturated colors, no washed-out areas. EXACTLY 8 columns x 8 rows, 64 equal square cells. 2048x2048 image. Each cell full figure centered, head at 8%, feet near 90%; generous margins, no clipping. First 4 rows male: front/down, left, right, back/up. Last 4 rows female: front/down, left, right, back/up. Female has a more elegant narrower waist/shoulders and feminine face, same adventurer body height, fully clothed. Each row shows 8 distinct evenly spaced walking poses covering one complete left/right leg gait. THIS IS A MODULAR BODY LAYER: show head, torso, shoulder caps and legs, OMIT both arms/hands below the shoulder sockets so game-controlled arm layers can be attached. Not injured people, a puppet animation asset. No weapons, shields, text, borders, labels or ground shadows. Raised hood fully covers all hair and crown from every view; shadowed face visible only inside hood; do not expose brown hair at back. Match costume icon ornament, material and colors, including back of costume; no generic costume replacement.",
+      "source": "Generated images are saved to C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9 as C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9\\exec-e1b8ce02-56fe-4715-bda9-812842f2d7fa.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link."
+    },
+    {
+      "key": "aqua",
+      "kind": "arms",
+      "prompt": "Transparent 4 columns x3 rows atlas of TWELVE SINGLE ARM PIECES for a game puppet. ivory WHITE plate with gold edges and cyan blue gems, teal cloth beneath. Do NOT draw full costume: no hood, no cape, no chest, no shoulder dragon ornament, no pair of arms together. Each cell EXACTLY ONE narrow limb part. Row1 FOUR plain upper-arm sleeve tubes, shoulder joint at top and elbow at bottom, front/left/right/back. Row2 FOUR forearm bracers elbow top wrist bottom front/left/right/back. Row3 FOUR gripping gloves wrist top fingers bottom front/left/right/back. Upper-arm sleeves are simple tubes with layered plate, NOT shoulder pieces. Twelve separate objects of comparable footprint, 25% transparent padding in equalcells. High-detail painted RPG art. Reference is COLOR AND MATERIAL ONLY, do not copy torso silhouette. No writing, no background, no weapons.",
+      "source": "Generated images are saved to C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9 as C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9\\exec-81e45d3c-bec0-4b68-855d-44aa6d8906ef.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link."
+    },
+    {
+      "key": "crimson",
+      "kind": "body",
+      "prompt": "Use case: precise-object-edit. Create a game-ready transparent CHARACTER BODY SPRITE ATLAS using input 1 as exact character proportions/rendering style and input 2 as exact costume design. This is a modular puppet body layer with head, torso, shoulder caps, cape and legs, WITHOUT upper arms, forearms or hands (clean clothing sockets, no injuries). Costume: majestic BLACK AND CRIMSON HOODED DARK LORD armor, full raised pointed black hood covering ALL hair and crown from EVERY direction, deeply shadowed face in crimson hood opening; black plate with gold filigree and ruby gems, gold black dragon-head shoulder armor, crimson cape with black outer folds; intimidating regal angular silhouette exactly as icon. RICH solid colors, opaque detailed pixels, strong dark contours. No weapons. Exactly 8 columns by 8 rows, 64 equal square cells on a 2048x2048 transparent canvas. Every cell contains exactly ONE full-body character centered with feet at 90% cell height and head at 8%, no cropping or overlapping. Rows 1-4 are MALE facing front/down, left, right, back/up respectively. Rows 5-8 are FEMALE facing front/down, left, right, back/up respectively. Female has clearly feminine face and narrower elegant torso, equally fully armored. Each row is a smooth complete 8-frame WALK CYCLE, alternate left/right strides, planted foot, passing foot, lift, opposite stride; NO duplicate static poses. Match the source's 3-head-tall attractive RPG figure. ALL 64 wear the same black hooded outfit. Hood completely covers hair/back of head. No exposed brown hair. No labels, no frames, no text, no background or ground shadows. Keep exact uniform 8x8 grid.",
+      "source": "Generated images are saved to C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9 as C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9\\exec-e709ab0d-79c7-4176-bedb-97ad5ff900d6.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link."
+    },
+    {
+      "key": "crimson_male",
+      "kind": "body",
+      "prompt": "EDIT input 1 into a MALE costume sprite atlas. Input 2 is the EXACT costume reference. Preserve input 1's EXACT 8 columns by 4 rows, 32 cells, 2:1 wide sheet. Do not add or remove rows. Row1 FRONT facing viewer; row2 LEFT profile; row3 RIGHT profile; row4 BACK facing away with NO FACE visible. ALL FOUR rows must exist. Preserve all eight individual leg walking poses in each row, same root/height/cell alignment. Replace torso, legs, headgear and shoulder caps with: majestic BLACK AND CRIMSON HOODED DARK LORD armor, full raised pointed black hood covering ALL hair and crown from EVERY direction, deeply shadowed face in crimson hood opening; black plate with gold filigree and ruby gems, gold black dragon-head shoulder armor, crimson cape with black outer folds; intimidating regal angular silhouette exactly as icon. Adult male adventurer body. Match the source's detailed rich painted fantasy game style. This is a modular torso/legs layer: no arms or hands below the shoulder cap, clean puppet sockets. No weapons. Keep cape readable and all hair fully hidden within the raised hood; row4 is the BACK of the hood and cape, no face or chest gems. Every sprite fully contained in its cell. Transparent background, opaque solid rich armor color, no text, no shadows. Output same 2:1 proportions as input1.",
+      "source": "Generated images are saved to C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9 as C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9\\exec-dfd63860-fa6b-487e-9e17-7d5a6f05d317.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link."
+    },
+    {
+      "key": "crimson_female",
+      "kind": "body",
+      "prompt": "EDIT input 1 into a FEMALE costume sprite atlas. Input 2 is the EXACT costume reference. Preserve input 1's EXACT 8 columns by 4 rows, 32 cells, 2:1 wide sheet. Do not add or remove rows. Row1 FRONT facing viewer; row2 LEFT profile; row3 RIGHT profile; row4 BACK facing away with NO FACE visible. ALL FOUR rows must exist. Preserve all eight individual leg walking poses in each row, same root/height/cell alignment. Replace torso, legs, headgear and shoulder caps with: majestic BLACK AND CRIMSON HOODED DARK LORD armor, full raised pointed black hood covering ALL hair and crown from EVERY direction, deeply shadowed face in crimson hood opening; black plate with gold filigree and ruby gems, gold black dragon-head shoulder armor, crimson cape with black outer folds; intimidating regal angular silhouette exactly as icon. Adult female adventurer body, subtly narrower shoulders and waist, elegant feminine proportion, same height. Match the source's detailed rich painted fantasy game style. This is a modular torso/legs layer: no arms or hands below the shoulder cap, clean puppet sockets. No weapons. Keep cape readable and all hair fully hidden within the raised hood; row4 is the BACK of the hood and cape, no face or chest gems. Every sprite fully contained in its cell. Transparent background, opaque solid rich armor color, no text, no shadows. Output same 2:1 proportions as input1.",
+      "source": "Generated images are saved to C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9 as C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9\\exec-c4db94b9-d5a1-4dfc-a519-22ec89483614.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link."
+    },
+    {
+      "key": "crimson",
+      "kind": "arms",
+      "prompt": "Transparent 4 columns x3 rows atlas of TWELVE SINGLE ARM PIECES for a game puppet. BLACK plate with gold edges and ruby red gems, dark crimson cloth beneath. Do NOT draw full costume: no hood, no cape, no chest, no shoulder dragon ornament, no pair of arms together. Each cell EXACTLY ONE narrow limb part. Row1 FOUR plain upper-arm sleeve tubes, shoulder joint at top and elbow at bottom, front/left/right/back. Row2 FOUR forearm bracers elbow top wrist bottom front/left/right/back. Row3 FOUR gripping gloves wrist top fingers bottom front/left/right/back. Upper-arm sleeves are simple tubes with layered plate, NOT shoulder pieces. Twelve separate objects of comparable footprint, 25% transparent padding in equalcells. High-detail painted RPG art. Reference is COLOR AND MATERIAL ONLY, do not copy torso silhouette. No writing, no background, no weapons.",
+      "source": "Generated images are saved to C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9 as C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9\\exec-6b0e1c85-567d-4478-9217-50925e29c937.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link."
+    },
+    {
+      "key": "pumpkin_male",
+      "kind": "body",
+      "prompt": "EDIT the first reference into a MALE character wearing exactly the second reference costume. Preserve EXACT 8 columns x4 rows, 32 walking poses, wide 2:1 sheet. Row1 front toward viewer, row2 left profile, row3 right profile, row4 BACK facing away (no face). Preserve eight gait phases, leg positions and even cell layout. Costume: Halloween costume: male wears ornate purple and golden pumpkin knight coat, female wears rich purple witch dress with gold hem and boots, BOTH have orange jack-o-lantern pumpkin HEAD with green stem (female purple ribbon), match their icons. ALL characters male. Pumpkin helmet HEAD in every view, no human hair. Detailed saturated painted fantasy sprite, opaque colors. Match equipment icon chest, shoulders, belts, materials and colors. Modular BODY layer only: head, torso and shoulder caps, legs; omit arms and hands below shoulder sockets. No weapons or shields. Characters fully contained in cells, same height. Transparent background, no text/borders/shadows. Do not add rows or genders.",
+      "source": "Generated images are saved to C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9 as C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9\\exec-8faa1e68-e332-4b48-8b84-1f7561208fae.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link."
+    },
+    {
+      "key": "pumpkin_female",
+      "kind": "body",
+      "prompt": "EDIT input1 into a distinctly FEMALE adventurer wearing exact costume input2. Preserve exactly 8 columns and 4 rows, wide 2:1 atlas, 32 sprites. Row1 FRONT, row2 LEFT, row3 RIGHT, row4 BACK with back of head/coat and no face. Do not omit back row. Eight different consecutive walking phases eachrow. All 32 are the SAME adult woman, feminine face, swept brown short bob, elegant narrower shoulder/waist, same 3-head-tall body proportion. Costume: Halloween costume: male wears ornate purple and golden pumpkin knight coat, female wears rich purple witch dress with gold hem and boots, BOTH have orange jack-o-lantern pumpkin HEAD with green stem (female purple ribbon), match their icons. FEMALE WITCH outfit only, pumpkin head with purple ribbon, purple gold skirt and boots, no human hair. Closely match armor icon ornaments, colors, materials and chest shape. Saturated opaque painted fantasy game style with dark detailed outlines. Technical modular body layer: head, torso, shoulder caps, legs only, OMIT both arms and hands below shoulders. Fully clothed, clean puppet sockets, no injuries. Keep all sprites entirely inside equalcells, no clipping. Transparent background. No weapons, shields, shadows, text, border, additional rows, other genders.",
+      "source": "Generated images are saved to C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9 as C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9\\exec-d7b7d765-eacd-4f27-a711-08e925224843.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link."
+    },
+    {
+      "key": "pumpkin",
+      "kind": "arms",
+      "prompt": "Make a transparent 4-COLUMN 3-ROW sprite atlas of TWELVE separated single ARM animation puppet parts, matching the equipment icon material: purple velvet sleeves, gold edging, golden cuff ornaments, purple gold gloves. Row1: four SINGLE UPPER ARM sleeve tubes, shoulder socket at top elbow bottom; front,left,right,back view. Row2: four SINGLE FOREARM bracers, elbow top wrist bottom; same views. Row3: four single closed gripping gloved hands, wrist top curled fingers bottom; same views. Each part is isolated centered in equalcell, 25%padding, no crossing cell boundaries. One arm ONLY per cell. Upper arm just a sleeve tube, NOT pauldrons or torso. NO head, hood, cape, cloak, chest, body, legs, shoulder decorations, weapons, labels or shadows. Detailed opaque saturated fantasy game artwork matching icon.",
+      "source": "Generated images are saved to C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9 as C:\\Users\\masam\\.codex\\generated_images\\01a1ed2e-c820-70d0-8428-db389f5c65b9\\exec-f2d19b94-9f20-4a2f-a6aa-5a03742b8873.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link."
+    }
+  ]
+}

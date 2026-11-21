@@ -6,6 +6,7 @@ import { emailLanguage } from './emailLanguage';
 import { installOnlineScenes } from './townScene';
 import {installGamePresentation,type TownAudioSettings} from './presentation';
 import {mountCharacterPreview} from './characterPreview';
+import {HAIR_COLORS} from '../motionLab/wardrobe';
 import {mountTownLoading} from './townLoading';
 import { world, type WorldState } from './worldApi';
 
@@ -44,7 +45,7 @@ export function mountOnlineLobby(scene:Phaser.Scene) {
     const slots=node('div');slots.className='online-character-grid';
     for(let slot=1;slot<=2;slot++){
       const character=state.characters.find(c=>c.slot===slot),card=node('section');card.className='online-character-card';card.append(node('h3',`キャラクター ${slot}`));
-      if(character){const sprite=mountCharacterPreview(scene,character);card.append(sprite,node('strong',character.name),node('p',character.gender==='male'?'男 · レベル1':'女 · レベル1'),button('町へ入場',()=>void run(()=>enter(character.id))));}
+      if(character){const sprite=mountCharacterPreview(scene,character);card.append(sprite,node('strong',character.name),node('p',character.gender==='male'?'男 · レベル1':'女 · レベル1'));const hair=node('select');hair.setAttribute('aria-label',character.name+'の髪色');for(const color of HAIR_COLORS){const option=node('option',color.name);option.value=color.key;hair.append(option);}hair.value=character.hair_color??'brown';hair.onchange=()=>void run(async()=>characters(await world('appearance_hair',{character_id:character.id,hair_color:hair.value})));const label=node('label','髪色 ');label.append(hair);card.append(label,button('町へ入場',()=>void run(()=>enter(character.id))));}
       else card.append(node('p','空きスロット'),button('キャラクター作成',()=>createCharacter(state)));
       slots.append(card);
     }
@@ -55,10 +56,10 @@ export function mountOnlineLobby(scene:Phaser.Scene) {
     const form=node('form');form.setAttribute('aria-label','キャラクター作成');let gender:'male'|'female'='male';
     const choices=node('div');choices.className='online-character-grid';
     const genders:HTMLButtonElement[]=[];
-    for(const value of ['male','female'] as const){const choice=button(value==='male'?'男':'女',()=>{gender=value;genders.forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.gender===value)));});choice.className='online-gender-choice';choice.dataset.gender=value;choice.setAttribute('aria-pressed',String(value===gender));const sprite=node('div');sprite.className='online-character-sprite';sprite.style.backgroundImage=`url(assets/characters/player-painted-v1/${value}-leather.png)`;choice.prepend(sprite);genders.push(choice);choices.append(choice);}
+    for(const value of ['male','female'] as const){const choice=button(value==='male'?'男':'女',()=>{gender=value;genders.forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.gender===value)));});choice.className='online-gender-choice';choice.dataset.gender=value;choice.setAttribute('aria-pressed',String(value===gender));const sprite=mountCharacterPreview(scene,{id:'preview-'+value,slot:1,name:value==='male'?'男':'女',gender:value,hp:100,inventory:{},gear:{weapon:true,weapon_key:'w_iron_dagger',armor:true,armor_key:'leather'}});choice.prepend(sprite);genders.push(choice);choices.append(choice);}
     const name=node('input');name.required=true;name.minLength=2;name.maxLength=12;name.setAttribute('autocomplete','nickname');const label=node('label','冒険者名（2〜12文字）');label.append(name);
-    const submit=node('button','作成して町へ');submit.type='submit';form.append(choices,label,submit);
-    form.onsubmit=e=>{e.preventDefault();void run(async()=>{if(!form.reportValidity())return;const updated=await world('create_character',{name:name.value.trim(),gender});const created=updated.characters.find(c=>!state.characters.some(old=>old.id===c.id));if(!created)throw Error('キャラクター一覧を更新してください。');await enter(created.id);});};
+    const hair=node('select');hair.setAttribute('aria-label','作成するキャラクターの髪色');for(const color of HAIR_COLORS){const option=node('option',color.name);option.value=color.key;hair.append(option);}const hairLabel=node('label','髪色');hairLabel.append(hair);const submit=node('button','作成して町へ');submit.type='submit';form.append(choices,label,hairLabel,submit);
+    form.onsubmit=e=>{e.preventDefault();void run(async()=>{if(!form.reportValidity())return;const updated=await world('create_character',{name:name.value.trim(),gender});const created=updated.characters.find(c=>!state.characters.some(old=>old.id===c.id));if(!created)throw Error('キャラクター一覧を更新してください。');if(hair.value!=='brown')await world('appearance_hair',{character_id:created.id,hair_color:hair.value});await enter(created.id);});};
     root.append(form,notice,button('キャラクター選択へ戻る',()=>characters(state)));
   };
   const servers=()=>{

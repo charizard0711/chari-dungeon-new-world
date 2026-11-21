@@ -1037,6 +1037,7 @@ export class UIScene extends Phaser.Scene {
       this.paperDoll.setTexture(playerSheetKey(this.gs.playerGender, this.gs.playerArmor), playerFrameIndex('down', 'idle'));
       const dollSize = p.weapon?.key === 'w_hero_sword' ? 82 : 116;
       this.paperDoll.setDisplaySize(dollSize, dollSize);
+      this.paperDoll.setData('hairColor',(this.gs as any).packet?.active?.hair_color??'brown');
       this.paperDollEquipment?.update(this.paperDoll,p.weapon,p.shield,'down','idle',this.gs.playerGender);
     }
 

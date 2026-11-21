@@ -1,0 +1,20 @@
+{
+  "tool": "built-in image_gen",
+  "body": {
+    "source": "public/assets/characters/motion-study-v2/walk.png",
+    "prompt": "Edit this exact game character walk sprite sheet into a modular animation BODY LAYER. Preserve the original 8 columns by 4 rows layout, all 32 characters, all leg poses, all facial features, saturated colors, scarves, leather torso details, character scale and position exactly. Remove ONLY BOTH ARMS including hands from every character, from the shoulder joint down; leave the chest, shoulder cap on torso, neck scarf, head, hips and both legs unchanged. This is a technical cutout animation puppet torso layer, not injured people; clean jacket shoulder sockets with no gore. Do NOT draw weapons. Do NOT add or rearrange cells. Transparent background. Four rows front,left,right,back. Reference is the edit target, preserve style exactly. Output same wide 2:1 sheet.",
+    "output": "public/assets/characters/weapon-rig-v4/body.png"
+  },
+  "arms": {
+    "source": "public/assets/characters/motion-study-v2/walk.png",
+    "prompt": "Create modular animation ARM PARTS matching this exact game character's chestnut leather sleeves, bronze bracers and tan leather gloves. Transparent sprite atlas, exactly 4 columns x 3 rows, 12 separate parts. Row1: four upper-arm sleeves, shoulder at top elbow at bottom, vertical, front/left/right/back view. Row2: four forearms with bronze wrist bracers, elbow at top wrist at bottom, vertical, front/left/right/back. Row3: four small closed gripping hands, wrist at top knuckles at bottom, curled fingers around an invisible narrow handle, front/left/right/back. Each object centered in its own equal square cell with 20% padding. Opaque rich painted game sprite art, dark defined edges. No full characters, no weapons, no text, no background, no shadows. These are leather costume puppet parts. Reference is exact style/color guide. Upper arm length and forearm length comparable, hands smaller.",
+    "output": "public/assets/characters/weapon-rig-v4/arms.png"
+  },
+  "gunAngles": {
+    "status": "not generated: image tool rejection; original asset retained",
+    "prompts": [
+      "Technical game weapon turnaround of the EXACT existing flintlock pistol in reference. Preserve its identity: long burgundy cylindrical barrel, ornate engraved gold lion relief, orange-red glowing chamber, curved dark wooden grip with gold lion head butt, original proportions and silhouette. NO redesign, no new shape, no futuristic parts. Add ONLY missing camera angles, transparent alpha. Square atlas 2 columns x 2 rows, 4 isolated pistols, no text or hands: top left exact side view muzzle points RIGHT matching reference; top right muzzle aimed TOWARD camera with elevated 3/4 RPG camera (see circular gold muzzle front, grip below and behind it); bottom left muzzle aimed AWAY from camera with elevated 3/4 RPG camera (see back of hammer, red chamber, barrel receding upward, grip below); bottom right side view muzzle LEFT, upright grip downward. All center gripped area at 50% cell width 70% cell height. Each pistol fully within own cell with padding. Highly faithful object consistency. Existing side image will remain used unchanged; these are supplementary direction frames only.",
+      "Game inventory artwork supplementary angle sheet. The reference is a fictional ornate fantasy game item, gold lion ornament, burgundy tube, red jewel, curved wood grip. Preserve the EXACT reference design and colors. Transparent background. 2x2 equal cell sprite atlas: top left same right-facing side view as reference, top right front view, bottom left back view, bottom right left-facing side view. Elevated isometric RPG camera. Each complete object centered separately with generous padding, no text, no hands, no scene. Consistent size and same design in every cell. This is only a 2D game art asset, not real technical documentation."
+    ]
+  }
+}

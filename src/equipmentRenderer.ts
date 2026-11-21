@@ -1,4 +1,5 @@
 import {drawSmallGlints} from './online/smallGlints';
+import {CharacterRig} from './online/characterRig';
 import {expansionEquipmentKey} from './townEquipment';
 import { katanaSlashColor } from './equipmentAccessories';
 import { requestEquipmentArt } from './lazyEquipmentArt';
@@ -13,6 +14,7 @@ import { PLAYER_FRAME_SIZE, type PlayerGender, type PlayerVisualFrame } from './
 
 /** Persistent equipment layers, including a waist scabbard for sheathed katana. */
 export class EquipmentRenderer {
+  readonly characterRig:CharacterRig;
   readonly weapon: Phaser.GameObjects.Image;
   readonly offhand: Phaser.GameObjects.Image;
   readonly scabbard: Phaser.GameObjects.Image;
@@ -24,6 +26,7 @@ export class EquipmentRenderer {
   private scabbardAura: LegendaryAura;
   private fittingAura: LegendaryAura;
   constructor(private scene: Phaser.Scene) {
+    this.characterRig=new CharacterRig(scene,()=>{this.weapon.setVisible(false);this.offhand.setVisible(false);this.scabbard.setVisible(false);this.waistFitting.setVisible(false);this.swordAura.enabled=this.shieldAura.enabled=this.scabbardAura.enabled=this.fittingAura.enabled=false;});
     this.weapon = scene.add.image(0,0,'w_soldier_blade').setVisible(false);
     this.waistFitting = scene.add.image(0, 0, 'katana_waist_fitting_v3').setVisible(false);
     this.scabbard = scene.add.image(0, 0, 'katana_scabbard_v2').setVisible(false);
@@ -155,6 +158,10 @@ export class EquipmentRenderer {
       sprite.setVisible(true).setOrigin(ox,oy).setPosition(body.x + dx*cosine - dy*sine,body.y + dx*sine + dy*cosine)
         .setDisplaySize(size,size).setRotation(body.rotation + pose.angle).setFlipX(paintedWeapon && type === 'handgun' ? dir === 'left' : !!weapon?.dual && offhand && (dir === 'down' || dir === 'up'))
         .setDepth(body.depth + pose.depth).setAlpha(body.alpha).clearTint();
+    }
+    if(this.characterRig.update(body,weapon,shield,dir,frame,gender,elapsed,enabled)){
+      this.weapon.setVisible(false);this.offhand.setVisible(false);this.scabbard.setVisible(false);this.waistFitting.setVisible(false);
+      this.swordAura.enabled=this.shieldAura.enabled=this.scabbardAura.enabled=this.fittingAura.enabled=false;
     }
   }
 }
