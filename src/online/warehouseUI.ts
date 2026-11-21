@@ -1,13 +1,29 @@
-import {createAmountControl} from './amountControl';
+import {createAmountControl,amountValue} from './amountControl';
 import {ITEM_CATALOG,type CatalogEntry} from '../itemCatalog';
 import type {Entry} from './equipmentUI';
 import type {EquipmentSlot,OnlineCharacter} from './worldApi';
 import './warehouseUI.css';
+import {trackPointerDrag} from './pointerDrag';
 const node=<K extends keyof HTMLElementTagNameMap>(tag:K,text='')=>{const n=document.createElement(tag);n.textContent=text;return n;};
 export function mountWarehouseUI(root:HTMLElement,gs:any,owned:()=>Entry[],makeIcon:(e:Entry)=>HTMLElement,changed:()=>void){
  const panel=node('section');panel.className='town-warehouse';panel.hidden=true;panel.setAttribute('role','dialog');panel.setAttribute('aria-label','キャラクター倉庫');
  const header=node('header'),title=node('h2','倉庫'),exit=node('button','町へ戻る');exit.type='button';header.append(title,exit);const columns=node('div');columns.className='warehouse-columns';const status=node('footer','アイテムを選んで預ける・取り出す。装備は耐久や色違いもそのまま保存されます。');status.setAttribute('role','status');panel.append(header,columns,status);root.append(panel);
  let active=true,busy=false,signature='',selected=['',''];const drafts=new Map<string,string>();
+ let cancelDrag:(()=>void)|undefined,dragging=false,suppressClick=false;
+ function beginDrag(event:PointerEvent,e:Entry,side:number,source:HTMLElement){
+  if(event.button!==0||busy||gs.requestBusy||e.count<1)return;
+  cancelDrag?.();let ghost:HTMLElement|undefined;const target=columns.children[1-side] as HTMLElement;
+  const inside=(p:PointerEvent)=>{const r=target.getBoundingClientRect();return p.clientX>=r.left&&p.clientX<=r.right&&p.clientY>=r.top&&p.clientY<=r.bottom;};
+  dragging=true;
+  cancelDrag=trackPointerDrag(window,event,{move(p){
+   if(!ghost&&Math.hypot(p.clientX-event.clientX,p.clientY-event.clientY)<6)return;
+   p.preventDefault();if(!ghost){ghost=source.cloneNode(true) as HTMLElement;ghost.classList.add('warehouse-drag-ghost');ghost.removeAttribute('id');document.body.append(ghost);}
+   ghost.style.left=`${p.clientX+12}px`;ghost.style.top=`${p.clientY+12}px`;target.classList.toggle('warehouse-drop-target',inside(p));
+  },end(p){const drop=!!ghost&&!!p&&inside(p);suppressClick=!!ghost;ghost?.remove();target.classList.remove('warehouse-drop-target');dragging=false;cancelDrag=undefined;
+   if(drop){const n=e.category==='item'?amountValue(drafts.get(side+':'+key(e))??'1'):1;if(!Number.isSafeInteger(n)||n<1||n>e.count){status.textContent='個数・金額を確認してください。';return;}void perform(side===0?'warehouse_deposit':'warehouse_withdraw',{category:e.key==='gold'?'gold':e.category,key:e.key,instanceId:e.instance?.id,amount:n});}
+   setTimeout(()=>{suppressClick=false;},0);
+  }});
+ }
  const key=(e:Entry)=>e.instance?.id??e.key;
  function stored():Entry[]{const c=gs.packet.active as OnlineCharacter|undefined,w=c?.warehouse;if(!w)return[];const result:Entry[]=[];
   result.push({key:'gold',category:'item',index:0,count:w.gold??0,equipped:false,definition:{key:'gold',name:'所持金',category:'item',textureKey:'coin',summary:'お金',description:'お金'}});
@@ -18,10 +34,11 @@ export function mountWarehouseUI(root:HTMLElement,gs:any,owned:()=>Entry[],makeI
  exit.onclick=()=>void perform('warehouse_exit',{});
  function render(){if(!active)return;const c=gs.packet.active as OnlineCharacter|undefined;panel.hidden=c?.location!=='warehouse';if(panel.hidden)return;title.textContent=`${c?.name??''}の倉庫`;exit.disabled=busy;columns.replaceChildren();
   for(const side of [0,1]){const list=side===0?owned():stored(),section=node('section'),heading=node('h3',side===0?'持ち物':'キャラクター倉庫'),grid=node('div');grid.className='warehouse-grid';grid.setAttribute('aria-label',side===0?'持ち物一覧':'倉庫一覧');if(!list.some(e=>key(e)===selected[side]))selected[side]=list[0]?key(list[0]):'';
-   for(const entry of list){const b=makeIcon(entry) as HTMLButtonElement;b.classList.toggle('selected',key(entry)===selected[side]);b.onclick=()=>{selected[side]=key(entry);render();};grid.append(b);}
+   for(const entry of list){const b=makeIcon(entry) as HTMLButtonElement;b.draggable=false;b.ondragstart=()=>false;b.onpointerdown=event=>beginDrag(event,entry,side,b);b.classList.toggle('selected',key(entry)===selected[side]);b.onclick=()=>{if(suppressClick)return;selected[side]=key(entry);render();};grid.append(b);}
    const entry=list.find(e=>key(e)===selected[side]),detail=node('div');detail.className='warehouse-detail';if(entry){const e=entry;detail.append(node('strong',e.definition.name+(e.key.startsWith('star_')?' ★ 色違い':'')),node('p',e.key==='gold'?`${e.count.toLocaleString()} G`:e.category==='item'?`${e.count} 個`:e.instance?.max?`耐久 ${e.instance.dur} / ${e.instance.max}${e.equipped?' · 装備中（預けると外れます）':''}`:e.definition.description.split('\n')[0]));const draftKey=side+':'+key(e),control=createAmountControl(`${side===0?'預ける':'取り出す'}個数・金額`,e.count,drafts.get(draftKey)??'1',value=>drafts.set(draftKey,value)),amount=control.input;if(e.category==='item')detail.append(control.root);const button=node('button',side===0?'預ける →':'← 取り出す');button.type='button';button.disabled=busy||e.count<1;button.onclick=()=>{const n=e.category==='item'?control.value():1;if(!Number.isSafeInteger(n)||n<1||n>e.count){status.textContent='個数・金額を確認してください。';return;}void perform(side===0?'warehouse_deposit':'warehouse_withdraw',{category:e.key==='gold'?'gold':e.category,key:e.key,instanceId:e.instance?.id,amount:n});};detail.append(button);}else detail.append(node('p','まだアイテムはありません。'));
    section.append(heading,grid,detail);columns.append(section);
   }
  }
- return{exit:()=>perform('warehouse_exit',{}),refresh(){const next=JSON.stringify([gs.packet.active?.warehouse,gs.packet.active?.inventory,gs.packet.active?.instances,gs.packet.active?.gold,gs.packet.active?.location]);if(next===signature)return;if(panel.contains(document.activeElement)&&document.activeElement instanceof HTMLInputElement)return;signature=next;render();},destroy(){active=false;panel.remove();}};
+ status.textContent='左右の欄へドラッグして預ける・取り出す。個数は下の入力欄で指定できます。';
+ return{exit:()=>perform('warehouse_exit',{}),refresh(){if(dragging)return;const next=JSON.stringify([gs.packet.active?.warehouse,gs.packet.active?.inventory,gs.packet.active?.instances,gs.packet.active?.gold,gs.packet.active?.location]);if(next===signature)return;if(panel.contains(document.activeElement)&&document.activeElement instanceof HTMLInputElement)return;signature=next;render();},destroy(){active=false;cancelDrag?.();panel.remove();}};
 }

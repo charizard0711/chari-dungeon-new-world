@@ -4,10 +4,11 @@ import {townBlocked} from '../src/online/townLayout';import {townPath} from '../
 const{db,login,rpc}=await makeHousingDb();const users=[1,2,3].map(n=>`${n}1111111-1111-4111-8111-111111111111`),chars:string[]=[];
 try{
  for(const uid of users){await db.query('insert into auth.users values($1)',[uid]);await login(uid);let s=await rpc('create_character',{name:'House '+chars.length,gender:'male'});chars.push(s.characters[0].id);await rpc('join',{character_id:chars.at(-1)});}
- assert.equal(HOUSES.length,36);for(const region of ['north','east','south','west'])assert.equal(HOUSES.filter(h=>h.district===region).length,9);
+ assert.equal(HOUSES.length,12);for(const region of ['north','east','south','west'])assert.equal(HOUSES.filter(h=>h.district===region).length,3);
  const cells=(await db.query('select x,y,online_town_blocked(x,y)blocked from generate_series(-35,59)gx(x)cross join generate_series(-35,53)gy(y)')).rows;
  for(const c of cells)assert.equal(townBlocked(c.x,c.y),c.blocked,`collision parity ${c.x},${c.y}`);
  for(const h of HOUSES)assert.ok(townPath({x:12,y:14},{x:h.doorX,y:h.doorY+1},[],townBlocked).length,`${h.id} entrance reachable`);
+ const vacant=HOUSES[0];await db.query('update online_presence set x=$1,y=$2 where user_id=$3',[vacant.doorX,vacant.doorY+1,users[2]]);await assert.rejects(()=>rpc('house_enter',{house_id:vacant.id}));
  await login(users[0]);await db.query('update online_characters set gold=20000000 where id=$1',[chars[0]]);
  await assert.rejects(()=>rpc('house_buy',{house_id:'north-1'}));await db.query('update online_presence set x=16,y=3 where user_id=$1',[users[0]]);
  let s=await rpc('house_buy',{house_id:'north-1'});assert.equal(s.active.gold,19500000);assert.equal(s.houses.find(h=>h.id==='north-1').mine,true);await assert.rejects(()=>rpc('house_buy',{house_id:'north-2'}));
@@ -25,5 +26,5 @@ try{
  await db.query("update online_presence set x=16,y=1,location='town'where user_id=$1",[users[2]]);await db.query("insert into online_ground_items(kind,x,y,dropped_by)values('potion',16,1,$1)",[users[2]]);
  const relocation=await fs.readFile('supabase/migrations/202611210005_online_housing_relocation.sql','utf8');await db.exec(relocation);await db.exec(relocation);s=await rpc('poll');const after=s.players.find(p=>p.character_id===chars[2]);assert.ok(!townBlocked(after.x,after.y));assert.equal((await db.query('select count(*)n from online_ground_items where online_town_blocked(x,y)')).rows[0].n,0);
  const rights=(await db.query("select has_table_privilege('authenticated','online_house_owners','SELECT')allowed")).rows[0];assert.equal(rights.allowed,false);
- console.log('PASS: 36 reachable houses, complete client/server collision parity, prices and debit, unique ownership, insufficient funds, exterior disappearance, owner-only crystal settings, private/friend/guild access, revocation, private chat, exit placement and RLS.');
+ console.log('PASS: 12 reachable garden houses, complete client/server collision parity, prices and debit, unique ownership, insufficient funds, exterior disappearance, owner-only crystal settings, private/friend/guild access, revocation, private chat, exit placement and RLS.');
 }finally{await db.close();}

@@ -16,7 +16,7 @@ export function playTownSound(scene:Phaser.Scene,kind:'hit'|'step'|'equip'|'jing
   const volume=townSoundLevel(scene.registry.get('onlineAudio'),scene.sound.mute,
     scene.game.config.audio.noAudio||new URLSearchParams(location.search).get('mute')==='1',kind);
   const key=`online_charia_${kind}`;
-  if(volume>0&&scene.cache.audio.exists(key))scene.sound.play(key,{volume,rate:kind==='step'?.96+Math.random()*.08:1});
+  if(volume>0&&scene.cache.audio.exists(key))scene.sound.play(key,{volume,rate:kind==='hit'?.92+Math.random()*.16:kind==='step'?.96+Math.random()*.08:1});
 }
 
 export function entryMessageId(messages:readonly {id:number}[]) {

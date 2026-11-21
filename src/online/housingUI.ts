@@ -1,4 +1,4 @@
-import {HOUSES,HOUSING_DISTRICTS,houseFurniture,houseAtDoor,HOUSING_STALL} from './housingCatalog';
+import {HOUSES,HOUSING_DISTRICTS,houseFurniture,houseAtDoor,HOUSING_STALL,gardenFence,housingGround} from './housingCatalog';
 import {MAP_X,MAP_Y,MAP_W,MAP_H} from '../layout';
 import {TOWN_MIN_X,TOWN_MIN_Y,TOWN_COLUMNS,TOWN_ROWS,TOWN_TILE as T,townBlocked} from './townLayout';
 import './housing.css';
@@ -27,6 +27,26 @@ export function mountHousingUI(scene:any){
 export function mountHousingTown(scene:any){
  const grass=scene.add.tileSprite((TOWN_MIN_X+TOWN_COLUMNS/2)*T,(TOWN_MIN_Y+TOWN_ROWS/2)*T,TOWN_COLUMNS*T,TOWN_ROWS*T,'online_town_grass',0).setTileScale(T/128).setDepth(-1000);
  const grid=scene.add.graphics().setDepth(-998);
+ // Garden lawns are walkable; only the visible stone-and-iron fence is solid.
+ for(const h of HOUSES){
+  scene.add.tileSprite((h.x+h.w/2)*T,(h.doorY+2)*T,h.w*T,3*T,'online_town_grass',0).setTileScale(T/128).setDepth(-997);
+  const path=scene.add.graphics().setDepth(-996);path.fillStyle(0xb9ad83,.8);
+  for(let y=h.doorY+1;y<h.doorY+4;y++)path.fillRoundedRect((h.doorX+.16)*T,(y+.15)*T,T*.68,T*.7,4);
+ }
+ const ground=(x:number,y:number)=>(x>=1&&x<=23&&y>=1&&y<=17)||(x>=9&&x<=15&&y>=-2&&y<=20)||(y>=7&&y<=11&&x>=-2&&x<=26)||housingGround(x,y);
+ for(let y=TOWN_MIN_Y;y<TOWN_MIN_Y+TOWN_ROWS;y++)for(let x=TOWN_MIN_X;x<TOWN_MIN_X+TOWN_COLUMNS;x++){
+  const perimeter=!ground(x,y)&&[[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>ground(x+dx,y+dy));
+  if(!perimeter&&!gardenFence(x,y))continue;
+  const fence=scene.add.graphics().setPosition(x*T,y*T).setDepth(y+.85);
+  const isFence=(xx:number,yy:number)=>gardenFence(xx,yy)||!ground(xx,yy)&&[[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>ground(xx+dx,yy+dy));
+  const vertical=isFence(x,y-1)||isFence(x,y+1),horizontal=isFence(x-1,y)||isFence(x+1,y);
+  if(vertical){fence.fillStyle(0x283733).fillRect(18,-4,15,T+8);fence.fillStyle(0x879184).fillRect(18,-4,6,T+8);fence.lineStyle(1,0x172324,.8);for(let n=0;n<3;n++)fence.strokeRect(18,n*16,15,16);fence.fillStyle(0xb2b295).fillRect(16,0,19,5);}
+  if(!horizontal)continue;
+  fence.fillStyle(0x243233).fillRect(0,19,T,19);fence.fillStyle(0x708078).fillRect(0,17,T,5);
+  fence.lineStyle(1,0x172324,.8);for(let n=0;n<3;n++)fence.strokeRect(n*16,23,16,13);
+  fence.fillStyle(0x253236);for(let n=5;n<T;n+=10){fence.fillRect(n,2,3,19);fence.fillTriangle(n-2,4,n+1,-2,n+4,4);}
+  fence.fillStyle(0xb2b295).fillRect(0,14,T,2);fence.fillStyle(0x899184).fillRect(0,10,5,29);fence.fillRect(T-5,10,5,29);
+ }
  for(let y=TOWN_MIN_Y;y<TOWN_MIN_Y+TOWN_ROWS;y++){
   let x=TOWN_MIN_X;while(x<TOWN_MIN_X+TOWN_COLUMNS){if((x>=0&&x<25&&y>=0&&y<19)||townBlocked(x,y)){x++;continue;}const start=x;while(x<TOWN_MIN_X+TOWN_COLUMNS&&!(x>=0&&x<25&&y>=0&&y<19)&&!townBlocked(x,y))x++;scene.add.tileSprite((start+x)/2*T,(y+.5)*T,(x-start)*T,T,'online_town_floor',(y+100)%6).setTileScale(T/64).setDepth(-999);for(let xx=start;xx<x;xx++)grid.lineStyle(1,0x18251e,.25).strokeRect(xx*T,y*T,T,T);}
  }
