@@ -1,0 +1,1 @@
+Chests: OpenAI image generation, 2026-11-22. Front-facing 2x2 atlas: common closed/open, gold closed/open. Transparent fantasy RPG sprites. Equal quadrant crops only. Floors: generated 4x4 tile atlas from approved floor-one preview. Motor: procedural synthesized mechanical rising whine, 22050Hz mono.
