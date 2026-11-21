@@ -10,9 +10,9 @@ try{
  for(const h of HOUSES)assert.ok(townPath({x:12,y:14},{x:h.doorX,y:h.doorY+1},[],townBlocked).length,`${h.id} entrance reachable`);
  const vacant=HOUSES[0];await db.query('update online_presence set x=$1,y=$2 where user_id=$3',[vacant.doorX,vacant.doorY+1,users[2]]);await assert.rejects(()=>rpc('house_enter',{house_id:vacant.id}));
  await login(users[0]);await db.query('update online_characters set gold=20000000 where id=$1',[chars[0]]);
- await assert.rejects(()=>rpc('house_buy',{house_id:'north-1'}));await db.query('update online_presence set x=16,y=3 where user_id=$1',[users[0]]);
+ await assert.rejects(()=>rpc('house_buy',{house_id:'north-1'}));await db.query('update online_presence set x=7,y=4 where user_id=$1',[users[0]]);
  let s=await rpc('house_buy',{house_id:'north-1'});assert.equal(s.active.gold,19500000);assert.equal(s.houses.find(h=>h.id==='north-1').mine,true);await assert.rejects(()=>rpc('house_buy',{house_id:'north-2'}));
- await login(users[1]);await db.query('update online_presence set x=16,y=3 where user_id=$1',[users[1]]);await assert.rejects(()=>rpc('house_buy',{house_id:'north-1'}));await assert.rejects(()=>rpc('house_buy',{house_id:'north-2'}));
+ await login(users[1]);await db.query('update online_presence set x=7,y=4 where user_id=$1',[users[1]]);await assert.rejects(()=>rpc('house_buy',{house_id:'north-1'}));await assert.rejects(()=>rpc('house_buy',{house_id:'north-2'}));
  const h=HOUSES[0];await db.query('update online_presence set x=$1,y=$2 where user_id=$3',[h.doorX,h.doorY+1,users[1]]);await assert.rejects(()=>rpc('house_enter',{house_id:h.id}));
  s=await rpc('drop_item',{kind:'potion'});assert.ok(s.drops.some(item=>item.x===h.doorX&&item.y===h.doorY+1),'items remain in expanded district');
  await login(users[0]);await db.query('update online_presence set x=$1,y=$2 where user_id=$3',[h.doorX,h.doorY+1,users[0]]);s=await rpc('house_enter',{house_id:h.id});assert.equal(s.active.location,'house');assert.equal(s.house.mine,true);assert.ok(!houseBlocked(s.house.x,s.house.y,s.house));

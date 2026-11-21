@@ -4,7 +4,7 @@ const {db,login,rpc}=await makeHousingDb();
 try{
  const users=['11111111-1111-4111-8111-111111111111','21111111-1111-4111-8111-111111111111'];const chars:string[]=[];
  for(const uid of users){await db.query('insert into auth.users values($1)',[uid]);await login(uid);const s=await rpc('create_character',{name:'Hair '+chars.length,gender:'female',hair_color:'blue'});chars.push(s.characters[0].id);assert.equal(s.characters[0].hair_color,'blue');await rpc('join',{character_id:chars.at(-1)});}
- await db.exec("update online_presence set x=8,y=16,location='town';update online_characters set gold=7000;");
+ await db.exec("update online_presence set x=7,y=19,location='town';update online_characters set gold=7000;");
  await login(users[0]);for(const hair of ['black','silver','gold','red','blue','brown']){const s=await rpc('appearance_hair',{character_id:chars[0],hair_color:hair});assert.equal(s.characters[0].hair_color,hair);assert.equal(s.active.hair_color,hair);assert.equal(s.players.find(p=>p.character_id===chars[0]).hair_color,hair);}
  assert.equal((await db.query('select gold from online_characters where id=$1',[chars[0]])).rows[0].gold,1000);
  await rpc('appearance_hair',{character_id:chars[0],hair_color:'silver'});
