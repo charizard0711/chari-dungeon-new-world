@@ -5,7 +5,7 @@ export const plazaObjects=[
  {key:'booth',x:16,y:1,w:3,h:3,artH:3,label:'商人の店'},
  {key:'warehouse',x:19,y:0,w:6,h:4,artH:5,label:'倉庫'},
  {key:'gacha',x:1,y:12,w:2,h:2,artH:2.7,label:'魔法のガチャ'},
- {key:'barrel',x:8,y:9,w:1,h:1,artH:1.3,label:'訓練用の樽'},
+ {key:'barrel',x:8,y:9,w:1,h:1,artW:2,artH:2,label:'訓練用の樽'},
  {key:'market',x:21,y:5,w:4,h:3,artH:3.2,label:'冒険者マーケット'},
  {key:'house1',x:0,y:16,w:6,h:3,artH:4.5,label:'広場の工房'},
  {key:'barber',x:6,y:16,w:3,h:3,artH:3.5,label:'南門の床屋'},

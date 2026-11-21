@@ -48,7 +48,7 @@ export function mountGarden(scene:Phaser.Scene){
  for(const h of houses)houseSprites.set(h.id,art('house'+h.art,h.x+h.w/2-.5,h.doorY,h.w*T,(h.h+.5)*T));
  const aliases:Record<string,string>={oldprops:'online_town_props',warehouse:'online_warehouse_open',booth:'housing_booth',gacha:'online_gacha_machine',barrel:'online_training_barrel',npcs:'online_npcs_v1'};
  const plaza=new Map<string,Phaser.GameObjects.Image>();
- for(const o of plazaObjects){if(o.key==='npcs')continue;plaza.set(o.label,art(aliases[o.key]??o.key,o.x+(o.w-1)/2,o.y+o.h-1,o.w*T,o.artH*T,'frame'in o?o.frame:undefined));}
+ for(const o of plazaObjects){if(o.key==='npcs')continue;plaza.set(o.label,art(aliases[o.key]??o.key,o.x+(o.w-1)/2,o.y+o.h-1,('artW'in o?o.artW!:o.w)*T,o.artH*T,'frame'in o?o.frame:undefined));}
  const fountain=art('online_town_fountain',12,10,144,144);scene.tweens.add({targets:fountain,alpha:.88,duration:1600,yoyo:true,repeat:-1});
  return {houseSprites,plaza};
 }

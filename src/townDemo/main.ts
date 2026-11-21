@@ -67,7 +67,7 @@ class TownDemo extends Phaser.Scene{
    building.on('pointerdown',()=>{if(this.overview){this.tweens.killTweensOf(this.body);this.moving=false;this.path=[];this.position={x:h.doorX,y:h.doorY+1};this.place();this.setView(false);}else this.path=townPath(this.position,{x:h.doorX,y:h.doorY+1},[],blocked);});
    building.on('pointerover',()=>el('status').textContent=`${h.price/10000}万Gの${h.tier===9?'豪華な屋敷':h.tier===5?'邸宅':'小さな家'} · ${h.id} · 庭の門から入れます`);
   }
-  for(const o of plazaObjects){const art=this.art(o.key,o.x+(o.w-1)/2,o.y+o.h-1,o.w*T,o.artH*T,'frame'in o?o.frame:undefined);if(o.label){art.setInteractive({useHandCursor:true});art.on('pointerover',()=>el('status').textContent=o.label+' · 配置確認デモ');}}
+  for(const o of plazaObjects){const art=this.art(o.key,o.x+(o.w-1)/2,o.y+o.h-1,('artW'in o?o.artW!:o.w)*T,o.artH*T,'frame'in o?o.frame:undefined);if(o.label){art.setInteractive({useHandCursor:true});art.on('pointerover',()=>el('status').textContent=o.label+' · 配置確認デモ');}}
   const fountain=this.art('fountain',12,10,144,144);this.tweens.add({targets:fountain,alpha:.88,duration:1600,yoyo:true,repeat:-1});
   this.shadow=this.add.ellipse(0,0,26,10,0x000000,.27);
   this.body=this.add.image(0,0,'player_male_leather',0).setDisplaySize(43.52,43.52);this.rig=new CharacterRig(this);this.place();
