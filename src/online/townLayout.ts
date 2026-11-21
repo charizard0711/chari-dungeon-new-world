@@ -9,6 +9,6 @@ export function townBlocked(x:number,y:number){
   const connection=(x>=9&&x<=15&&y>=-2&&y<=20)||(y>=7&&y<=11&&x>=-2&&x<=26);
   return (!central&&!connection&&!housingGround(x,y))||housingSolid(x,y)||(x>=3&&x<=7&&y>=2&&y<=5)||(x>=18&&x<=22&&y>=2&&y<=5)
     ||(x>=11&&x<=13&&y>=8&&y<=10)||(x===16&&y===11)||(x===TRAINING_TARGET.x&&y===TRAINING_TARGET.y)
-    ||(y===12&&x>=6&&x<=8)||(y===12&&x>=17&&x<=19)||(x===7&&y===9)||(x===18&&y===9)
+    ||(y===12&&x>=6&&x<=8)||(y===12&&x>=17&&x<=19)||(x===8&&y===17)||(x===7&&y===9)||(x===18&&y===9)
     ||[...TOWN_TREES,...TOWN_LAMPS].some(([a,b])=>a===x&&b===y);
 }

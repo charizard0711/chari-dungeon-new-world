@@ -55,7 +55,7 @@ export class CharacterRig {
   if(artKey!==this.artKey){this.artKey=artKey;this.art=undefined;this.sheet=sheet;if(artKey)loadRigImage(artKey).then(art=>{if(!this.disposed&&this.artKey===artKey){this.art=art;this.signature='';}}).catch(()=>{});}
   if(!this.look||(weapon&&!this.art)||weapon&&!sheet){body.setCrop();this.image.setVisible(false);return false;}
   const action=playerAction(frame),attack=action==='attack'||action==='windup',walk=action==='walk',heavy=weapon?.key==='w_hero_sword',windup=heavy?200:58,duration=heavy?460:268;
-  const t=attack?Math.min(1,(elapsed+(action==='attack'?windup:0))/duration):walk?Math.max(0,PLAYER_WALK_FRAMES.indexOf(frame as typeof PLAYER_WALK_FRAMES[number]))/PLAYER_WALK_FRAMES.length:0;
+  const t=attack?Math.min(1,(elapsed+(action==='attack'?windup:0))/duration):walk?Number(body.getData('walkPhase')??Math.max(0,PLAYER_WALK_FRAMES.indexOf(frame as typeof PLAYER_WALK_FRAMES[number]))/PLAYER_WALK_FRAMES.length):0;
   const phase=attack?Math.round(t*24):walk?Math.floor(t*8):0;
   const signature=[lookKey,artKey,shield?.key,dir,action,phase].join('|');
   if(signature!==this.signature&&(this.scene.time.now>=this.nextDraw||!this.signature)){
