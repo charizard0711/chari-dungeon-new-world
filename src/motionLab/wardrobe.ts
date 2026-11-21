@@ -40,7 +40,11 @@ export function wardrobeAtlas(image:HTMLImageElement,asset:CostumeAsset,hair:str
    if(!isHair)continue;const light=Math.max(.22,Math.min(1.7,(r*.3+gr*.59+b*.11)/65));
    for(let n=0;n<3;n++)data[i+n]=Math.min(255,color.rgb[n]*light);
   }
-  const root:Point=[cw/2,bottom];frames.push({sx,sy,cw,ch,root,hand:[cw*.4,ch*.58],off:[cw*.6,ch*.58]});
+  // Register the torso beneath the head rather than the atlas-cell center.
+  // Painted frames have asymmetric capes and uneven empty margins.
+  let headLeft=cw,headRight=0;
+  for(let y=top;y<top+height*.23;y++)for(let x=0;x<cw;x++)if(data[((sy+y)*canvas.width+sx+x)*4+3]>=128){headLeft=Math.min(headLeft,x);headRight=Math.max(headRight,x);}
+  const root:Point=[headRight>=headLeft?(headLeft+headRight)/2:cw/2,bottom];frames.push({sx,sy,cw,ch,root,hand:[cw*.4,ch*.58],off:[cw*.6,ch*.58]});
  }
  g.putImageData(pixels,0,0);heights.sort((a,b)=>a-b);const height=heights[Math.floor(heights.length/2)];
  // Renderer has eight animation phases; source atlases may have seven painted gait frames.

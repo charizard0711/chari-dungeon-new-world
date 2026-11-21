@@ -40,7 +40,7 @@ export function rigPose(type:string,t:number,attack:boolean,walk:boolean):Pose{
    if(type==='katana'){const sweep=Math.min(1,elapsed/130),recover=Math.max(0,Math.min(1,(elapsed-145)/65));angle=-.85+sweep*1.7;hand=[3+9*Math.sin(sweep*Math.PI/2)*(1-recover),-22];}
   }else{hand=[12,-25];angle=type==='handgun'&&elapsed<70?-.08*Math.sin(elapsed/70*Math.PI):0;}
  }
- let off:Point=[-3,-19];const second=ORIGINAL_GRIPS[type].second;
+ let off:Point=[-3,-15];const second=ORIGINAL_GRIPS[type].second;
  if(second!==undefined)off=[hand[0]+Math.cos(angle)*second,hand[1]+Math.sin(angle)*second];
  if(type==='bow')off=[attack?mix(8,-3,Math.sin(Math.min(1,t/.58)*Math.PI/2)):4,-25];
  if(type==='handgun')off=[hand[0]-2,hand[1]+1.5];
@@ -48,7 +48,7 @@ export function rigPose(type:string,t:number,attack:boolean,walk:boolean):Pose{
  return {hand,off,angle,lean};
 }
 export function solveElbow(shoulder:Point,hand:Point,bend:number):Point{
- const dx=hand[0]-shoulder[0],dy=hand[1]-shoulder[1],distance=Math.hypot(dx,dy),length=Math.max(8.5,distance*.51),h=Math.sqrt(Math.max(0,length*length-distance*distance/4));
+ const dx=hand[0]-shoulder[0],dy=hand[1]-shoulder[1],distance=Math.hypot(dx,dy),length=Math.max(6.2,distance*.51),h=Math.min(2.4,Math.sqrt(Math.max(0,length*length-distance*distance/4)));
  return [(shoulder[0]+hand[0])/2-dy/Math.max(.001,distance)*h*bend,(shoulder[1]+hand[1])/2+dx/Math.max(.001,distance)*h*bend];
 }
 export function originalMuzzle(type:string,dir:Facing,t:number):Point{
@@ -84,16 +84,16 @@ export function drawOriginalRig(g:CanvasRenderingContext2D,body:Atlas,parts:Limb
   g.save();g.translate(...at);if(type==='bow'){if(dir!=='left')g.scale(-1,1);if(!profile)g.scale(.55,1);}else if(type==='handgun'&&dir==='left'){g.scale(-1,1);g.rotate(Math.PI-a-config.basis);}else{g.rotate(a-config.basis);if(!profile&&type==='lance')g.scale(1,.8);}
   g.drawImage(weapon,0,sourceY,sw,sh,-config.grip[0]*sw*s,-config.grip[1]*sh*s,sw*s,sh*s);g.restore();};
  const segment=(a:Point,b:Point,img:HTMLCanvasElement,width:number)=>{g.save();g.translate(...a);g.rotate(Math.atan2(b[1]-a[1],b[0]-a[0])-Math.PI/2);g.drawImage(img,-width/2,-1,width,Math.hypot(b[0]-a[0],b[1]-a[1])+2);g.restore();};
- const arm=(s:Point,h:Point,far:boolean)=>{const elbow=solveElbow(s,h,Math.sign(h[0]-s[0])||side);g.save();if(far)g.globalAlpha=.88;segment(s,elbow,parts[row],5);segment(elbow,h,parts[4+row],4);g.restore();if(debug){g.strokeStyle=far?'#ffb87b':'#78e8d5';g.lineWidth=.5;g.beginPath();g.moveTo(...s);g.lineTo(...elbow);g.lineTo(...h);g.stroke();}};
- const glove=(h:Point)=>{g.save();g.translate(...h);g.rotate(angle+Math.PI/2);g.drawImage(parts[8+row],-2,-2,4,4);g.restore();};
+ const arm=(s:Point,h:Point,far:boolean)=>{const elbow=solveElbow(s,h,Math.sign(h[0]-s[0])||side);g.save();if(far)g.globalAlpha=.88;segment(s,elbow,parts[row],3.8);segment(elbow,h,parts[4+row],3.2);g.restore();if(debug){g.strokeStyle=far?'#ffb87b':'#78e8d5';g.lineWidth=.5;g.beginPath();g.moveTo(...s);g.lineTo(...elbow);g.lineTo(...h);g.stroke();}};
+ const glove=(h:Point)=>{g.save();g.translate(...h);g.rotate(angle+Math.PI/2);g.drawImage(parts[8+row],-1.6,-1.6,3.2,3.2);g.restore();};
  g.save();g.scale(magnify,magnify);
- arm(farShoulder,off,true);
- if(dir==='up')drawWeapon(hand,angle);
+ if(dir!=='down'){arm(farShoulder,off,true);glove(off);}
+ if(dir==='up'){arm(shoulder,hand,false);drawWeapon(hand,angle);glove(hand);}
  g.save();g.translate(0,-12);g.rotate(profile?pose.lean*side:0);g.translate(0,12);g.drawImage(body.image,f.sx,f.sy,f.cw,f.ch,-f.root[0]*scale,-f.root[1]*scale,f.cw*scale,f.ch*scale);g.restore();
- arm(shoulder,hand,false);
- if(dir!=='up')drawWeapon(hand,angle);
+ if(dir==='down'){arm(farShoulder,off,true);glove(off);}
+ if(dir!=='up'){arm(shoulder,hand,false);drawWeapon(hand,angle);glove(hand);}
  if(type==='dual_sword')drawWeapon(off,vertical?Math.PI-angle:angle+.8);
- glove(hand);if(config.second!==undefined||['bow','handgun','dual_sword'].includes(type))arm(farShoulder,off,true);glove(off);
+ if(config.second!==undefined||['bow','handgun','dual_sword'].includes(type)){arm(farShoulder,off,true);glove(off);}
  if(options.shield){const s=options.shield,size=22;g.drawImage(s,off[0]-size/2,off[1]-size*.45,size,size);}
  g.restore();
 }
