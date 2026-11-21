@@ -1,3 +1,4 @@
+import {requestEquipmentArt} from '../lazyEquipmentArt';
 import { localQaEnabled } from '../buildFlags';
 import { addLanguageControl } from '../i18n';
 import { playRitual } from '../gachaPresentation';
@@ -1024,7 +1025,7 @@ export class UIScene extends Phaser.Scene {
       slot.bg.fillStyle((info.tex?.startsWith('star_') || slot.kind === 'shield' && !!w?.starred && !!weaponAccessoryKey(w)) ? STAR_EQUIPMENT_BACKGROUND : 0x0a1c20, has ? .96 : 0.5).fillRoundedRect(sx, sy, sw, sh, 10);
       slot.bg.lineStyle(info.grade === 'SSS' ? 3.5 : info.grade === 'S' ? 3 : info.grade === 'A' ? 2.5 : 1.5, rim, has ? 1 : 0.5).strokeRoundedRect(sx, sy, sw, sh, 8);
       if (has) {
-        slot.icon.setTexture(equipmentIconTexture(info.tex!)).setFlipX(equipmentIconFlipX(info.tex!)).setDisplaySize(this.equipIconSize, this.equipIconSize).setVisible(true).setAlpha(1);
+        slot.icon.setTexture(requestEquipmentArt(equipmentIconTexture(info.tex!))).setFlipX(equipmentIconFlipX(info.tex!)).setDisplaySize(this.equipIconSize, this.equipIconSize).setVisible(true).setAlpha(1);
         slot.icon.clearTint().setRotation(0);
         if (info.tex?.startsWith('sheath_')) slot.icon.setDisplaySize(this.equipIconSize, this.equipIconSize * .2).setRotation(-Math.PI / 4);
       } else {
