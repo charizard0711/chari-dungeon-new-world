@@ -1,0 +1,42 @@
+{
+  "longsword": {
+    "source": "C:/chari-dungeon-grid3d/Unity/Assets/Chari/Resources/FreeSfx/Designed/hit-c-longsword.wav",
+    "sha256": "3a299d659ab9ecf1e1f4706e00f1bef2e9cc5d1c8cf4f44ed65115e6e09d9ad5"
+  },
+  "dagger": {
+    "source": "C:/chari-dungeon-grid3d/Unity/Assets/Chari/Resources/FreeSfx/Designed/hit-c-dagger.wav",
+    "sha256": "ef917a6c3ce4524a1868693fbd3ce4e30f6841f882b72944f62adad258d35b9d"
+  },
+  "katana": {
+    "source": "C:/chari-dungeon-grid3d/Unity/Assets/Chari/Resources/FreeSfx/Designed/hit-c-katana.wav",
+    "sha256": "909aaf501c105d1f478330d205afcfc5482390ec339d88a36bb823a9c46fb1ad"
+  },
+  "greatsword": {
+    "source": "C:/chari-dungeon-grid3d/Unity/Assets/Chari/Resources/FreeSfx/Designed/hit-c-greatsword.wav",
+    "sha256": "cb643a0400a3e1852d36ed4c123ac1e45c194222dc30813e0efc3e27349456df"
+  },
+  "lance": {
+    "source": "C:/chari-dungeon-grid3d/Unity/Assets/Chari/Resources/FreeSfx/Designed/hit-c-lance.wav",
+    "sha256": "6eb4e75f5adec167fa5840d771ce0fa4299c57d69af28b5776ebda8a0f3f11e7"
+  },
+  "bow": {
+    "source": "C:/chari-dungeon-grid3d/Unity/Assets/Chari/Resources/FreeSfx/Designed/hit-c-bow.wav",
+    "sha256": "d634dafbe6e83487779d829114bcc2bd70e9c8ebc6c44fad410408f0b56b998b"
+  },
+  "crossbow": {
+    "source": "C:/chari-dungeon-grid3d/Unity/Assets/Chari/Resources/FreeSfx/Designed/hit-c-crossbow.wav",
+    "sha256": "7f5d09b23a969d1578ea8cb0f7d98c78cbd1fa1d183bb63eb8cc268bfa00a62a"
+  },
+  "handgun": {
+    "source": "C:/chari-dungeon-grid3d/Unity/Assets/Chari/Resources/FreeSfx/Designed/hit-c-handgun.wav",
+    "sha256": "a966e0003d30b32d635af8955e8cb23abcc6fa91a18f93ba5bd1a7312b02bcf1"
+  },
+  "dual_sword": {
+    "source": "C:/chari-dungeon-grid3d/Unity/Assets/Chari/Resources/FreeSfx/Designed/hit-c-dual_sword.wav",
+    "sha256": "c350bcaca2ee62379db8b86f48e8b4e6b3da0a37edc126862919a5ec778709e2"
+  },
+  "dual-second": {
+    "source": "C:/chari-dungeon-grid3d/Unity/Assets/Chari/Resources/FreeSfx/Designed/hit-c-dual-second.wav",
+    "sha256": "232d70bea6b4e85629599ea22ed2d61ff6fa5d4189266af48753a515d627bd3a"
+  }
+}

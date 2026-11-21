@@ -1,0 +1,9 @@
+import fs from 'node:fs';import ts from 'typescript';import assert from 'node:assert/strict';import {createHash} from 'node:crypto';
+const compile=p=>ts.transpileModule(fs.readFileSync(p,'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText.replace(/^import .*;\r?$/gm,'');
+const {IMPACT_TYPES,impactPath,playWeaponImpact}=await import('data:text/javascript;base64,'+Buffer.from(compile('src/online/presentation.ts')+'\n'+compile('src/online/weaponImpact.ts')).toString('base64'));
+globalThis.location={search:''};const calls=[],timers=[];const scene={registry:{get:()=>({seOn:true,seVolume:1})},sound:{mute:false,play:(k,o)=>calls.push([k,o])},game:{config:{audio:{noAudio:false}}},cache:{audio:{exists:()=>true}},time:{delayedCall:(ms,fn)=>timers.push([ms,fn])}};
+const manifest={};for(const t of IMPACT_TYPES){const src='C:/chari-dungeon-grid3d/Unity/Assets/Chari/Resources/FreeSfx/Designed/hit-c-'+t+'.wav';const hash=p=>createHash('sha256').update(fs.readFileSync(p)).digest('hex');assert.equal(hash(src),hash('public/'+impactPath(t)));manifest[t]={source:src,sha256:hash(src)};}
+for(const t of IMPACT_TYPES.filter(t=>t!=='dual-second')){playWeaponImpact(scene,t);assert.equal(calls.at(-1)[0],'online_impact_'+t);assert.equal(calls.at(-1)[1].rate,1);}
+assert.equal(timers[0][0],140);timers.shift()[1]();assert.equal(calls.at(-1)[0],'online_impact_dual-second');
+for(const guard of ['url','noAudio','mute']){location.search=guard==='url'?'?mute=1':'';scene.game.config.audio.noAudio=guard==='noAudio';scene.sound.mute=guard==='mute';const n=calls.length;playWeaponImpact(scene,'twin_daggers');timers.splice(0).forEach(t=>t[1]());assert.equal(calls.length,n);}
+fs.writeFileSync('docs/weapon-impact-v2-sources.json',JSON.stringify(manifest,null,2)+'\n');console.log('PASS exact CHARIA sample hashes, per-weapon routing, fixed pitch, dual second hit, mute guards. No audible playback.');
