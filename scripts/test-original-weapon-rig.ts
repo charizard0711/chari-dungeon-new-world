@@ -16,7 +16,7 @@ for(const type of Object.keys(ORIGINAL_GRIPS)){
  }
 }
 const main=readFileSync('src/motionLab/main.ts','utf8');
-assert(main.includes('await load(w.held)'),'render original asset path');
+assert(main.includes('loadWeaponVisual'),'share production weapon registration');
 assert(!main.includes('/weapon-study-v3/'),'do not render redesigned replacement weapons');
 assert(existsSync('public/assets/characters/weapon-rig-v4/body.png'));
 assert(existsSync('public/assets/characters/weapon-rig-v4/arms.png'));

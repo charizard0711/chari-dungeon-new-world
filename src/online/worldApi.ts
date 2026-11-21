@@ -1,7 +1,7 @@
 import type {AdventureState} from './adventure/types';
 import { online } from './api';
 export interface OnlineCharacter {hair_color?:string;}
-export interface WorldPlayer {hair_color?:string;}
+export interface WorldPlayer {hair_color?:string;guild_flag?:number|null;guild_name?:string|null;}
 export type EquipmentSlot='weapon'|'armor'|'shield'|'necklace';
 export interface EquipmentInstance {id:string;key:string;dur:number;max:number;}
 export interface QuickSlot {category:EquipmentSlot|'item';key:string;instanceId?:string;}
@@ -11,7 +11,7 @@ export interface WorldPlayer { character_id:string; name:string; gender:'male'|'
 export interface GroundItem {amount?:number;id:string;kind:string;category?:'item'|'weapon'|'armor'|'shield'|'necklace';x:number;y:number;}
 export interface TrainingHit {id:number;character_id:string;damage:number;dir:WorldPlayer['dir'];weapon_key?:string|null;origin_x?:number;origin_y?:number;action_kind?:string;skill_type?:string|null;hit_target?:boolean;}
 export interface GuildRequest{id:string;guildId:string;guildName:string;characterId:string;name:string;kind:'invite'|'join';incoming:boolean;}
-export interface GuildState{id:string;name:string;description:string;leaderId:string;isLeader:boolean;limit:number;members:{id:string;name:string;gender:string;leader:boolean;online:boolean}[];}
+export interface GuildState{flag?:number;id:string;name:string;description:string;leaderId:string;isLeader:boolean;limit:number;members:{id:string;name:string;gender:string;leader:boolean;online:boolean}[];}
 export interface PlayerInspection{characterId?:string;sameAccount?:boolean;friend?:{id:string;status:'pending'|'accepted';incoming:boolean}|null;guild?:{id:string;name:string}|null;guildRequest?:{id:string;kind:'invite'|'join';incoming:boolean}|null;name:string;gender:string;hp:number;equipment:{slot:EquipmentSlot;key:string;dur?:number;max?:number}[];}
 export interface WorldState {houses?:{id:string;ownerId:string|null;ownerName:string|null;mine:boolean;resalePrice?:number}[];house?:{id:string;name:string;width:number;height:number;tier:number;ownerId:string;ownerName:string;mine:boolean;allowFriends:boolean;allowGuild:boolean;x:number;y:number}|null;guild?:GuildState|null;guildRequests?:GuildRequest[];serverTime?:number;clockReceivedAt?:number;clockLatencyMs?:number;inspection?:PlayerInspection;adventure?:AdventureState|null;rooms?:{id:string;name:string;locked:boolean;members:number;status:string}[];roomHistory?:{name:string;status:string;created:string}[];npcs?:{id:string;dir:'up'|'down'|'left'|'right';until:number}[];friends?:{id:string;name:string;status:"pending"|"accepted";incoming:boolean;online:boolean}[];reward?:string;shopCatalog?:{key:string;price:number}[]; characters:OnlineCharacter[];active:OnlineCharacter|null;players:WorldPlayer[];messages:{id:number;name:string;message:string;character_id?:string}[];drops?:GroundItem[];trainingHits?:TrainingHit[];superAccount:boolean; }
 export async function world(action:string,payload:Record<string,unknown>={}):Promise<WorldState>{

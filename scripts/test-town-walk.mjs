@@ -5,7 +5,7 @@ const framesCode=ts.transpileModule(await fs.readFile('src/playerWalkFrames.ts',
 const framesUrl=`data:text/javascript;base64,${Buffer.from(framesCode).toString('base64')}`;
 const code=ts.transpileModule(await fs.readFile('src/online/walkPose.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText.replace('../playerWalkFrames',framesUrl);
 const {townWalkPose,TOWN_STEP_MS}=await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
-assert.equal(TOWN_STEP_MS,205);
+assert.equal(TOWN_STEP_MS,175);
 const stride=48*600/TOWN_STEP_MS;
 for(const dir of ['up','down','left','right']){
  const phases=new Set();
@@ -13,7 +13,7 @@ for(const dir of ['up','down','left','right']){
  assert.equal(phases.size,8);
  const start=townWalkPose(17,1,dir),cycle=townWalkPose(17+stride,1,dir);assert.ok(Math.abs(start.phase-cycle.phase)<1e-9);
 }
-console.log('PASS: prototype 205ms steps, 600ms continuous eight-pose gait, no extra body distortion');
+console.log('PASS: slightly faster 175ms steps, 600ms continuous eight-pose gait, no extra body distortion');
 
 const bubbleCode=ts.transpileModule(await fs.readFile('src/online/chatBubble.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText;const {chatBubbleText}=await import(`data:text/javascript;base64,${Buffer.from(bubbleCode).toString('base64')}`);assert.equal(chatBubbleText('  hello\n town  '),'hello town');assert.equal(chatBubbleText('あ'.repeat(50)),'あ'.repeat(32)+'…');assert.equal(chatBubbleText('😀'.repeat(33)),'😀'.repeat(32)+'…');console.log('PASS: chat bubble whitespace, Japanese truncation and emoji-safe code points');
 

@@ -1,0 +1,152 @@
+{
+  "w_secret_tide": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-0.png",
+    "row": 0,
+    "rows": 4
+  },
+  "w_secret_solar": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-0.png",
+    "row": 1,
+    "rows": 4
+  },
+  "w_bow_fire": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-0.png",
+    "row": 2,
+    "rows": 4
+  },
+  "w_bow_water": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-0.png",
+    "row": 3,
+    "rows": 4
+  },
+  "w_bow_thunder": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-1.png",
+    "row": 0,
+    "rows": 4
+  },
+  "w_bow_ice": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-1.png",
+    "row": 1,
+    "rows": 4
+  },
+  "w_handgun_fire": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-1.png",
+    "row": 2,
+    "rows": 4
+  },
+  "w_handgun_water": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-1.png",
+    "row": 3,
+    "rows": 4
+  },
+  "w_handgun_thunder": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-2.png",
+    "row": 0,
+    "rows": 4
+  },
+  "w_handgun_ice": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-2.png",
+    "row": 1,
+    "rows": 4
+  },
+  "w_hunter_bow": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-2.png",
+    "row": 2,
+    "rows": 4
+  },
+  "w_composite_bow": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-2.png",
+    "row": 3,
+    "rows": 4
+  },
+  "w_blackwood_bow": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-3.png",
+    "row": 0,
+    "rows": 4
+  },
+  "w_royal_bow": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-3.png",
+    "row": 1,
+    "rows": 4
+  },
+  "w_siege_arbalest": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-3.png",
+    "row": 2,
+    "rows": 4
+  },
+  "w_blackpowder_handgun": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-3.png",
+    "row": 3,
+    "rows": 4
+  },
+  "w_hw_bat": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-4.png",
+    "row": 0,
+    "rows": 4
+  },
+  "w_hw_emedral": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-4.png",
+    "row": 1,
+    "rows": 4
+  },
+  "w_light_bow_s": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-4.png",
+    "row": 2,
+    "rows": 4
+  },
+  "w_dark_bow_s": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-4.png",
+    "row": 3,
+    "rows": 4
+  },
+  "w_light_handgun_s": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-5.png",
+    "row": 0,
+    "rows": 2
+  },
+  "w_dark_handgun_s": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-5.png",
+    "row": 1,
+    "rows": 2
+  },
+  "w_light_bow_a": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-4.png",
+    "row": 2,
+    "rows": 4
+  },
+  "w_dark_bow_a": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-4.png",
+    "row": 3,
+    "rows": 4
+  },
+  "w_light_handgun_c": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-5.png",
+    "row": 0,
+    "rows": 2
+  },
+  "w_dark_handgun_c": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-5.png",
+    "row": 1,
+    "rows": 2
+  },
+  "w_light_handgun_b": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-5.png",
+    "row": 0,
+    "rows": 2
+  },
+  "w_dark_handgun_b": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-5.png",
+    "row": 1,
+    "rows": 2
+  },
+  "w_light_bow_sss": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-4.png",
+    "row": 2,
+    "rows": 4
+  },
+  "w_dark_bow_sss": {
+    "path": "/assets/characters/weapon-directions-v7/atlas-4.png",
+    "row": 3,
+    "rows": 4
+  }
+}

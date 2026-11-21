@@ -1,7 +1,7 @@
 import type { Dir } from '../types';
 import { PLAYER_WALK_FRAMES } from '../playerWalkFrames';
 
-export const TOWN_STEP_MS = 205;
+export const TOWN_STEP_MS = 175;
 export const WALK_CYCLE_MS = 600;
 const FRAMES = PLAYER_WALK_FRAMES;
 // Match the prototype painted gait without an extra body transform.
