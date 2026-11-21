@@ -49,3 +49,11 @@ export function blocked(x:number,y:number){
  if(houses.some(h=>x>=h.x&&x<h.x+h.w&&y>=h.y&&y<=h.doorY))return true;
  return plazaBlocked(x,y);
 }
+// Fill the four rectangular green strips around the plaza; keep every road open.
+for(let y=-4;y<=20;y+=2)for(let x=-2;x<=26;x+=2){
+ if(x>=0&&x<=24&&y>=0&&y<=18)continue;
+ if(ground(x,y)==='grass'&&Math.abs(x-12)>3&&Math.abs(y-9)>3)add('oak',x,y,2.4,3);
+}
+
+// Dense woodland inside the four rectangular parks beside the plaza.
+for(const [left,right]of [[-16,-6],[30,40]])for(const [top,bottom]of [[-4,6],[12,20]])for(let y=top;y<=bottom;y+=2)for(let x=left;x<=right;x+=2)if(ground(x,y)==='grass')add('oak',x,y,2.5,3.1);

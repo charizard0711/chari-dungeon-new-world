@@ -1,0 +1,8 @@
+Built-in imagegen, transparent_background=true, one call per asset.
+
+Shared prompt: Production sprite for Chari Dungeon ZERO 2D fantasy RPG. [SUBJECT] Single isolated complete object, transparent background, front view with slightly elevated top-down camera, orthographic no vanishing point, rich saturated hand-painted pixel-art-like game illustration matching medieval Japanese RPG town props. Entire object fits canvas with generous transparent padding. No ground tile, no backdrop, no cast shadow outside object, no words or letters. Crisp readable at 144px wide. Square image.
+
+estate.png SUBJECT: Small fantasy real estate office kiosk, dark navy gabled roof, cream timber walls, golden key and miniature house emblem, an elderly grey-bearded male clerk in burgundy jacket visible behind counter, deeds and rolled plans.
+barber.png SUBJECT: Small fantasy barber salon kiosk, teal rounded roof, white plaster and dark wood, unmistakable large brass scissors sign and red white blue barber pole, young woman hairdresser with auburn bob and white apron behind counter, mirror and combs.
+lottery.png SUBJECT: Small fantasy lottery kiosk, red and golden carnival canopy, large lucky golden star emblem and ticket rolls, cheerful stocky mustached male clerk in green waistcoat behind counter, brass lottery drum.
+market.png SUBJECT: Large fantasy public marketplace trading display, a wide luminous cyan glass monitor inside massive ornate bronze and dark wood frame on stone pedestal, crystal powered, display has tiny illustrated sword shield necklace and coin motifs in three columns, no text, no person, readable silhouette.

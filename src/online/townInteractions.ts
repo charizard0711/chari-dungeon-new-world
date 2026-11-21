@@ -2,6 +2,8 @@ export const TOWN_INTERACTIONS = [
  {id:'guide',x:16,y:11,label:'案内人リーフ',cursor:'talk'},
  {id:'merchant',x:18,y:4,label:'商人ミラ',cursor:'talk'},
  {id:'barber',x:7,y:18,label:'南門の床屋',cursor:'talk'},
+ {id:'lottery',x:17,y:18,label:'星くじ売り場',cursor:'talk'},
+ {id:'market',x:22,y:7,label:'冒険者マーケット',cursor:'interact'},
  {id:'gacha',x:2,y:13,label:'魔法のガチャ',cursor:'interact'}
 ] as const;
 export const WAREHOUSE_DOOR={id:'warehouse',x:22,y:3,label:'倉庫へ入る',cursor:'interact'} as const;
