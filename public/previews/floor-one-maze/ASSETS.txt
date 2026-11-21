@@ -1,0 +1,16 @@
+Preview only. No production dungeon config or server state changed.
+layout.json: approved proposal B, 76x84 grid, 9 rooms, 30 common and 6 gold chest positions.
+map.webp and map-labeled.webp: deterministic rendering at 48 pixels per gameplay cell.
+Rebuild: python scripts/previews/render-floor-one-maze.py
+Page: /dungeon-maze-demo.html?mute=1
+
+tiles.png generated with built-in image_gen (not API CLI).
+Final prompt:
+Create a production-ready 2D top-down fantasy dungeon FLOOR TILE ATLAS, square image, exactly 4 columns by 4 rows of equally sized square tiles, no gutters, no text, no perspective. Each cell is ONE large square flagstone, never multiple little tiles. Beautiful detailed hand-painted pixel-art-inspired game texture, crisp readable at 48 pixels. Flat orthographic overhead, subtle bevel, fine stone grain, restrained chips, narrow dark joint at cell perimeter. Row1: four variations of neutral warm grey limestone corridor slab. Row2: four floor slabs with muted colors respectively teal green, warm sandstone, dusty blue slate, cool steel grey. Row3: four floor slabs with colors respectively muted amethyst, bronze umber, pale golden ivory, deep garnet red. Row4: four variations of grey masonry wall cap stones seen strictly from above, more rugged than floors, thick bevelled edges and small moss details. All tiles occupy their exact grid cell fully edge to edge. Consistent light from upper left. This is an actual reusable sprite atlas to construct a maze in code, NOT a complete map, NOT a scene. Strong premium fantasy RPG finish. No objects, no characters, no writing, no icons.
+
+Wall cap row retained as optional art. Render uses existing terrain/ruins-low-v1/1/wall-a.png for stronger wall silhouette.
+Props: existing online/adventure-v2/props.webp.
+Chests: existing items/chests-centered sprites.
+Doors shown schematically; enemy encounters, interaction, unlock and opened states are not simulated here.
+
+Revision: five one-cell-wide three-cell-deep alcoves, 41 total chests, six gold assigned randomly among all chest candidates. Demo reroll persists in sessionStorage. Boss walls use existing treasury/gilded-wall.png. Live server not changed.

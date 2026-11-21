@@ -6,6 +6,8 @@ import {adventureAreaAt, ADVENTURE_MONSTERS} from './layout';
 export function adventureBgm(adventure?:AdventureState|null):BgmName {
   if(!adventure?.inside)return 'title';
   if(adventure.status!=='active'||adventure.snapshot.stairs)return 'floor01';
+  if(adventure.snapshot.bossEncounter&&!['opening','battle'].includes(adventure.snapshot.bossEncounter.phase))return 'floor01';
+  if(adventure.snapshot.bossEncounter?.phase==='opening'&&adventureAreaAt(adventure.x,adventure.y)?.id==='boss')return 'boss';
   const area=adventure.floor===1?adventureAreaAt(adventure.x,adventure.y):undefined;
   const fighting=adventure.snapshot.enemies.some(enemy=>{
     if(!enemy.boss||enemy.hp<=0)return false;

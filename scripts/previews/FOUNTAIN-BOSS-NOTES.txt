@@ -1,0 +1,22 @@
+Local preview only; no production release or server migration.
+
+Map: extend 12 columns left, preserving the old geometry via offsetX=12.
+New room: 7x7 at (2,32), center fountain (5,35), corridor to barracks at y36..37.
+Fountain: roll once per floor, common 89%, silver 10%, gold 1%.
+Each character consumes their own one-use entitlement. Wipe does not refresh it.
+Common: full heal, attack and defense x1.1 until floor clear (duration assumption).
+Silver: full heal, repair all equipped items; no added multiplier.
+Gold: full heal, repair all carried weapons, attack/defense x1.5 until floor clear.
+Multipliers use base stats, do not stack. Left-top status indicator.
+
+Boss: initially hidden; one distinct pad per living in-room participant.
+All occupied -> roster snapshot -> seal exit -> lift cage -> boss emerges -> battle.
+Death removes participant from room; survivors keep encounter locked.
+All dead -> return animation -> full boss HP reset -> open exit -> retry possible.
+Victory opens exit and expires floor buffs.
+Demo has explicitly labeled attack/death controls, not full battle AI/networking.
+BGM changes use existing floor/boss audio files, muted and never played with ?mute=1.
+
+Before production: port rules into server-authoritative transactions; persist fountain roll,
+per-character usage, participant roster and encounter phase. Decide disconnect timeout.
+Test: node scripts/previews/test-encounter.mjs

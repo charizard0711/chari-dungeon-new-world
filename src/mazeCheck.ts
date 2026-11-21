@@ -1,0 +1,12 @@
+import './main';
+import {installOnlineScenes}from './online/townScene';
+import {ADVENTURE_CONFIG as C}from './online/adventure/layout';
+if((import.meta as any).env.DEV){
+ const state:any={characters:[],active:{id:'qa',slot:1,name:'無音テスト',gender:'male',hp:100,gold:200,inventory:{potion:3},gear:{weapon:true,weapon_key:'w_iron_dagger',armor:true,armor_key:'leather'},equipment:{weapon:['w_iron_dagger'],armor:['leather'],shield:[]}},players:[{character_id:'qa',name:'無音テスト',gender:'male',x:49,y:77,dir:'up',armor:'leather',weapon:'w_iron_dagger'}],messages:[],drops:[],superAccount:false,adventure:{id:'qa-room',name:'新迷宮QA',creator:true,status:'active',inside:true,floor:1,x:49,y:77,members:[],snapshot:{version:5,enemies:C.enemies.map(e=>({...e,hp:e.boss?0:e.hp})),keys:['amber','violet'],opened:[],discovered:['entry'],tick:0,telegraphs:[],events:[],seq:0,stairs:false,trapDisabled:true,messages:[],goldChests:['coop_gold','maze_chest_20'],fountainKind:'gold',fountainBuffs:{qa:1.5},bossEncounter:{phase:'waiting',at:Date.now(),padCount:2},bridge:{phase:'down',at:0}}}};state.characters=[state.active];
+ const bar=document.createElement('div');bar.style.cssText='position:fixed;top:0;left:0;z-index:999999;background:#152330;padding:5px;color:white';document.body.append(bar);let town:any;
+ for(const [name,x,y]of [['入口',49,77],['泉',5,36],['ボス',49,16],['協力通路',92,38],['宝物室',101,35]]as const){const b=document.createElement('button');b.textContent=name;b.onclick=()=>{state.players[0].x=state.adventure.x=x;state.players[0].y=state.adventure.y=y;town?.scene.restart({state,preview:true});};bar.append(b);}
+ for(const phase of ['opening','battle','returning','waiting']){const b=document.createElement('button');b.textContent='ボス '+phase;b.onclick=()=>{state.adventure.snapshot.bossEncounter={phase,at:Date.now(),padCount:2};state.adventure.snapshot.enemies.find((e:any)=>e.boss).hp=phase==='battle'?480:0;};bar.append(b);}
+ for(const phase of ['rising','up','down']){const b=document.createElement('button');b.textContent='橋 '+phase;b.onclick=()=>{state.adventure.snapshot.bridge={phase,at:Date.now()};};bar.append(b);}
+ const timer=setInterval(()=>{const game=(window as any).__game,host=game?.scene?.keys?.TitleScene;if(host?.sys?.isActive()){clearInterval(timer);installOnlineScenes(host,()=>{});host.scene.start('OnlineTownScene',{state,preview:true});town=game.scene.keys.OnlineTownScene;}},100);
+}
+
