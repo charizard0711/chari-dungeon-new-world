@@ -21,10 +21,10 @@ export function openBarber(scene:any){
  const root=document.createElement('section');root.className='housing-modal';root.setAttribute('role','dialog');root.setAttribute('aria-label','南門の床屋');root.setAttribute('aria-modal','true');
  root.style.cssText='inset:50% auto auto 50%;transform:translate(-50%,-50%);width:min(620px,94vw);max-height:90dvh;overflow:auto;box-sizing:border-box';
  const title=document.createElement('h2');title.textContent='南門の床屋 · ヘアカラー';
- const note=document.createElement('p');note.textContent='髪色を選んで試着できます。変更は無料です。フード装備では髪が隠れます。';
+ const note=document.createElement('p');note.textContent='髪色を選んで試着できます。変更は1回1,000Gです。同じ色のままなら料金はかかりません。フード装備では髪が隠れます。';
  const preview=document.createElement('div'),colors=document.createElement('div');colors.style.cssText='display:flex;flex-wrap:wrap;gap:10px';
  let chosen=scene.packet.active.hair_color??'brown',pending=false;
- const status=document.createElement('p'),save=document.createElement('button'),exit=document.createElement('button');save.textContent='この髪色に変更';exit.textContent='閉じる';
+ const status=document.createElement('p'),save=document.createElement('button'),exit=document.createElement('button');save.textContent='1,000Gで髪色を変更';exit.textContent='閉じる';
  const refresh=()=>{preview.replaceChildren(mountCharacterPreview(scene,{...scene.packet.active,hair_color:chosen}));for(const b of colors.querySelectorAll('button'))b.setAttribute('aria-pressed',String(b.dataset.color===chosen));};
  for(const color of HAIR_COLORS){const b=document.createElement('button');b.textContent=color.name;b.dataset.color=color.key;b.style.borderBottom=`5px solid rgb(${color.rgb.join(',')})`;b.onclick=()=>{chosen=color.key;refresh();};colors.append(b);}
  const close=()=>{if(pending)return;root.remove();scene.housingModal=false;scene.hud.overlayMode='none';scene.hud.townUI?.refresh();scene.events.off('shutdown',cleanup);};
