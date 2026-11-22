@@ -16,7 +16,7 @@ export const GAME_W = IS_MOBILE ? 390 : 1280;
 export const GAME_H = IS_MOBILE ? 844 : 760;
 
 // マップ表示ビューポート（画面上の座標）
-export const MAP_X = IS_MOBILE ? 8 : 176;
-export const MAP_Y = IS_MOBILE ? 116 : 48;
-export const MAP_W = IS_MOBILE ? 374 : 740;
-export const MAP_H = IS_MOBILE ? 374 : 520;
+export const MAP_X = IS_MOBILE ? 8 : 8;
+export const MAP_Y = IS_MOBILE ? 116 : 98;
+export const MAP_W = IS_MOBILE ? 374 : 1028;
+export const MAP_H = IS_MOBILE ? 374 : 462;

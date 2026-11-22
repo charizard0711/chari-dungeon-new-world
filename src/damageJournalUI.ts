@@ -1,3 +1,4 @@
+import {addPaintedModalFrame} from './paintedModal';
 import Phaser from 'phaser';
 import { openModalMotion } from './modalMotion';
 import { GAME_W, GAME_H, IS_MOBILE } from './layout';
@@ -37,7 +38,7 @@ export function createDamageJournal(scene: Phaser.Scene, damage: DamageEntry[], 
   const render = () => {
     root.removeAll(true);
     root.add(scene.add.rectangle(GAME_W / 2, GAME_H / 2, GAME_W, GAME_H, 0x020307, .8).setInteractive());
-    root.add(scene.add.image(x + w / 2, y + h / 2, 'ui_damage_journal_panel').setDisplaySize(w, h)
+    root.add(scene.sys.settings.key==='OnlineUIScene'?addPaintedModalFrame(scene,x+w/2,y+h/2,w,h):scene.add.image(x + w / 2, y + h / 2, 'ui_damage_journal_panel').setDisplaySize(w, h)
       .setTint(difficulty === 'hard' ? 0xb0dcff : difficulty === 'master' ? 0xffe29b : 0xe9d2a8));
     root.add(scene.add.image(x + 42, y + 36, 'ui_nav_damage_log').setDisplaySize(40, 40));
     text(x + 70, y + 21, '詳細ログ', mobile ? 21 : 26, theme.text, w - 142);

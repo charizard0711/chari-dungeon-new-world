@@ -1,0 +1,25 @@
+.town-equipment-ui:not(.mobile) .town-quickbar{left:476px;top:594px;width:786px;gap:6px}
+.town-equipment-ui:not(.mobile) .town-quick-slot{height:69px}
+.town-equipment-ui:not(.mobile) .town-necklace-slot{left:1054px;top:279px;width:100px;height:60px;padding:5px 48px 5px 3px!important}
+.town-equipment-ui:not(.mobile) .town-necklace-slot span{left:49px;right:2px;bottom:23px;font-size:8px}
+.town-equipment-ui .town-quick-slot,.town-equipment-ui .town-necklace-slot{background:linear-gradient(140deg,#14334d,#09192e)!important;border:1px solid #80bcd8!important;box-shadow:inset 0 0 9px #488cc329;border-radius:7px!important}
+.town-equipment-ui .town-quick-slot.drag-over{outline:2px solid #85efff;background:#225174!important}
+.town-equipment-ui .town-window{background:linear-gradient(125deg,#10263cfa,#09172afa 55%,#1a3453fa);border:1px solid #7edfff;border-radius:18px;box-shadow:0 0 5px #b8edff88,0 0 25px #218fc94d,inset 0 0 0 5px #57a4d015}
+.town-equipment-ui .town-window:before,.town-equipment-ui .town-window:after{content:'';position:absolute;top:0;bottom:0;width:55px;pointer-events:none;z-index:4;background:url('/assets/ui/auth-corner.svg') left top/55px 55px no-repeat}
+.town-equipment-ui .town-window:before{left:0}.town-equipment-ui .town-window:after{right:0;transform:scaleX(-1)}
+.town-equipment-ui .town-window header{border-color:#578aab70;background:#15324a55}.town-equipment-ui .town-window h2{color:#dff6ff;text-shadow:0 0 12px #68d5ff44}.town-equipment-ui .town-window footer{color:#b8d2e8;border-color:#578aab70}
+.town-equipment-ui .town-window button:not(.town-icon){background:linear-gradient(125deg,#1d4868,#172840 60%,#3b3764);border-color:#729fca;color:#e1f2ff}
+.town-tabs button[aria-pressed=true]{color:#82efff!important;border-color:#63dfff!important;background:#22628144!important}
+.town-equipment-ui .town-item-detail,.town-equipment-ui .town-detail-actions{background:#081829}.town-scroll-thumb,.town-chat-thumb{background:linear-gradient(90deg,#2a6485,#9adfff,#35587c)!important;border-color:#8fc9ee!important}
+.town-chat{color:#d9eafa}.town-chat input{background:#0b2038;border-color:#6791be;color:#e3f4ff;border-radius:7px}.town-chat button{border-color:#7db8d8!important;color:#e0f5ff!important;background:linear-gradient(125deg,#183f5c,#172940 65%,#38365d)!important;border-radius:6px}.town-chat button[aria-pressed=true],.town-chat form button{background:linear-gradient(125deg,#168aac,#245485 65%,#5a3b91)!important;box-shadow:0 0 8px #3fe2ff33}.town-chat-tabs button{font-size:11px;padding:4px 7px}.town-chat-tabs button:nth-child(3){color:#81eda6!important}.town-chat-tabs button:nth-child(4){color:#d4a5ff!important}
+.town-equipment-ui .town-window>header:before,.town-equipment-ui .town-window>header:after{content:'';position:absolute;bottom:0;width:55px;height:55px;pointer-events:none;z-index:4;background:url('/assets/ui/auth-corner.svg') center/contain no-repeat}
+.town-equipment-ui .town-window>header:before{left:0;transform:scaleY(-1)}.town-equipment-ui .town-window>header:after{right:0;transform:scale(-1)}
+.town-equipment-ui .town-window footer{padding-left:34px;padding-right:34px}.town-equipment-ui .town-window header{padding-left:30px;padding-right:30px}
+.town-equipment-ui .town-window:before,.town-equipment-ui .town-window:after{background:url('/assets/ui/auth-corner.svg') left top/55px 55px no-repeat,url('/assets/ui/auth-corner-bottom.svg') left bottom/55px 55px no-repeat}
+.town-equipment-ui .town-window>header:before,.town-equipment-ui .town-window>header:after{display:none}
+body .town-equipment-ui .town-window,body .town-warehouse,body .adventure-board,body .housing-modal{border:1px solid #7edfff;border-radius:18px;color:#e1efff;background:url('/assets/ui/auth-corner.svg') left top/50px 50px no-repeat,url('/assets/ui/auth-corner-right.svg') right top/50px 50px no-repeat,url('/assets/ui/auth-corner-bottom.svg') left bottom/50px 50px no-repeat,url('/assets/ui/auth-corner-bottom-right.svg') right bottom/50px 50px no-repeat,linear-gradient(125deg,#10263cfa,#09172afa 55%,#1a3453fa);box-shadow:0 0 5px #b8edff88,0 0 25px #218fc94d,inset 0 0 0 5px #57a4d015}
+body .housing-modal{box-shadow:0 0 0 100vmax #0009,0 0 20px #218fc94d}
+.town-equipment-ui .town-window:before,.town-equipment-ui .town-window:after{display:none}
+body .town-warehouse h2,body .adventure-board h2,body .housing-modal h2{color:#dff5ff}
+body .town-warehouse button,body .adventure-board button,body .housing-modal button{border-color:#729fca;color:#def2ff;background:linear-gradient(125deg,#183f5c,#172940 65%,#38365d)}
+.town-equipment-ui:not(.mobile) .town-star-overlay{left:1054px;top:213px;width:100px;height:60px}

@@ -22,7 +22,7 @@ export function mountTownChat(scene:Phaser.Scene,send:(message:string,channel:'c
  const drafts={chat:'',guild:'',party:''};
  const select=(next:typeof mode)=>{scroll[mode]=list.scrollTop;if(mode!=='log')drafts[mode]=input.value;mode=next;if(mode!=='log')input.value=drafts[mode];expanded=true;status.textContent='';render();fit();list.scrollTop=scroll[mode];syncBar();};
  logTab.onclick=()=>select('log');chatTab.onclick=()=>select('chat');guildTab.onclick=()=>select('guild');partyTab.onclick=()=>select('party');toggle.onclick=()=>{expanded=!expanded;fit();};
- const fit=()=>{const r=scene.game.canvas.getBoundingClientRect(),scale=r.width/GAME_W;const x=8,y=IS_MOBILE?(expanded?650:758):568,w=IS_MOBILE?374:700,h=IS_MOBILE?(expanded?142:36):184;
+ const fit=()=>{const r=scene.game.canvas.getBoundingClientRect(),scale=r.width/GAME_W;const x=8,y=IS_MOBILE?(expanded?650:758):568,w=IS_MOBILE?374:450,h=IS_MOBILE?(expanded?142:36):184;
   root.style.cssText=`left:${r.left+x*scale}px;top:${r.top+y*scale}px;width:${w}px;height:${h}px;transform:scale(${scale},${r.height/GAME_H});`;
   root.classList.toggle('compact',!expanded);toggle.setAttribute('aria-expanded',String(expanded));toggle.textContent=expanded?'✕ 閉じる':'▴ チャットを開く';toggle.title=expanded?'チャットとログを閉じる':'チャットとログを開く';syncBar();};
  const resize=new ResizeObserver(fit);resize.observe(scene.game.canvas);window.addEventListener('resize',fit);window.addEventListener('scroll',fit);render();fit();
