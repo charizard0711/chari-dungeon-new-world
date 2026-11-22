@@ -1,0 +1,5 @@
+Generated with built-in image_gen on 2026-11-22 for Chari Dungeon: ZERO.
+station-tram.png: transparent 2-column sheet. Prompt: ornate brass/teal fantasy dungeon railway turnstile at left; navy/brass passenger tram facing right at right; elevated orthographic RPG game prop view, rich painted pixel art, isolated transparent background, no text or floor.
+tram-motion.png: transparent 3-column animation sheet. Prompt: identical navy/brass passenger tram in three aligned equal square cells, side view facing right, red seats, teal crystal lamps; wheel spokes rotated 0/30/60 degrees, changing lantern intensity and drifting magic motes; no track, floor or background. Follow-up edit removed white background and separators while preserving the three sprites and alignment.
+Sources: generated_images/01a1ed2e-c820-70d0-8428-db389f5c65b9/exec-c1013e72-f8c5-4fd9-bb22-d14c7eb5d1f6.png and exec-9d5511d6-95bc-4dd0-817e-a6990a4f8235.png.
+Original generated alpha retained. Sprite cells are selected at runtime without modifying files.

@@ -1,3 +1,4 @@
+import {drawContinuousWalls} from './continuousWalls';
 import {ADVENTURE_CONFIG as C} from './layout';
 import {terrainFrame} from './scenery';
 import {townSoundLevel} from '../presentation';
@@ -8,8 +9,8 @@ export function drawMazeGround(scene:any){
  for(let cy=0;cy<C.height;cy+=16)for(let cx=0;cx<C.width;cx+=16){const rt=scene.add.renderTexture(cx*T,cy*T,16*T,16*T).setOrigin(0).setDepth(-5);for(let y=cy;y<Math.min(cy+16,C.height);y++)for(let x=cx;x<Math.min(cx+16,C.width);x++){
   if(x>=94&&x<=97&&y>=36&&y<=37)continue;
   if(ground(x,y)){floor.setFrame(terrainFrame(undefined,x,y));rt.draw(floor,(x-cx)*T,(y-cy)*T);}
-  else if([-1,0,1].some(dy=>[-1,0,1].some(dx=>ground(x+dx,y+dy))))rt.draw(x>=40&&x<=59&&y>=2&&y<=23?royal:wall,(x-cx)*T,(y-cy)*T);
- }}floor.destroy();wall.destroy();royal.destroy();
+
+ }}floor.destroy();wall.destroy();royal.destroy();drawContinuousWalls(scene);
 }
 export function mountMazeMechanics(scene:any){
  const g=scene.add.graphics().setDepth(-1),bars=scene.add.graphics().setDepth(27),emerging=scene.add.image(50.5*T,5*T,'adventure_vesper_v2',0).setDisplaySize(114,114).setDepth(26).setVisible(false);
