@@ -1,0 +1,11 @@
+Generated with the built-in OpenAI image_gen tool, 2026-11-22.
+
+lobby-night-v2.png
+Prompt: Create a production game login BACKGROUND ONLY, wide 16:9 landscape. Match the latest reference: elegant dark midnight blue fantasy vista, a dark-haired cloaked swordsman seen from behind on ruined stone ledge in the far left quarter, violet glowing flowers bottom left, distant luminous medieval castle on high cliffs with waterfalls on the far right quarter, deep blue mountains and moonlit cloudy night sky, subtle cyan and violet magical light trails along outer edges. Center 45 percent dark atmospheric open space for two character selection cards overlaid in code. Rich polished painterly anime fantasy key art. No UI, cards, buttons, text or logo.
+Source: exec-c2c5f79e-7fbb-4acd-9ec7-eb43b8ecdef4.png
+
+logo-silver-v2.png
+Prompt: A polished fantasy RPG game logo on genuinely transparent background. Exact readable lettering CHARI DUNGEON smaller upper line, ZERO larger lower line with wide elegant letter spacing. Silver-white refined engraved serif typography, restrained icy cyan glow, fine thin compass rose behind and below, luminous blue diamond crystal at top, subtle silver horizontal flourishes. Sleek midnight blue/cyan/violet fantasy UI, no gold, yellow, backdrop, dark rectangle or extra words. Compact balanced wide emblem for top-left navigation, modest transparent padding.
+Source: exec-5761055f-a1ba-4441-9645-9d38adb374a2.png
+
+UI frames, buttons, magic circle and navigation icons are CSS/SVG and remain interactive. No screenshot UI is baked into the background.
