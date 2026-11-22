@@ -7,3 +7,16 @@ export function lineOfSight(x0:number,y0:number,x1:number,y1:number,wall:(x:numb
 }
 export function partyCanSee(x:number,y:number,allies:SightSource[],radius=3,wall?:(x:number,y:number)=>boolean,state:SightState={}){return allies.some(p=>{const light=(state.lightTurns?.[p.character_id??'']??0)>0,r=light?10:radius;return Math.max(Math.abs(x-p.x),Math.abs(y-p.y))<=r&&(light||!wall||lineOfSight(p.x,p.y,x,y,wall));});}
 export function partySightRadius(_snapshot:unknown){return 3;}
+
+/** Reveal wall surfaces alongside visible floor, without extending floor/entity sight.
+ * Only original visible ground contributes: wall visibility never propagates.
+ */
+export function terrainVisibility(width:number,height:number,canSee:(x:number,y:number)=>boolean,ground:(x:number,y:number)=>boolean){
+ const visible=new Set<number>();
+ const add=(x:number,y:number)=>{if(x>=0&&y>=0&&x<width&&y<height)visible.add(y*width+x);};
+ for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+  if(!canSee(x,y))continue;add(x,y);
+  if(ground(x,y))for(const [dx,dy]of [[-1,0],[1,0],[0,-1],[0,1]])if(!ground(x+dx,y+dy))add(x+dx,y+dy);
+ }
+ return(x:number,y:number)=>visible.has(y*width+x);
+}
