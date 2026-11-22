@@ -1,6 +1,6 @@
 # Attack timing, ranged shots, gait and local wall preview
 
-- Attack speed: handgun 135, bow 45, greatsword 40; other types retain previous values. Animation time scales by 90 / speed. Hero greatsword retains its heavier base windup. Higher speed wins initiative, ties favour the player.
+- Attack speed: handgun 135, bow 45, greatsword 40; other types retain previous values. Animation time scales by 90 / speed. All greatswords use the heavy 200ms windup / 460ms base animation before speed scaling. Higher speed wins initiative, ties favour the player.
 - Shared normal release/impact/recovery timing drives pose, projectile arrival, impact audio, damage numbers and delayed enemy HP/death presentation. Skill effect timelines scale with the weapon speed. The server applies matching attack recovery checks and a 70% handgun damage multiplier.
 - HUD shows attack speed; visible enemies show speed and initiative comparison. A slower enemy's response animation follows the player's contact.
 - Projectile origins use the same originalMuzzle rig calculation as the prototype, transformed into the rendered character space. Upward shots draw behind the body. Dedicated small bullet artwork and byte-identical CHARIA profile-gun-eagle recording are recorded in public/assets/online/projectile-v1/ASSETS.txt and weapon-audio-v2/ASSETS.txt.
