@@ -5,8 +5,11 @@ export function lineOfSight(x0:number,y0:number,x1:number,y1:number,wall:(x:numb
  let x=x0,y=y0,mx=0,my=0;const dx=Math.abs(x1-x0),dy=Math.abs(y1-y0),sx=Math.sign(x1-x0),sy=Math.sign(y1-y0);
  while(mx<dx||my<dy){const decision=(1+2*mx)*dy-(1+2*my)*dx;if(decision===0){const targetWall=x+sx===x1&&y+sy===y1&&wall(x1,y1);if(!targetWall&&(wall(x+sx,y)||wall(x,y+sy)))return false;x+=sx;y+=sy;mx++;my++;}else if(decision<0){x+=sx;mx++;}else{y+=sy;my++;}if(x===x1&&y===y1)return true;if(wall(x,y))return false;}return true;
 }
-export function partyCanSee(x:number,y:number,allies:SightSource[],radius=3,wall?:(x:number,y:number)=>boolean,state:SightState={}){return allies.some(p=>{const light=(state.lightTurns?.[p.character_id??'']??0)>0,r=light?10:radius;return Math.max(Math.abs(x-p.x),Math.abs(y-p.y))<=r&&(light||!wall||lineOfSight(p.x,p.y,x,y,wall));});}
-export function partySightRadius(_snapshot:unknown){return 3;}
+/** The viewport clips range; walls alone limit ordinary sight. Lantern light is shared. */
+export function partyHasLight(allies:SightSource[],state:SightState={}){return allies.some(p=>(state.lightTurns?.[p.character_id??'']??0)>0);}
+export function partyCanSee(x:number,y:number,allies:SightSource[],radius=Infinity,wall?:(x:number,y:number)=>boolean,state:SightState={}){return allies.some(p=>Math.max(Math.abs(x-p.x),Math.abs(y-p.y))<=radius&&((state.lightTurns?.[p.character_id??'']??0)>0||!wall||lineOfSight(p.x,p.y,x,y,wall)));}
+export function partySightRadius(_snapshot:unknown){return Infinity;}
+export function enemyVisible(hidden:boolean,allies:SightSource[],state:SightState={}){return !hidden||partyHasLight(allies,state);}
 
 /** Reveal wall surfaces alongside visible floor, without extending floor/entity sight.
  * Only original visible ground contributes: wall visibility never propagates.

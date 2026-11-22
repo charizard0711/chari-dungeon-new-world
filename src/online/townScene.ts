@@ -1,3 +1,4 @@
+import {mountInbox} from './inbox';
 import {crystalPanel,crystalMenu,crystalStatus,crystalFrames,crystalRefresh,crystalMiniMap} from './crystalHud';
 import {railPose} from './adventure/railRoute';
 import {renderRailActor,railNow} from './adventure/railway';
@@ -328,14 +329,16 @@ export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)
  }
  class TownHud extends HudBase{
   get theme(){return {...super.theme,color:0x79cdeb,text:'#dcefff'};}
+  inboxUI?:ReturnType<typeof mountInbox>;
   packetRefreshing=false;
   townUI?:ReturnType<typeof mountTownEquipmentUI>;
-  create(){super.create();this.townUI=mountTownEquipmentUI(this,this.gs);this.events.once('shutdown',()=>this.townUI?.destroy());}
+  create(){super.create();this.townUI=mountTownEquipmentUI(this,this.gs);this.inboxUI=mountInbox(this);this.events.once('shutdown',()=>this.inboxUI?.destroy());this.events.once('shutdown',()=>this.townUI?.destroy());}
   rebuildItems(){this.itemContainer?.removeAll(true);this.townUI?.refresh();}
   refresh(){this.packetRefreshing=true;try{super.refresh();}finally{this.packetRefreshing=false;}this.townUI?.refresh();crystalRefresh(this);}
   buildMobileLayout(){super.buildMobileLayout();for(const child of this.children.list as any[])if(child.text==='ちゃりだんじょん')child.setText('Chari Dungeon: ZERO').setFontSize(12);this.equipIconSize=32;this.equipSlots.forEach((slot:any,i:number)=>{const oldX=slot.rect[0],x=14+i*92;slot.rect=[x,520,88,52];slot.icon.setPosition(x+22,546);slot.name.setPosition(x+43,527).setWordWrapWidth(40);slot.sub.setPosition(x+43,546).setWordWrapWidth(40);for(const object of this.children.list as any[]){if(object.type==='Zone'&&object.x===oldX&&object.y===520&&object.width===116){object.setPosition(x,520).setSize(88,52);if(object.input?.hitArea){object.input.hitArea.width=88;object.input.hitArea.height=52;}}}});}
-  buildTopBar(){super.buildTopBar();for(const child of this.children.list as any[])if(typeof child.text==='string'&&child.text.startsWith('ちゃりだんじょん  /'))child.setText((this.gs.inDungeon?'Chari Dungeon: ZERO  /  精霊樹と結晶門の遺跡':'Chari Dungeon: ZERO  /  はじまりの町')+(this.gs.packet.superAccount?' [SUPER]':''));}
-  update(){super.update();const speed=weaponAttackSpeed(this.gs.player.weapon?.weaponType);this.atkLabel.setFontSize(IS_MOBILE?'9px':'12px');this.atkLabel.setText(`攻 ${this.gs.player.atkMin}-${this.gs.player.atkMax}  防 ${this.gs.player.def}\n攻撃速度 ${speed}${this.gs.player.weapon?.weaponType==='handgun'?' · 銃威力70%':''}`);if(!IS_MOBILE){this.atkLabel.setText(`攻 ${this.gs.player.atkMin}-${this.gs.player.atkMax}   防 ${this.gs.player.def}   攻撃速度 ${speed}`).setFontSize(12);crystalMiniMap(this,this.time.now);crystalRefresh(this);}if(this.skillCounter)this.skillCounter.setText(this.gs.timeStopTurns>0?`時停止 ${this.gs.timeStopTurns}`:this.gs.skillStepsRemaining>0?String(this.gs.skillStepsRemaining):this.gs.skillArmed?'選択中':'');if(this.skillButton)this.skillButton.setAlpha(this.gs.skillArmed?1:.85);}
+  buildTopBar(){this.topText=this.add.text(0,0,'').setVisible(false);}
+
+  update(){super.update();this.inboxUI?.update();const speed=weaponAttackSpeed(this.gs.player.weapon?.weaponType);this.atkLabel.setFontSize(IS_MOBILE?'9px':'12px');this.atkLabel.setText(`攻 ${this.gs.player.atkMin}-${this.gs.player.atkMax}  防 ${this.gs.player.def}\n攻撃速度 ${speed}${this.gs.player.weapon?.weaponType==='handgun'?' · 銃威力70%':''}`);if(!IS_MOBILE){this.atkLabel.setText(`⚔ ${this.gs.player.atkMin}-${this.gs.player.atkMax}   ⛨ ${this.gs.player.def}   ➶ 攻撃速度 ${speed}`).setFontSize(12);crystalMiniMap(this,this.time.now);crystalRefresh(this);}if(this.skillCounter)this.skillCounter.setText(this.gs.timeStopTurns>0?`時停止 ${this.gs.timeStopTurns}`:this.gs.skillStepsRemaining>0?String(this.gs.skillStepsRemaining):this.gs.skillArmed?'選択中':'');if(this.skillButton)this.skillButton.setAlpha(this.gs.skillArmed?1:.85);}
   panel(x:number,y:number,w:number,h:number,title?:string){return crystalPanel(this,x,y,w,h,title);}
   buildFrames(){crystalFrames(this);}
   buildStatusPanel(){crystalStatus(this);}

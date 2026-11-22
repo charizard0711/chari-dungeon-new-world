@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {partyCanSee,partySightRadius,enemyVisible,terrainVisibility} from '../src/online/adventure/visibility';
+const player=[{x:5,y:5,character_id:'a'}],wall=(x:number,y:number)=>x===9;
+assert.equal(partySightRadius({}),Infinity);
+assert.ok(partyCanSee(5,40,player,Infinity,wall));
+assert.ok(partyCanSee(9,5,player,Infinity,wall));
+assert.ok(!partyCanSee(10,5,player,Infinity,wall));
+assert.ok(partyCanSee(40,5,player,Infinity,wall,{lightTurns:{a:5}}));
+assert.ok(!partyCanSee(40,5,player,Infinity,wall,{lightTurns:{a:0}}));
+assert.ok(!enemyVisible(true,player,{}));assert.ok(enemyVisible(true,player,{lightTurns:{a:5}}));assert.ok(enemyVisible(false,player,{}));
+assert.ok(partyCanSee(12,5,[...player,{x:13,y:5,character_id:'b'}],Infinity,wall));
+const closed=(x:number,y:number)=>x===0||y===0||x===20||y===20;
+for(let y=1;y<20;y++)for(let x=1;x<20;x++)assert.ok(partyCanSee(x,y,player,Infinity,closed));
+console.log('PASS: screen-range LOS, visible wall surfaces, opaque walls, whole open rooms, shared sight, 5-turn lantern expiration and hidden-enemy reveal.');

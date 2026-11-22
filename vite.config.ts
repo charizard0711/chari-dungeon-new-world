@@ -16,14 +16,15 @@ export default defineConfig(({ command, mode }) => {
       __GAME_DEV_TOOLS__: JSON.stringify(command === 'serve'),
       __RANKING_VERIFIER__: JSON.stringify(mode === 'verifier'),
     },
+    optimizeDeps: { entries: ['index.html','admin/index.html','hud-check.html'] },
     server: {
       host: true,
       port: 5201,
       open: false,
-      watch: { ignored: ['**/dist-verifier/**', '**/outputs/**'] }
+      watch: { ignored: ['**/dist-verifier/**', '**/outputs/**', '**/tmp/**', '**/art/**', '**/public/**'] }
     },
     build: {
-      rollupOptions: { input: { main: 'index.html', authConfirm: 'auth-confirm.html', authGoogle: 'auth-google.html', authMicrosoft: 'auth-microsoft.html' } },
+      rollupOptions: { input: { main: 'index.html', admin: 'admin/index.html', authConfirm: 'auth-confirm.html', authGoogle: 'auth-google.html', authMicrosoft: 'auth-microsoft.html' } },
       outDir: mode === 'verifier' ? 'dist-verifier' : 'dist',
       sourcemap: false,
       target: 'es2020',

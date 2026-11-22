@@ -1363,7 +1363,7 @@ export class UIScene extends Phaser.Scene {
     }
     this.hideTooltip();
     this.overlay.removeAll(true);
-    const { x, y, w, h } = this.overlayMode === 'quests' && !IS_MOBILE ? { x: 230, y: 40, w: 820, h: 680 }
+    const { x, y, w, h } = this.sys.settings.key==='OnlineUIScene'&&!IS_MOBILE ? {x:180,y:40,w:920,h:680} : this.overlayMode === 'quests' && !IS_MOBILE ? { x: 230, y: 40, w: 820, h: 680 }
       : ['itemcatalog', 'equipmentcatalog', 'codex'].includes(this.overlayMode) && !IS_MOBILE
       ? { x: 180, y: 40, w: 920, h: 680 }
       : ['settings', 'shop', 'repair'].includes(this.overlayMode) && !IS_MOBILE

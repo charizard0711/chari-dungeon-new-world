@@ -4,7 +4,7 @@ import { addPaintedModalFrame } from './paintedModal';
 /** A painted guide panel with wrapping after localization. */
 export function createGuideModal(scene: Phaser.Scene, steps: readonly (readonly [string, string])[], onClose: () => void) {
   const { width: screenW, height: screenH } = scene.scale;
-  const width = Math.min(screenW - 24, 600), height = Math.min(screenH - 40, 440);
+  const width = Math.min(screenW - 24, scene.sys.settings.key==='OnlineUIScene'?920:600), height = Math.min(screenH - 40, scene.sys.settings.key==='OnlineUIScene'?680:440);
   const x = (screenW - width) / 2, y = (screenH - height) / 2;
   const card = scene.add.container(0, 0).setDepth(400).setName('controls-guide-modal');
   const shade = scene.add.rectangle(screenW / 2, screenH / 2, screenW, screenH, 0x02080c, .84).setInteractive();

@@ -23,3 +23,11 @@ body .housing-modal{box-shadow:0 0 0 100vmax #0009,0 0 20px #218fc94d}
 body .town-warehouse h2,body .adventure-board h2,body .housing-modal h2{color:#dff5ff}
 body .town-warehouse button,body .adventure-board button,body .housing-modal button{border-color:#729fca;color:#def2ff;background:linear-gradient(125deg,#183f5c,#172940 65%,#38365d)}
 .town-equipment-ui:not(.mobile) .town-star-overlay{left:1054px;top:213px;width:100px;height:60px}
+
+/* A consistent journal-size dialog; inventory retains its drag-and-drop dock. */
+body .town-equipment-ui:not(.mobile) .town-window:not([data-mode="inventory"]),body .town-equipment-ui:not(.mobile) .town-warehouse,body .town-equipment-ui:not(.mobile) .adventure-board{inset:auto;left:180px;top:40px;width:920px;height:680px;box-sizing:border-box}
+body .housing-modal{inset:auto;left:50%;top:50%;transform:translate(-50%,-50%);width:min(920px,94vw);height:min(680px,90vh);box-sizing:border-box;padding:30px 38px}
+.town-chat{color:#fff}.town-chat-status{color:#fff!important}.town-chat-log,.town-chat input{color:#fff}.town-chat input{background:#07151d;border-color:#7d9bab}
+
+@media(min-width:701px){body .housing-modal{width:920px;height:680px;transform:translate(-50%,-50%) scale(var(--zero-ui-scale,1))}}
+body .town-equipment-ui:not(.mobile) .town-warehouse header,body .town-equipment-ui:not(.mobile) .adventure-board header{padding-left:48px;padding-right:32px}
