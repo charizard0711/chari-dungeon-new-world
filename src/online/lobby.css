@@ -102,3 +102,27 @@
 .zero-lobby[data-view=create] .online-character-preview,.zero-lobby[data-view=create] .online-character-preview canvas{width:clamp(75px,12cqh,105px);height:clamp(75px,12cqh,105px)}
 .zero-lobby[data-view=create] form label{margin:8px 0}.zero-lobby[data-view=create] form>button{width:100%;border-radius:25px;padding:10px}
 @container(max-height:650px){.zero-lobby:not([data-view=characters]) .lobby-content{padding-top:12px}.zero-lobby:not([data-view=characters]) .lobby-heading{padding-top:10px}.zero-lobby:not([data-view=characters]) .lobby-heading:before{font-size:24px;top:-10px}.zero-lobby label{margin:8px 0}.zero-lobby input{padding:8px}.zero-lobby .lobby-primary{padding:9px}.zero-lobby .lobby-auth-links{gap:5px}}
+/* Vector glass frames: transparent padding preserves the fine edge bloom. */
+.zero-lobby button.lobby-art-button{position:relative;display:inline-flex;align-items:center;justify-content:center;isolation:isolate;height:70px;padding:0!important;border:0!important;border-radius:0;background:transparent!important;box-shadow:none!important;clip-path:none;overflow:visible;font-family:'Yu Gothic UI',Meiryo,sans-serif;transition:transform .15s ease;filter:none}
+.zero-lobby .lobby-button-art{position:absolute;inset:0;width:100%;height:100%;max-width:none;pointer-events:none;user-select:none;transition:filter .18s ease}
+.zero-lobby .lobby-button-caption{position:relative;z-index:1;display:inline-flex;align-items:center;justify-content:center;gap:12px;color:#e6f5ff;font-size:clamp(14px,2.4cqh,20px);font-weight:600;letter-spacing:.055em;white-space:nowrap;line-height:1;text-shadow:0 1px 4px #061729}
+.zero-lobby .lobby-button-icon{width:23px;height:23px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.zero-lobby button[data-finish=cyan] .lobby-button-icon{color:#65e9fa}
+.zero-lobby button[data-finish=violet] .lobby-button-icon{color:#e4c2ff}
+.zero-lobby button.lobby-art-button:hover .lobby-button-art{filter:brightness(1.22) drop-shadow(0 0 4px #71c9ef44)}
+.zero-lobby button.lobby-art-button:active{transform:translateY(1px) scale(.985)}
+.zero-lobby button.lobby-art-button:focus-visible{outline:2px solid #e3f8ff;outline-offset:-5px;border-radius:25px}
+.zero-lobby .online-character-card>button.lobby-art-button{width:88%;height:66px;flex-shrink:0;margin-bottom:-3px}
+.zero-lobby .empty-card>button.lobby-art-button{width:100%}
+.zero-lobby button.lobby-logout{width:230px;min-width:0;height:66px;margin:10px 0 50px}
+.zero-lobby button.lobby-logout .lobby-button-caption{font-size:17px;color:#c9d9ed}
+.zero-lobby button.lobby-confirm{position:absolute;bottom:12px;right:2%;width:clamp(235px,23cqw,340px);min-width:0;height:clamp(80px,12cqh,106px);margin:0}
+.zero-lobby .lobby-confirm .lobby-button-caption{padding-left:13px;font-size:clamp(22px,3.8cqh,31px);gap:15px}
+.zero-lobby .lobby-confirm .lobby-button-icon{width:28px;height:28px}
+.zero-lobby .lobby-confirm .lobby-button-icon:first-child{color:#dcc0ff}
+.zero-lobby button.lobby-primary,.zero-lobby[data-view=create] form>button.lobby-art-button{height:66px;margin:0}
+@container(max-width:620px){.zero-lobby[data-view=characters] button.lobby-confirm{position:static;width:250px;height:83px}.zero-lobby button.lobby-logout{margin:5px 0;height:59px}.zero-lobby .online-character-card>button.lobby-art-button{width:100%}.zero-lobby .lobby-button-caption{gap:6px;font-size:14px}.zero-lobby .lobby-button-icon{width:18px;height:18px}}
+@media(prefers-reduced-motion:reduce){.zero-lobby button.lobby-art-button,.zero-lobby .lobby-button-art{transition:none}}
+.zero-lobby button.lobby-logout{flex-shrink:0;margin:6px 0 18px}
+@container(min-width:621px){.zero-lobby[data-view=characters] .online-character-card{min-height:clamp(250px,40cqh,365px)}.zero-lobby[data-view=characters] .lobby-content{padding-bottom:0}}
+@container(min-width:621px){.zero-lobby[data-view=characters] .lobby-character-stage{height:clamp(95px,16cqh,150px);min-height:0}.zero-lobby[data-view=characters] .online-character-card p{margin:6px 0}.zero-lobby[data-view=characters] .lobby-logout{margin-bottom:6px}}

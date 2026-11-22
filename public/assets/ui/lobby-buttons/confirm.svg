@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="112" viewBox="0 0 360 112" fill="none">
+<defs>
+ <linearGradient id="edge" x1="25" y1="90" x2="335" y2="15" gradientUnits="userSpaceOnUse"><stop stop-color="#f3c5ff"/><stop offset=".2" stop-color="#c991ff"/><stop offset=".55" stop-color="#a3bcff"/><stop offset=".82" stop-color="#67e8ff"/><stop offset="1" stop-color="#d6ffff"/></linearGradient>
+ <linearGradient id="glass" x1="32" y1="20" x2="324" y2="90" gradientUnits="userSpaceOnUse"><stop stop-color="#6b3d9e" stop-opacity=".94"/><stop offset=".48" stop-color="#343b7d" stop-opacity=".95"/><stop offset="1" stop-color="#106081" stop-opacity=".94"/></linearGradient>
+ <linearGradient id="sheen" x1="170" y1="18" x2="170" y2="92" gradientUnits="userSpaceOnUse"><stop stop-color="#e4d8ff" stop-opacity=".38"/><stop offset=".17" stop-color="#b2ccff" stop-opacity=".04"/><stop offset=".7" stop-color="#61c9ff" stop-opacity="0"/><stop offset="1" stop-color="#80deff" stop-opacity=".3"/></linearGradient>
+ <linearGradient id="rim" x1="30" y1="20" x2="326" y2="86" gradientUnits="userSpaceOnUse"><stop stop-color="#e6acff"/><stop offset=".38" stop-color="#7a91cd" stop-opacity=".22"/><stop offset="1" stop-color="#79ecff"/></linearGradient>
+ <filter id="bloom" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="3.2"/></filter>
+ <filter id="spark"><feGaussianBlur stdDeviation="1.1"/></filter>
+ <path id="shape" d="M65 17H328Q337 17 337 26V53L306 94H28Q19 94 19 85V64Z"/>
+</defs>
+<use href="#shape" stroke="url(#edge)" stroke-width="8" opacity=".55" filter="url(#bloom)"/>
+<use href="#shape" fill="url(#glass)" stroke="url(#edge)" stroke-width="2.4"/>
+<use href="#shape" fill="url(#sheen)"/>
+<path d="M68 22H326Q331 22 331 28V51L303 89H30Q25 89 25 83V66Z" stroke="url(#rim)" stroke-width=".9"/>
+<path d="M70 25h60m128 0h65M29 82v-13l13-14M291 86h9l24-33" stroke="#cae9ff" stroke-opacity=".26"/>
+<path d="M63 18H137M244 18h84q8 0 8 8v16M20 70v15q0 8 8 8h59M231 93h76l14-19" stroke="url(#edge)" stroke-width="3.5" filter="url(#spark)"/>
+<path d="m326 9 2 7 8 2-8 2-2 7-2-7-7-2 7-2ZM28 86l1.5 5 5 1.5-5 1.5-1.5 5-1.5-5-5-1.5 5-1.5Z" fill="#e9ffff"/>
+<g stroke="#d0b5ff" stroke-width=".7" opacity=".5"><path d="m48 76-3 6 3 6 3-6ZM58 85h19m-9-3v6M292 31l4-5 4 5-4 5Z"/></g>
+<g fill="#def6ff"><circle cx="100" cy="18" r="1.7"/><circle cx="211" cy="93" r="1.4"/><circle cx="321" cy="61" r="1.6"/></g>
+</svg>
