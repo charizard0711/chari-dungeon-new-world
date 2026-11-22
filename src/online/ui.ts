@@ -138,9 +138,18 @@ export function mountOnlineLobby(scene:Phaser.Scene,previewState?:WorldState) {
     }
     if(mode==='login')links.append(button('確認メールが届かない方',()=>auth('resend',email.value)));
     if(resend)links.append(button('ログイン画面へ戻る',()=>auth('login',email.value)));
-    if(mode==='login')for(const provider of ['Google','Microsoft']){const b=button(`${provider}でログイン（準備中）`,()=>{});b.disabled=true;links.append(b);}
+    if(mode==='login'||signup){
+      const google=button('Googleでログイン',()=>void run(async()=>{
+        google.disabled=true;google.textContent='Googleへ移動中…';
+        try{const redirect=new URL('auth-google.html',location.href);if(new URLSearchParams(location.search).get('mute')==='1')redirect.searchParams.set('mute','1');
+          const {error:e}=await online!.auth.signInWithOAuth({provider:'google',options:{redirectTo:redirect.href,queryParams:{prompt:'select_account'}}});if(e)throw e;
+        }catch(e){google.disabled=false;google.textContent='Googleでログイン';throw e;}
+      }));google.className='lobby-google';links.append(google);
+      const microsoft=button('Microsoftでログイン（準備中）',()=>{});microsoft.disabled=true;links.append(microsoft);
+    }
     content.append(links);
     content.append(node('p','Chari Dungeon: ZERO のアカウントです。'));
+    const privacy=node('a','プライバシーポリシー');privacy.href='privacy.html';privacy.target='_blank';privacy.rel='noopener';privacy.style.color='#a8dfff';privacy.style.fontSize='12px';content.append(privacy);
   };
   const preview=(import.meta as any).env.DEV&&location.hostname==='localhost'?previewState:undefined;
   if(preview)characters(preview);else auth();

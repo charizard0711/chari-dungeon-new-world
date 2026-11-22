@@ -35,6 +35,7 @@ export class TitleScene extends Phaser.Scene {
     refresh();actions.append(start,settings);root.append(languages,logo,caption,actions,footer);document.body.append(root);
     const key=(event:KeyboardEvent)=>{if(event.key==='Enter'&&document.activeElement===document.body){event.preventDefault();start.click();}};
     window.addEventListener('keydown',key);
+    const entry=new URL(location.href);if(entry.searchParams.get('login')==='google'){entry.searchParams.delete('login');history.replaceState(null,'',entry);this.time.delayedCall(0,()=>openOnline(this,Audio));}
     this.events.once('shutdown',()=>{root.remove();observer.disconnect();window.removeEventListener('resize',fit);window.removeEventListener('scroll',fit);window.removeEventListener('keydown',key);});
   }
 }
