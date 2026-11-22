@@ -19,7 +19,7 @@ export function mountRailStations(scene:any){
 export function mountRailLoading(scene:Phaser.Scene,toBoss:boolean){
  const loading=mountTownLoading(scene,toBoss?'ボス前駅へ':'入口駅へ');
  for(const e of loading.root.querySelectorAll<HTMLElement>('.town-entry-caption,.town-entry-painting'))e.style.display='none';
- const canvas=document.createElement('canvas');canvas.width=1000;canvas.height=600;canvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#030912';loading.root.append(canvas);
+ const canvas=document.createElement('canvas');canvas.width=1000;canvas.height=600;canvas.style.cssText='position:absolute;z-index:1;inset:0;width:100%;height:100%;object-fit:contain;background:#030912';loading.root.append(canvas);
  const ctx=canvas.getContext('2d')!,tram=new Image(),stone=new Image();tram.src='assets/online/railway-v1/tram-motion.png';stone.src='assets/online/wall-demo-v1/walls.png';
  const started=performance.now(),duration=6200;let previous=started,distance=0,raf=0,disposed=false;
  function draw(now:number){if(disposed)return;const elapsed=now-started,t=Math.min(1,elapsed/duration),speed=Math.min(1,t/.22,(1-t)/.22),dt=Math.min(50,now-previous);previous=now;distance+=Math.max(0,speed)*dt*.95;
