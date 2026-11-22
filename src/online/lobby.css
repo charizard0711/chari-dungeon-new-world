@@ -25,7 +25,7 @@
 .zero-lobby .online-character-card>button{width:95%;margin-top:auto;font-size:17px;white-space:nowrap;padding:12px 6px}
 .zero-lobby .online-character-card.selected{border:2px solid #6df4ff;padding:19px 15px 21px;box-shadow:0 0 20px #2de5ff70,inset 0 0 24px #3b9bc030,inset 0 0 0 5px #0a1d2a,inset 0 0 0 6px #8af7ff70}
 .zero-lobby .online-character-card.selected:after{content:'';position:absolute;bottom:-2px;left:18%;right:18%;height:3px;background:linear-gradient(90deg,transparent,#dcffff,transparent);box-shadow:0 0 12px #39e9ff}
-.zero-lobby .lobby-selected-mark{display:none;position:absolute;right:10px;top:-3px;background:linear-gradient(120deg,#9af9ff,#148eb3);color:#102333;font:700 27px sans-serif;padding:8px;clip-path:polygon(0 0,100% 0,100% 70%,50% 100%,0 70%)}
+
 .zero-lobby .selected .lobby-selected-mark{display:block}
 .zero-lobby .lobby-character-stage{position:relative;display:grid;place-items:center;width:100%;height:160px;isolation:isolate}
 .zero-lobby .lobby-character-stage:before{content:'';position:absolute;z-index:-1;width:145px;height:145px;border:5px double #31557855;border-radius:50%;background:repeating-conic-gradient(from 0deg,#42628220 0deg 1deg,transparent 1deg 30deg);box-shadow:inset 0 0 0 13px #04121e,inset 0 0 0 14px #37587955}
@@ -68,14 +68,14 @@
 .zero-lobby .lobby-character-stage:after{height:22px;bottom:5px;border:5px double #24d7ff;box-shadow:0 0 18px #1dd8ff80,inset 0 0 12px #1dd8ff70;background:radial-gradient(ellipse,#3dcfff77,transparent 65%)}
 .zero-lobby .empty:after{display:none}.zero-lobby .empty:before{border-radius:12px;border:2px dashed #8295b3;width:88px;height:88px;background:none;box-shadow:none;opacity:.6}
 .zero-lobby .empty>span{font:64px 'Yu Gothic UI',sans-serif;color:#b1c1d8}
-.zero-lobby .lobby-selected-mark{right:0;top:0;clip-path:polygon(0 0,100% 0,100% 100%);width:62px;height:62px;box-sizing:border-box;text-align:right;padding:6px;color:white;background:linear-gradient(45deg,#0a6d9690,#63efff);font-size:26px;border-radius:0 11px 0 0}
+.zero-lobby .lobby-selected-mark{display:none;position:absolute;right:12px;top:12px;width:26px;height:26px;box-sizing:border-box;border:1px solid #8adbe799;border-radius:50%;background:linear-gradient(145deg,#224458ee,#0b2236f2);box-shadow:inset 0 1px 2px #c3f7ff25,0 0 9px #52d9ef22;pointer-events:none}.zero-lobby .lobby-selected-mark::after{content:"";position:absolute;left:7px;top:6px;width:9px;height:5px;border-left:2px solid #e3f6ff;border-bottom:2px solid #e3f6ff;transform:rotate(-45deg)}
 .zero-lobby .online-character-card>button{border-radius:30px;border:2px solid #35d2e8;box-shadow:inset 0 0 15px #1287b633;background:linear-gradient(#12314a,#124257);width:82%;font-weight:600}
 .zero-lobby .empty-card>button{border-color:#b48bef;background:linear-gradient(#1b233f,#38365d);box-shadow:0 0 10px #a86eff25,inset 0 0 14px #ba86ff22;width:95%}
 .zero-lobby .lobby-logout{border-radius:10px;background:linear-gradient(#304563,#1c2b42);border-color:#7792b8;box-shadow:inset 0 0 10px #89b3ed30;margin-top:20px}
 .zero-lobby .lobby-confirm{background:linear-gradient(115deg,#7c47b9,#4e4393 50%,#168ba8);border-color:#a0efff;box-shadow:inset 0 0 0 3px #a1e5ff44,inset 0 0 20px #c098ff88,0 0 18px #68dbff65;color:#f4f7ff}
 .zero-lobby .lobby-primary{border-radius:25px}.zero-lobby nav button span{font-family:'Yu Gothic UI',sans-serif}
 @container(max-width:1000px){.zero-lobby .online-character-grid{width:72%;gap:22px}.zero-lobby .online-character-card{min-height:310px}.zero-lobby .lobby-content{padding-top:22px}.zero-lobby .lobby-character-stage{height:150px}.zero-lobby .lobby-header{height:80px}.zero-lobby .lobby-home img{height:95px}}
-@container(max-width:620px){.zero-lobby .online-character-grid{width:100%;gap:12px}.zero-lobby .online-character-card{min-height:300px}.zero-lobby .lobby-character-stage{height:145px}.zero-lobby .lobby-header{height:74px}.zero-lobby .lobby-home img{height:80px}.zero-lobby .lobby-content{padding-top:20px}.zero-lobby .lobby-logout{margin:10px 0}.zero-lobby .online-character-card>button{width:100%;padding:10px 3px}.zero-lobby .lobby-selected-mark{width:45px;height:45px;font-size:21px;padding:3px}}
+@container(max-width:620px){.zero-lobby .online-character-grid{width:100%;gap:12px}.zero-lobby .online-character-card{min-height:300px}.zero-lobby .lobby-character-stage{height:145px}.zero-lobby .lobby-header{height:74px}.zero-lobby .lobby-home img{height:80px}.zero-lobby .lobby-content{padding-top:20px}.zero-lobby .lobby-logout{margin:10px 0}.zero-lobby .online-character-card>button{width:100%;padding:10px 3px}.zero-lobby .lobby-selected-mark{right:9px;top:9px;width:26px;height:26px}}
 
 .zero-lobby .lobby-home,.zero-lobby nav button{box-shadow:none}
 .zero-lobby nav svg{width:25px;height:25px;vertical-align:middle;margin-right:10px;stroke:currentColor;fill:none;stroke-width:1.6}
