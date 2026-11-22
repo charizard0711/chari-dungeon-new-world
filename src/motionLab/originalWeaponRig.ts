@@ -96,7 +96,13 @@ export function drawOriginalRig(g:CanvasRenderingContext2D,body:Atlas,parts:Limb
  g.save();g.scale(magnify,magnify);
  if(dir!=='down'){arm(farShoulder,off,true);glove(off);}
  if(dir==='up'){arm(shoulder,hand,false);heldGear();}
- g.save();g.translate(0,-12);g.rotate(profile?pose.lean*side:0);g.translate(0,12);g.drawImage(body.image,f.sx,f.sy,f.cw,f.ch,-f.root[0]*scale,-f.root[1]*scale,f.cw*scale,f.ch*scale);g.restore();
+ g.save();g.translate(0,-12);g.rotate(profile?pose.lean*side:0);g.translate(0,12);if(walk&&!profile){
+  // Front/back source gait repeats the same leading foot. Alternate only the legs;
+  // the face, cape, belt and hand anchors keep their authored orientation.
+  const leg=body.frames[row*8+(Math.floor(t*8)%4)],draw=(v:typeof f)=>g.drawImage(body.image,v.sx,v.sy,v.cw,v.ch,-v.root[0]*scale,-v.root[1]*scale,v.cw*scale,v.ch*scale);
+  g.save();g.beginPath();g.rect(-100,-100,200,86);g.clip();draw(f);g.restore();
+  g.save();g.beginPath();g.rect(-100,-14,200,114);g.clip();if(t%1>=.5)g.scale(-1,1);draw(leg);g.restore();
+ }else g.drawImage(body.image,f.sx,f.sy,f.cw,f.ch,-f.root[0]*scale,-f.root[1]*scale,f.cw*scale,f.ch*scale);g.restore();
  // Front-facing limbs and gear are opaque foreground layers, never behind the torso.
  if(dir==='down')arm(farShoulder,off,true);
  if(dir!=='up'){arm(shoulder,hand,false);heldGear();}

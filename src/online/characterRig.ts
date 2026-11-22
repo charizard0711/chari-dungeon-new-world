@@ -38,7 +38,7 @@ export class CharacterRig {
  update(...args:Args){this.args=args;if(this.bound!==args[0]){this.bound=args[0];this.bound.once('destroy',this.destroy,this);}return this.refresh();}
  private refresh(){
   if(this.disposed||!this.args)return false;
-  const [body,weapon,shield,dir,frame,gender,elapsed,enabled]=this.args;
+  const [body,weapon,shield,dir,frame,gender,rawElapsed,enabled]=this.args;let elapsed=rawElapsed;
   if(!body.active){this.destroy();return false;}
   const armor=body.texture.key.replace(/^player_(male|female)_/,'');
   const hair=String(body.getData('hairColor')??'brown'),lookKey=gender+':'+armor+':'+hair;
@@ -47,7 +47,7 @@ export class CharacterRig {
   if(artKey!==this.artKey){this.artKey=artKey;this.art=undefined;this.visual=undefined;this.sheet=sheet;if(artKey&&sheet)loadWeaponVisual(sheet,!!weapon?.starred,loadRigImage).then(visual=>{if(!this.disposed&&this.artKey===artKey){this.visual=visual;this.art=visual.image;this.signature='';}}).catch(()=>{});}
   if(!this.look||(weapon&&!this.art)||weapon&&!sheet){body.setCrop();this.image.setVisible(false);return false;}
   const action=playerAction(frame),attack=action==='attack'||action==='windup',walk=action==='walk',heavy=weapon?.key==='w_hero_sword',windup=heavy?200:58,duration=heavy?460:268;
-  const t=attack?Math.min(1,(elapsed+(action==='attack'?windup:0))/duration):walk?Number(body.getData('walkPhase')??Math.max(0,PLAYER_WALK_FRAMES.indexOf(frame as typeof PLAYER_WALK_FRAMES[number]))/PLAYER_WALK_FRAMES.length):0;
+  const attackRate=Number(body.getData('attackRate')??1);elapsed/=attackRate;const t=attack?Math.min(1,(elapsed+(action==='attack'?windup:0))/duration):walk?Number(body.getData('walkPhase')??Math.max(0,PLAYER_WALK_FRAMES.indexOf(frame as typeof PLAYER_WALK_FRAMES[number]))/PLAYER_WALK_FRAMES.length):0;
   const phase=attack?Math.round(t*24):walk?Math.floor(t*8):0;
   const signature=[lookKey,artKey,shield?.key,dir,action,phase].join('|');
   if(signature!==this.signature&&(this.scene.time.now>=this.nextDraw||!this.signature)){

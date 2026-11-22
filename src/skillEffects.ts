@@ -30,10 +30,13 @@ export function paintedStun(scene: Phaser.Scene, tile: Vec2) {
 }
 
 /** Art is emitted from the wielder and follows only tiles validated by planSkill. */
-export function playPaintedSkill(scene: Phaser.Scene, type: WeaponType, origin: Vec2, dir: Dir, tiles: Vec2[], weaponKey: string, color: number, tileSize=32) {
+export function playPaintedSkill(scene: Phaser.Scene, type: WeaponType, origin: Vec2, dir: Dir, tiles: Vec2[], weaponKey: string, color: number, tileSize=32, playbackRate=1, shotOrigin?:{x:number;y:number;depth:number}, onShot?:()=>void) {
+  const tween=(config:any)=>scene.tweens.add({...config,...(typeof config.duration==='number'?{duration:config.duration*playbackRate}:{}),...(typeof config.delay==='number'?{delay:config.delay*playbackRate}:{})});
+  const later=(delay:number,fn:()=>void)=>scene.time.delayedCall(delay*playbackRate,fn);
+  const fadeFx=(sprite:Phaser.GameObjects.Image|Phaser.GameObjects.Sprite,duration:number,delay=0)=>fade(scene,sprite,duration*playbackRate,delay*playbackRate);
   const TILE=tileSize,world=(p:Vec2)=>({x:(p.x+.5)*TILE,y:(p.y+.5)*TILE});
-  const p = world(origin), d = directionVector(dir), angle = Math.atan2(d.y, d.x);
-  const end = world(tiles[tiles.length - 1] ?? origin);
+  const p = shotOrigin??world(origin), d = directionVector(dir), angle = Math.atan2(d.y, d.x);
+  const end = world(tiles[tiles.length - 1] ?? origin);if(shotOrigin){if(d.x)end.y=p.y;else end.x=p.x;}
   const distance = Math.hypot(end.x - p.x, end.y - p.y);
   const emit = (key: string, x: number, y: number, w: number, h = w) => art(scene, key, x, y, w, h);
   const crescent = (x: number, y: number, size: number, rotation: number, turn: number, duration: number, delay = 0) => {
@@ -42,9 +45,9 @@ export function playPaintedSkill(scene: Phaser.Scene, type: WeaponType, origin: 
     if (type === 'dagger') slash.setTint(0xd4a7ff);
     if (type === 'greatsword') slash.setTint(0xffc488);
     if (type === 'longsword') slash.setTint(0xa1c7ff);
-    scene.tweens.add({ targets: slash, alpha: .9, duration: 55, delay });
-    scene.tweens.add({ targets: slash, rotation: rotation + turn, duration, delay, ease: 'Cubic.out' });
-    fade(scene, slash, duration - 60, delay + 60);
+    tween({ targets: slash, alpha: .9, duration: 55, delay });
+    tween({ targets: slash, rotation: rotation + turn, duration, delay, ease: 'Cubic.out' });
+    fadeFx(slash, duration - 60, delay + 60);
   };
   if (type === 'katana') {
     if (!scene.anims.exists('katana-tornado-v2')) scene.anims.create({key:'katana-tornado-v2', frames:scene.anims.generateFrameNumbers('fx_katana_tornado_v2',{start:0,end:7}), frameRate:18, repeat:-1});
@@ -52,7 +55,7 @@ export function playPaintedSkill(scene: Phaser.Scene, type: WeaponType, origin: 
       .setOrigin(.5,.88).setDisplaySize(TILE * 2.3,TILE * 3.1).setDepth(24)
       .setName('painted-skill-fx').setAlpha(.86).play('katana-tornado-v2');
     crescent(p.x + d.x * TILE * .35, p.y + d.y * TILE * .35, TILE * 2.1, angle - .8, 1.7, 210);
-    scene.tweens.add({ targets: tornado, x:end.x, y:end.y + TILE * .3, duration:640, ease:'Linear', onComplete:()=>fade(scene,tornado,180) });
+    tween({ targets: tornado, x:end.x, y:end.y + TILE * .3, duration:640, ease:'Linear', onComplete:()=>fadeFx(tornado,180) });
   } else if (type === 'greatsword') {
     crescent(p.x, p.y, TILE * 3.2, angle, Math.PI * 2.1, 430);
     crescent(p.x, p.y, TILE * 2.7, angle + Math.PI, Math.PI * 2.1, 430, 55);
@@ -61,28 +64,28 @@ export function playPaintedSkill(scene: Phaser.Scene, type: WeaponType, origin: 
     crescent(p.x + d.x * TILE * .35, p.y + d.y * TILE * .35, TILE * 2.8, angle + .7, 2.8, 340);
   } else if (type === 'dagger') {
     const mist = art(scene, 'fx_skill_dagger_v3', p.x, p.y, TILE * 1.7, TILE * 1.1, false).setAlpha(.65);
-    fade(scene, mist, 300);
+    fadeFx(mist, 300);
     const last = tiles[tiles.length - 1];
     const target = last ? world(last) : {x:p.x+d.x*TILE, y:p.y+d.y*TILE};
     crescent(target.x, target.y, TILE * 1.7, angle - .5, 3.0, 250);
   } else if (type === 'bow') {
     const bow = art(scene, weaponKey, p.x + d.x * 8, p.y + d.y * 8, TILE * 1.6, TILE * 2.1, false).setRotation(angle + Math.PI / 2);
-    scene.tweens.add({ targets: bow, x: bow.x - d.x * 4, y: bow.y - d.y * 4, duration: 130, yoyo: true });
-    fade(scene, bow, 100, 170);
+    tween({ targets: bow, x: bow.x - d.x * 4, y: bow.y - d.y * 4, duration: 130, yoyo: true });
+    fadeFx(bow, 100, 170);
     const charge = emit('fx_impact', p.x + d.x * 13, p.y + d.y * 13, TILE * 2.2).setAlpha(.75);
-    fade(scene, charge, 160);
-    if (distance > 0) scene.time.delayedCall(150, () => {
+    fadeFx(charge, 160);
+    if (distance > 0) later(150, () => {onShot?.();
       const arrowKey = `arrow_${weaponKey.replace(/^star_/, '')}`;
-      const arrow = art(scene, arrowKey, p.x, p.y, TILE * 1.6, TILE * 1.6, false).setRotation(angle + Math.PI / 4);
-      scene.tweens.add({ targets: arrow, x: end.x, y: end.y, duration: 300, ease: 'Linear', onComplete: () => arrow.destroy() });
+      const arrow = art(scene, arrowKey, p.x, p.y, TILE * 1.6, TILE * 1.6, false).setRotation(angle + Math.PI / 4);if(shotOrigin)arrow.setDepth(shotOrigin.depth);
+      tween({ targets: arrow, x: end.x, y: end.y, duration: 300, ease: 'Linear', onComplete: () => arrow.destroy() });
     });
   } else if (type === 'handgun') {
-    for (let shot = 0; shot < 5; shot++) scene.time.delayedCall(shot * 110, () => {
+    for (let shot = 0; shot < 5; shot++) later(shot * 110, () => {onShot?.();
       const muzzle = emit('fx_impact', p.x + d.x * 13, p.y + d.y * 13, 25).setTint(0xffcb80);
-      fade(scene, muzzle, 95);
+      fadeFx(muzzle, 95);
       if (!distance) return;
-      const bullet = emit('fx_bolt', p.x + d.x * 10, p.y + d.y * 10, TILE * .85, TILE * .4).setOrigin(1, .5).setRotation(angle);
-      scene.tweens.add({ targets: bullet, x: end.x, y: end.y, duration: 100, onComplete: () => bullet.destroy() });
+      const bullet = art(scene,scene.textures.exists('online_bullet')?'online_bullet':'fx_bolt',p.x,p.y,shotOrigin?12:TILE*.85,shotOrigin?5:TILE*.4,false).setRotation(angle);if(shotOrigin)bullet.setDepth(shotOrigin.depth);
+      tween({ targets: bullet, x: end.x, y: end.y, duration: 100, onComplete: () => bullet.destroy() });
     });
   } else if (type === 'lance') {
     const directions: Dir[] = ['up', 'down', 'left', 'right'];
@@ -95,16 +98,16 @@ export function playPaintedSkill(scene: Phaser.Scene, type: WeaponType, origin: 
       const target = world(last), length = Math.hypot(target.x-p.x, target.y-p.y);
       const beam = emit('fx_beam', p.x, p.y, 1, TILE * .7).setOrigin(0, .5)
         .setRotation(Math.atan2(vector.y, vector.x)).setTint(0xb1f1ff);
-      scene.tweens.add({ targets: beam, displayWidth: length, duration: 150, ease: 'Cubic.out' });
-      fade(scene, beam, 220, 150);
+      tween({ targets: beam, displayWidth: length, duration: 150, ease: 'Cubic.out' });
+      fadeFx(beam, 220, 150);
     }
   } else {
     if (!distance) return;
-    for (let shot = 0; shot < 3; shot++) scene.time.delayedCall(shot * 160, () => {
+    for (let shot = 0; shot < 3; shot++) later(shot * 160, () => {
       const cross = emit('fx_skill_cross_v3', p.x, p.y, TILE).setRotation(angle);
-      scene.tweens.add({ targets: cross, x: end.x, y: end.y, duration: 150,
+      tween({ targets: cross, x: end.x, y: end.y, duration: 150,
         ease: 'Linear', onComplete: () => {
-          scene.tweens.add({ targets: cross, displayWidth: TILE, displayHeight: TILE,
+          tween({ targets: cross, displayWidth: TILE, displayHeight: TILE,
             alpha: 0, duration: 180, onComplete: () => cross.destroy() });
         } });
     });
