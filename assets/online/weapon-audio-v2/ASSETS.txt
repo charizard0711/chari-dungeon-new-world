@@ -1,0 +1,4 @@
+CHARIA source: C:/chari-dungeon-grid3d/Unity/Assets/Chari/Resources/FreeAudio/Designed/profile-gun-eagle.wav
+Byte-identical copy, SHA256 0D0F5B45C30E105DBB99B334CCEBBE5B865595E1A610DFA73E9A061C731E3D76.
+GridReplicaCombat.cs / GridFreeAudio.cs play this with volume .42, pitch 1.
+Verified by source and hash; no audible test.
