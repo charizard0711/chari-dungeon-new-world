@@ -1,0 +1,115 @@
+-- Action-driven simulation. Polls never advance a monster turn.
+create or replace function online_turn_los(ax int,ay int,bx int,by int,s jsonb)returns boolean language plpgsql stable security definer set search_path=public,pg_temp as $$
+declare x int:=ax;y int:=ay;dx int:=abs(bx-ax);dy int:=abs(by-ay);sx int:=sign(bx-ax);sy int:=sign(by-ay);err int:=dx-dy;e int;nx int;ny int;cfg jsonb;begin
+ select data into cfg from online_adventure_config where id='floor1';
+ while x<>bx or y<>by loop e:=err*2;nx:=x;ny:=y;if e> -dy then err:=err-dy;nx:=x+sx;end if;if e<dx then err:=err+dx;ny:=y+sy;end if;
+ if nx<>x and ny<>y and(substring(cfg->'rows'->>y,nx+1,1)='#'or substring(cfg->'rows'->>ny,x+1,1)='#')then return false;end if;x:=nx;y:=ny;
+ if x=bx and y=by then return true;end if;if substring(cfg->'rows'->>y,x+1,1)='#'then return false;end if;
+ if exists(select 1 from jsonb_array_elements(cfg->'gates')g where x between(g->>'x')::int and(g->>'x')::int+(g->>'w')::int-1 and y between(g->>'y')::int and(g->>'y')::int+(g->>'h')::int-1 and case when g->>'key'='both'then not(s->'keys'?&array['amber','violet'])else not(s->'keys'?(g->>'key'))end)then return false;end if;
+ end loop;return true;end$$;
+create or replace function online_turn_target(rid uuid,e jsonb)returns uuid language sql stable security definer set search_path=public,pg_temp as $$
+ select a.character_id from online_adventure_members a join online_presence p on p.character_id=a.character_id join online_characters c on c.id=a.character_id
+ where a.room_id=rid and a.floor=1 and a.finished_at is null and p.location='dungeon' and p.seen_at>clock_timestamp()-interval '30 seconds' and c.hp>0 and abs(a.x-(e->>'x')::int)+abs(a.y-(e->>'y')::int)<=9
+ order by case when e->>'provokedBy'=a.character_id::text and coalesce(((select snapshot from online_adventure_rooms where id=rid)#>>array['actedAt',e->>'provokedFrom'])::bigint,0)<=coalesce((e->>'provokedAt')::bigint,0)then -1 else 0 end,abs(a.x-(e->>'x')::int)+abs(a.y-(e->>'y')::int),case when case e->>'dir'when'up'then a.y<(e->>'y')::int when'down'then a.y>(e->>'y')::int when'left'then a.x<(e->>'x')::int when'right'then a.x>(e->>'x')::int else false end then 0 else 1 end,a.character_id limit 1
+$$;
+create or replace function online_turn_damage(n int,e jsonb,dir text)returns int language plpgsql stable security definer set search_path=public,pg_temp as $$
+declare g text:=online_mob_profile(e->>'key')->>'gimmick';front boolean:=case dir when'up'then e->>'dir'='down'when'down'then e->>'dir'='up'when'left'then e->>'dir'='right'else e->>'dir'='left'end;begin
+ if g in('phase','wraith_phase')and coalesce((e->>'vulnerable')::int,0)=0 then return greatest(1,floor(n*case when g='phase'then .5 else .1 end)::int);end if;
+ if g in('guardian','shell_guard','knight_guard','golem_guard')and front and coalesce((e->>'vulnerable')::int,0)=0 then return greatest(1,n/2);end if;
+ if g='stealth'and not coalesce((e->>'hidden')::boolean,false)then return ceil(n*1.5)::int;end if;return n;end$$;
+-- Keep the existing authoritative item/damage/reward path and apply monster defence there.
+do $$declare src text;begin select pg_get_functiondef('online_world_adventures(text,jsonb)'::regprocedure)into src;
+ if position('damage:=damage+n;'in src)=0 then raise exception 'Combat hook missing';end if;
+ src:=replace(src,'damage:=damage+n;','n:=online_turn_damage(n,enemy,kind);enemy:=enemy||jsonb_build_object(''hitTurn'',coalesce((enemy->>''turnNo'')::int,0));damage:=damage+n;');src:=replace(src,'then 40 else 8 end where id=c.id;','then 40 when coalesce((enemy->>''fragment'')::boolean,false) then 0 else 8 end where id=c.id;');execute src;end$$;
+create or replace function online_turn_enemy(rid uuid,eid text,cid uuid)returns void language plpgsql security definer set search_path=public,pg_temp as $$
+declare s jsonb;es jsonb;e jsonb;pr jsonb;m online_adventure_members;nx int;ny int;dx int;dy int;dist int;i int;turnno int;g text;dmg int;didattack boolean:=false;tiles jsonb:='[]';danger jsonb:='[]';t jsonb;v record;cfg jsonb;home jsonb;radius int;nowms bigint:=online_adventure_now_ms();begin
+ select snapshot into s from online_adventure_rooms where id=rid for update;es:=s->'enemies';select ordinality::int-1,value into i,e from jsonb_array_elements(es)with ordinality where value->>'id'=eid;
+ if e is null or(e->>'hp')::int<=0 then return;end if;select * into m from online_adventure_members where room_id=rid and character_id=cid and finished_at is null;
+ if m.id is null or not exists(select 1 from online_characters where id=cid and hp>0)then return;end if;
+ pr:=online_mob_profile(e->>'key');g:=pr->>'gimmick';nx:=(e->>'x')::int;ny:=(e->>'y')::int;dist:=abs(m.x-nx)+abs(m.y-ny);turnno:=coalesce((e->>'turnNo')::int,0)+1;
+ e:=e||jsonb_build_object('turnNo',turnno,'target',cid,'vulnerable',greatest(0,coalesce((e->>'vulnerable')::int,0)-1),'moveIntervalMs',175);
+ -- Only this monster's responding turn advances its warnings.
+ for t in select jsonb_array_elements(coalesce(s->'telegraphs','[]'))loop
+ if t->>'source'<>eid then danger:=danger||jsonb_build_array(t);continue;end if;
+ if(t->>'remaining')::int>1 then danger:=danger||jsonb_build_array(t||jsonb_build_object('remaining',(t->>'remaining')::int-1,'mode','turn'));else
+ for v in select a.character_id,a.x,a.y from online_adventure_members a join online_presence p on p.character_id=a.character_id where a.room_id=rid and a.floor=1 and a.finished_at is null and p.location='dungeon'loop
+ if exists(select 1 from jsonb_array_elements(t->'tiles')z where(z->>'x')::int=v.x and(z->>'y')::int=v.y)then update online_characters set hp=greatest(0,hp-greatest(2,(t->>'damage')::int-online_adventure_defence(id)))where id=v.character_id;end if;end loop;end if;end loop;
+ if g='regen'and turnno%3=0 and turnno-coalesce((e->>'hitTurn')::int,-10)>2 then e:=e||jsonb_build_object('hp',least((e->>'max')::int,(e->>'hp')::int+greatest(1,(e->>'max')::int/10)));end if;
+ if g='stealth'then e:=e||jsonb_build_object('hidden',turnno%3<>0);end if;
+ if g='burrow'then e:=e||jsonb_build_object('hidden',turnno%3=0);end if;
+ if not(g='burrow'and turnno%3=0)and not(pr->>'behavior'='slow'and turnno%2=1)then
+ if dist=1 or coalesce((pr->>'ranged')::boolean,false)and(m.x=nx or m.y=ny)and dist<=5 and online_turn_los(nx,ny,m.x,m.y,s)then
+ dmg:=greatest(1,(e->>'atk')::int-online_adventure_defence(cid));update online_characters set hp=greatest(0,hp-dmg)where id=cid;didattack:=true;
+ e:=e||jsonb_build_object('attackBeat',coalesce((e->>'attackBeat')::int,0)+1,'vulnerable',2,'rangedAttack',dist>1,'dir',case when abs(m.x-nx)>abs(m.y-ny)then case when m.x>nx then'right'else'left'end else case when m.y>ny then'down'else'up'end end);
+ else
+ select data into cfg from online_adventure_config where id='floor1';select value into home from jsonb_array_elements(cfg->'enemies')where value->>'id'=split_part(eid,':mini:',1);radius:=case when coalesce((e->>'boss')::boolean,false)then 12 else 9 end;
+ for dx,dy in select x,y from(values(1,0),(-1,0),(0,1),(0,-1))d(x,y)order by case when pr->>'behavior'='random'then random()when pr->>'behavior'='loop'then case when (turnno/2)%4=0 and x=1 or(turnno/2)%4=1 and y=1 or(turnno/2)%4=2 and x=-1 or(turnno/2)%4=3 and y=-1 then -1 else 1 end else abs(nx+x-m.x)+abs(ny+y-m.y)end loop
+ if abs(nx+dx-coalesce((home->>'x')::int,nx))>radius or abs(ny+dy-coalesce((home->>'y')::int,ny))>radius then continue;end if;
+ if online_adventure_blocked(nx+dx,ny+dy,1,s)and not(coalesce((pr->>'wallPass')::boolean,false)and nx+dx>0 and ny+dy>0 and nx+dx<(cfg->>'width')::int-1 and ny+dy<(cfg->>'height')::int-1 and substring(cfg->'rows'->>(ny+dy),nx+dx+1,1)='#')then continue;end if;
+ if exists(select 1 from jsonb_array_elements(es)z where(z->>'hp')::int>0 and(z->>'x')::int=nx+dx and(z->>'y')::int=ny+dy)or exists(select 1 from online_adventure_members a join online_presence p on p.character_id=a.character_id where a.room_id=rid and a.floor=1 and a.finished_at is null and p.location='dungeon'and a.x=nx+dx and a.y=ny+dy)then continue;end if;
+ if pr->>'behavior'not in('loop','random')and abs(nx+dx-m.x)+abs(ny+dy-m.y)>=dist then continue;end if;
+ nx:=nx+dx;ny:=ny+dy;e:=e||jsonb_build_object('x',nx,'y',ny,'movedAt',nowms,'dir',case when dx>0 then'right'when dx<0 then'left'when dy>0 then'down'else'up'end);
+ if g='web_trail'and turnno%3=0 then s:=jsonb_set(s,'{webs}',coalesce(s->'webs','[]')||jsonb_build_array(jsonb_build_object('x',nx-dx,'y',ny-dy)));end if;exit;end loop;end if;end if;
+ if(coalesce((e->>'boss')::boolean,false)or coalesce((e->>'elite')::boolean,false))and turnno%4=1 and not exists(select 1 from jsonb_array_elements(danger)warning where warning->>'source'=eid)then
+ for dx in -2..2 loop if not online_adventure_blocked(m.x+dx,m.y,1,s)then tiles:=tiles||jsonb_build_array(jsonb_build_object('x',m.x+dx,'y',m.y));end if;if dx<>0 and not online_adventure_blocked(m.x,m.y+dx,1,s)then tiles:=tiles||jsonb_build_array(jsonb_build_object('x',m.x,'y',m.y+dx));end if;end loop;
+ danger:=danger||jsonb_build_array(jsonb_build_object('id',eid||':'||turnno,'source',eid,'mode','turn','remaining',2,'damage',18,'name','結晶の十字撃','tiles',tiles));end if;
+ es:=jsonb_set(es,array[i::text],e);update online_adventure_rooms set snapshot=s||jsonb_build_object('enemies',es,'telegraphs',danger)where id=rid;
+end$$;
+create or replace function online_adventure_tick(rid uuid)returns void language plpgsql security definer set search_path=public,pg_temp as $$
+declare s jsonb;cfg jsonb;m record;nx int;ny int;begin
+ perform online_maze_sync(rid);select snapshot into s from online_adventure_rooms where id=rid for update;select data into cfg from online_adventure_config where id='floor1';
+ for m in select a.* from online_adventure_members a join online_characters c on c.id=a.character_id where a.room_id=rid and a.finished_at is null and c.hp<=0 loop
+ select x,y into nx,ny from generate_series(45,55)gx(x)cross join generate_series(73,79)gy(y)where not online_adventure_blocked(x,y,1,s)and not exists(select 1 from online_adventure_members o where o.room_id=rid and o.character_id<>m.character_id and o.floor=1 and o.finished_at is null and o.x=gx.x and o.y=gy.y)order by abs(x-49)+abs(y-77),y,x limit 1;
+ update online_adventure_members set x=coalesce(nx,49),y=coalesce(ny,77),floor=1 where id=m.id;update online_characters set hp=50 where id=m.character_id;
+ s:=jsonb_set(s,'{deaths}',coalesce(s->'deaths','{}')||jsonb_build_object(m.character_id::text,coalesce((s#>>array['deaths',m.character_id::text])::int,0)+1));end loop;
+ update online_adventure_rooms set snapshot=s-'turn',pending_step_at=null where id=rid;
+end$$;
+alter function online_world(text,jsonb)rename to online_world_pre_target_turns;
+create function online_world(action text,payload jsonb default '{}')returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+#variable_conflict use_column
+declare uid uuid:=auth.uid();p online_presence;m online_adventure_members;c online_characters;s jsonb;before_s jsonb;es jsonb;e jsonb;old_e jsonb;pr jsonb;target uuid;eligible jsonb:='[]';fast jsonb:='[]';result jsonb;actual text:=action;speed int;dist int;dx int;dy int;reach int;hit boolean;amount int;nx int;ny int;idx int;spawned int;light int;g text;typ text;nowms bigint:=online_adventure_now_ms();begin
+ if uid is null or coalesce((auth.jwt()->>'is_anonymous')::boolean,true)then raise exception 'ログインしてください。';end if;
+ if action not in('poll','list')then perform pg_advisory_xact_lock(71390119);end if;
+ select * into p from online_presence where user_id=uid;select * into m from online_adventure_members where character_id=p.character_id and finished_at is null;select * into c from online_characters where id=p.character_id;
+ if p.location<>'dungeon'or m.floor<>1 or m.id is null or action not in('move','attack','skill','wait','use_item')then return online_world_pre_target_turns(action,payload);end if;
+ perform pg_advisory_xact_lock(hashtextextended('online-room:'||m.room_id::text,0));perform online_maze_sync(m.room_id);select snapshot into before_s from online_adventure_rooms where id=m.room_id;s:=before_s;
+ select weapon_type into typ from online_catalog where key=regexp_replace(c.gear->>'weapon_key','^star_','')and coalesce((c.gear->>'weapon')::boolean,false);speed:=online_weapon_speed(typ);dx:=case payload->>'dir'when'left'then -1 when'right'then 1 else 0 end;dy:=case payload->>'dir'when'up'then -1 when'down'then 1 else 0 end;reach:=case typ when'bow'then 7 when'handgun'then 3 when'lance'then 2 else 1 end;
+ if action='move'and coalesce((s#>>array['roots',c.id::text])::int,0)>0 then actual:='wait';s:=jsonb_set(s,'{roots}',coalesce(s->'roots','{}')||jsonb_build_object(c.id::text,0));end if;
+ for e in select jsonb_array_elements(s->'enemies')loop
+ if(e->>'hp')::int<=0 then continue;end if;target:=online_turn_target(m.room_id,e);dist:=abs((e->>'x')::int-m.x)+abs((e->>'y')::int-m.y);
+ hit:=action in('attack','skill')and((e->>'x')::int-m.x)*dy=((e->>'y')::int-m.y)*dx and((e->>'x')::int-m.x)*dx+((e->>'y')::int-m.y)*dy between 1 and reach and online_turn_los(m.x,m.y,(e->>'x')::int,(e->>'y')::int,s);
+ -- Idle target may be interrupted by an actual incoming attack. Stable ties avoid random retargeting.
+ if hit and target is distinct from c.id and nowms-coalesce((s#>>array['actedAt',target::text])::bigint,0)>1000 then e:=e||jsonb_build_object('provokedBy',c.id,'provokedFrom',target,'provokedAt',nowms);select jsonb_agg(case when z->>'id'=e->>'id'then e else z end)into es from jsonb_array_elements(s->'enemies')z;s:=jsonb_set(s,'{enemies}',es);target:=c.id;end if;
+ if target=c.id then eligible:=eligible||jsonb_build_array(e->>'id');pr:=online_mob_profile(e->>'key');
+ if hit and coalesce((pr->>'speed')::int,90)>speed and(dist=1 or coalesce((pr->>'ranged')::boolean,false)and dist<=5)then fast:=fast||jsonb_build_array(e->>'id');end if;end if;
+ end loop;
+ light:=greatest(0,coalesce((s#>>array['lightTurns',c.id::text])::int,0)-1);s:=s||jsonb_build_object('lightTurns',coalesce(s->'lightTurns','{}')||jsonb_build_object(c.id::text,light),'actedAt',coalesce(s->'actedAt','{}')||jsonb_build_object(c.id::text,nowms));update online_adventure_rooms set snapshot=s where id=m.room_id;
+ for e in select value from jsonb_array_elements(fast)loop perform online_turn_enemy(m.room_id,e#>>'{}',c.id);end loop;
+ if exists(select 1 from online_characters where id=c.id and hp<=0)then perform online_adventure_tick(m.room_id);return online_world_pre_target_turns('poll','{}');end if;
+ if action='use_item'and payload->>'kind'='torch'then
+ if coalesce((c.inventory->>'torch')::int,0)<1 then raise exception '松明を持っていません。';end if;update online_characters set inventory=jsonb_set(inventory,'{torch}',to_jsonb((inventory->>'torch')::int-1))where id=c.id;
+ update online_adventure_rooms set snapshot=jsonb_set(snapshot,'{lightTurns}',coalesce(snapshot->'lightTurns','{}')||jsonb_build_object(c.id::text,5))where id=m.room_id;result:=online_world_pre_target_turns('poll','{}');
+ else result:=online_world_pre_target_turns(actual,payload);end if;
+ -- A rejected move is not a turn (the older API can return a snapshot instead of throwing).
+ if actual='move'and result#>>'{adventure,x}'=m.x::text and result#>>'{adventure,y}'=m.y::text then update online_adventure_rooms set snapshot=before_s where id=m.room_id;return result;end if;
+ select snapshot into s from online_adventure_rooms where id=m.room_id;es:=s->'enemies';
+ for idx in 0..jsonb_array_length(es)-1 loop e:=es->idx;select value into old_e from jsonb_array_elements(before_s->'enemies')where value->>'id'=e->>'id';g:=online_mob_profile(e->>'key')->>'gimmick';
+ if(e->>'hp')::int<=0 and coalesce((old_e->>'hp')::int,0)>0 then
+ if g='lantern'then s:=jsonb_set(s,'{lightTurns}',coalesce(s->'lightTurns','{}')||jsonb_build_object(c.id::text,5));end if;
+ if g in('shatter','death_burst')and abs((e->>'x')::int-m.x)+abs((e->>'y')::int-m.y)<=1 then update online_characters set hp=greatest(0,hp-case when g='shatter'then 3 else 5 end)where id=c.id;end if;
+ if g='split'and not coalesce((e->>'fragment')::boolean,false)then spawned:=0;
+ for dx,dy in select x,y from(values(1,0),(-1,0),(0,1),(0,-1))v(x,y)loop nx:=(e->>'x')::int+dx;ny:=(e->>'y')::int+dy;
+ if online_adventure_blocked(nx,ny,1,s)or exists(select 1 from jsonb_array_elements(es)z where(z->>'hp')::int>0 and(z->>'x')::int=nx and(z->>'y')::int=ny)or exists(select 1 from online_adventure_members a join online_presence p on p.character_id=a.character_id where a.room_id=m.room_id and a.floor=1 and p.location='dungeon'and a.x=nx and a.y=ny)then continue;end if;
+ spawned:=spawned+1;amount:=greatest(4,floor((e->>'max')::int*.35)::int);es:=es||jsonb_build_array(e||jsonb_build_object('id',(e->>'id')||':mini:'||spawned,'name','ミニゼリー','fragment',true,'x',nx,'y',ny,'hp',amount,'max',amount,'atk',greatest(1,floor((e->>'atk')::int*.65)::int),'turnNo',0));exit when spawned=2;end loop;end if;end if;end loop;
+ s:=s||jsonb_build_object('enemies',es,'tick',coalesce((s->>'tick')::int,0)+1);s:=s-'visionRadius';update online_adventure_rooms set snapshot=s where id=m.room_id;
+ for e in select value from jsonb_array_elements(eligible)loop if not(fast?(e#>>'{}'))then perform online_turn_enemy(m.room_id,e#>>'{}',c.id);end if;end loop;
+ select * into m from online_adventure_members where id=m.id;select snapshot into s from online_adventure_rooms where id=m.room_id;
+ if actual='move'and exists(select 1 from jsonb_array_elements(coalesce(s->'webs','[]'))w where(w->>'x')::int=m.x and(w->>'y')::int=m.y)then update online_adventure_rooms set snapshot=jsonb_set(snapshot,'{roots}',coalesce(snapshot->'roots','{}')||jsonb_build_object(c.id::text,1))where id=m.room_id;end if;
+ perform online_adventure_tick(m.room_id);return online_world_pre_target_turns('poll','{}');
+end$$;
+-- Remove only obsolete pending combat choices; all character/reward/room progress remains.
+delete from online_boss_intents;delete from online_boss_rounds;
+update online_adventure_rooms set snapshot=(snapshot-'turn'-'visionRadius')||jsonb_build_object('telegraphs','[]'::jsonb,'combatVersion',2);
+revoke all on function online_world_pre_target_turns(text,jsonb),online_turn_los(int,int,int,int,jsonb),online_turn_target(uuid,jsonb),online_turn_damage(int,jsonb,text),online_turn_enemy(uuid,text,uuid),online_mob_profile(text),online_weapon_speed(text),online_adventure_tick(uuid)from public,anon,authenticated;
+revoke all on function online_world(text,jsonb)from public,anon;grant execute on function online_world(text,jsonb)to authenticated;
+notify pgrst,'reload schema';commit;

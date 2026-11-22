@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {lineOfSight,partyCanSee,partySightRadius} from '../src/online/adventure/visibility';
+import {enemyMoveDuration} from '../src/online/adventure/encounterClock';
+import {TOWN_STEP_MS} from '../src/online/walkPose';
+import {WEAPON_ATTACK_SPEED} from '../src/online/adventure/combatProfiles';
+const wall=(x:number,y:number)=>x===2&&y>=0&&y<=4;
+assert(lineOfSight(0,2,2,2,wall));assert(!lineOfSight(0,2,3,2,wall));assert(!lineOfSight(1,1,2,2,(x,y)=>x===2&&y===1));
+assert(!partyCanSee(3,2,[{x:0,y:2,character_id:'a'}],3,wall));assert(partyCanSee(3,2,[{x:0,y:2,character_id:'a'}],3,wall,{lightTurns:{a:5}}));assert(!partyCanSee(3,2,[{x:0,y:2,character_id:'a'}],3,wall,{lightTurns:{a:0}}));
+assert(partyCanSee(3,2,[{x:0,y:2},{x:4,y:2}],3,wall));assert(!partyCanSee(4,0,[{x:0,y:0}],3,()=>false));assert.equal(partySightRadius({visionRadius:5}),3);assert.equal(enemyMoveDuration(1200,3),TOWN_STEP_MS);assert.equal(Object.keys(WEAPON_ATTACK_SPEED).length,9);
+console.log('PASS wall occlusion, wall visibility, corner blocking, ally union, temporary light, fixed radius, movement duration and weapon coverage');

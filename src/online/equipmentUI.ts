@@ -1,3 +1,4 @@
+import {weaponAttackSpeed} from './adventure/combatProfiles';
 import {renderPartyPanel} from './partyUI';
 import {renderGuildPanel,type GuildDraft} from './guildUI';
 import {inspectionActions} from './socialActions';
@@ -142,7 +143,7 @@ export function mountTownEquipmentUI(hud:any,gs:any){
   const heading=node('div');heading.className='town-detail-heading';const icon=makeIcon(e);icon.tabIndex=-1;icon.style.pointerEvents='none';const name=node('h3',`${e.definition.name}${e.key.startsWith('star_')?' ★':''}${e.definition.grade&&!e.definition.name.endsWith('['+e.definition.grade+']')?' ['+e.definition.grade+']':''}`);name.style.setProperty('--grade',e.definition.grade?'#'+gradeColor(e.definition.grade).toString(16).padStart(6,'0'):'#d4dfdf');heading.append(icon,name);detail.append(heading);
   detail.append(node('p',`${label[e.category]}${e.equipped?' · 装備中':''}${e.key.startsWith('star_')?' · 色違い':''}`));
   const w=WEAPON_DEFS.find(w=>w.key===baseKey(e.key)),s=SHIELD_DEFS.find(s=>s.key===baseKey(e.key));
-  const stats=w?`攻撃力 ${w.atkMin}–${w.atkMax}`:s?`防御力 +${s.defBonus}`:e.definition.description.split('\n')[0];
+  const stats=w?`攻撃力 ${w.atkMin}–${w.atkMax}\n攻撃速度 ${weaponAttackSpeed(w.weaponType)}（高いほど先制）`:s?`防御力 +${s.defBonus}`:e.definition.description.split('\n')[0];
   detail.append(node('p',stats+(e.instance?.max?`\n耐久 ${e.instance.dur} / ${e.instance.max}${e.instance.dur===0?'\n使用不可 · 修理できます':''}`:'')));
   if(e.definition.element)detail.append(node('p',`${ELEMENT_INFO[e.definition.element].name}属性`));
   const descriptionText=e.category==='armor'?'':e.definition.description.split('\n').slice(1).join('\n');if(descriptionText)detail.append(node('p',descriptionText));

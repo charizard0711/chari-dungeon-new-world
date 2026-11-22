@@ -7,6 +7,7 @@ if((import.meta as any).env.DEV){
  for(const [name,x,y]of [['入口',49,77],['泉',5,36],['ボス',49,16],['協力通路',92,38],['宝物室',101,35]]as const){const b=document.createElement('button');b.textContent=name;b.onclick=()=>{state.players[0].x=state.adventure.x=x;state.players[0].y=state.adventure.y=y;town?.scene.restart({state,preview:true});};bar.append(b);}
  for(const phase of ['opening','battle','returning','waiting']){const b=document.createElement('button');b.textContent='ボス '+phase;b.onclick=()=>{state.adventure.snapshot.bossEncounter={phase,at:Date.now(),padCount:2};state.adventure.snapshot.enemies.find((e:any)=>e.boss).hp=phase==='battle'?480:0;};bar.append(b);}
  for(const phase of ['rising','up','down']){const b=document.createElement('button');b.textContent='橋 '+phase;b.onclick=()=>{state.adventure.snapshot.bridge={phase,at:Date.now()};};bar.append(b);}
+ const lightButton=document.createElement('button');lightButton.textContent='光 5ターン';lightButton.onclick=()=>{town.packet.adventure.snapshot.lightTurns={qa:5};};bar.append(lightButton);const coordinates=document.createElement('output');coordinates.setAttribute('aria-label','現在のマス');bar.append(coordinates);setInterval(()=>{if(town)coordinates.textContent=` 座標 ${town.player.x},${town.player.y}`;},100);
  const timer=setInterval(()=>{const game=(window as any).__game,host=game?.scene?.keys?.TitleScene;if(host?.sys?.isActive()){clearInterval(timer);installOnlineScenes(host,()=>{});host.scene.start('OnlineTownScene',{state,preview:true});town=game.scene.keys.OnlineTownScene;}},100);
 }
 
