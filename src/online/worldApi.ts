@@ -1,7 +1,7 @@
 import type {AdventureState} from './adventure/types';
 import { online } from './api';
 export interface OnlineCharacter {hair_color?:string;}
-export interface WorldPlayer {hair_color?:string;guild_flag?:number|null;guild_name?:string|null;}
+export interface WorldPlayer {railTrip?:import('./adventure/railRoute').RailTrip;hair_color?:string;guild_flag?:number|null;guild_name?:string|null;}
 export type EquipmentSlot='weapon'|'armor'|'shield'|'necklace';
 export interface EquipmentInstance {id:string;key:string;dur:number;max:number;}
 export interface QuickSlot {category:EquipmentSlot|'item';key:string;instanceId?:string;}

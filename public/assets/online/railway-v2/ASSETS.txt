@@ -1,0 +1,4 @@
+Generated with OpenAI built-in image_gen on 2026-11-22 for Chari Dungeon: ZERO.
+tram-directions.png: 2x2 transparent cardinal-direction sprite atlas, north/rear, east, south/front, west. Existing navy/brass magical carriage design, teal crystal lamps, red seats, orthographic elevated dungeon perspective. Source exec-57b9eb86-c3f1-42e9-b5f1-c6db6d17d045.png.
+tracks.png: 3x2 railway tile atlas, horizontal, vertical, NE, ES, SW, WN. Painted steel rails, wooden sleepers and stone ballast, tile-edge connections. Source exec-c88a274b-7c66-48b8-bf67-ff0d296a811f.png.
+The atlases are sliced by Phaser frames at runtime. No external copyrighted railway art was used.
