@@ -1,3 +1,4 @@
+import {railTilePath} from './railGeometry';
 import {RAIL_ROUTE,railPose} from './railRoute';
 import {partyCanSee,partySightRadius} from './visibility';
 import {ADVENTURE_CONFIG as C} from './layout';
@@ -11,8 +12,14 @@ export function railNow(scene:any){return (scene.packet.serverTime??Date.now())+
 export function mountRailStations(scene:any){
  prepareRailArt(scene);const T=48,objects:any[]=[];
  const sheet=scene.textures.get('maze_rail_directions'),src=sheet.getSourceImage();if(!sheet.has('north'))for(const [i,name]of ['north','east','south','west'].entries())sheet.add(name,0,(i%2)*src.width/2,Math.floor(i/2)*src.height/2,src.width/2,src.height/2);
- const tracks=scene.textures.get('maze_tracks'),img=tracks.getSourceImage();if(!tracks.has('0'))for(let i=0;i<6;i++)tracks.add(String(i),0,(i%3)*img.width/3,Math.floor(i/3)*img.height/2,img.width/3,img.height/2);
- for(let i=0;i<RAIL_ROUTE.length;i++){const p=RAIL_ROUTE[i],a=RAIL_ROUTE[Math.max(0,i-1)],b=RAIL_ROUTE[Math.min(RAIL_ROUTE.length-1,i+1)];const dirs=[a,b].map(q=>q.x<p.x?'W':q.x>p.x?'E':q.y<p.y?'N':q.y>p.y?'S':'');let f=dirs.includes('N')||dirs.includes('S')?1:0;if(dirs.includes('N')&&dirs.includes('E'))f=2;if(dirs.includes('E')&&dirs.includes('S'))f=3;if(dirs.includes('S')&&dirs.includes('W'))f=4;if(dirs.includes('W')&&dirs.includes('N'))f=5;objects.push(scene.add.image((p.x+.5)*T,(p.y+.5)*T,'maze_tracks',String(f)).setDisplaySize(T,T).setDepth(-1.7));}
+ // Generate all six tiles from identical edge centres and gauge. Curves are tangent to straights.
+ for(let frame=0;frame<6;frame++){const key='rail-connected-'+frame;if(scene.textures.exists(key))continue;const g=scene.add.graphics(),points=railTilePath(frame);
+ g.fillStyle(0x30383b).fillRect(0,0,T,T);
+ for(let y=2;y<T;y+=6)for(let x=2;x<T;x+=6)g.fillStyle((x+y)%12?0x465054:0x222c30).fillCircle(x+(y%3),y,2);
+ for(let i=2;i<points.length;i+=6){const p=points[i],q=points[Math.min(i+1,points.length-1)],d=Math.hypot(q.x-p.x,q.y-p.y)||1,nx=-(q.y-p.y)/d,ny=(q.x-p.x)/d;g.lineStyle(5,0x39271d).lineBetween(p.x-nx*16,p.y-ny*16,p.x+nx*16,p.y+ny*16);g.lineStyle(3,0x8e6540).lineBetween(p.x-nx*16,p.y-ny*16-1,p.x+nx*16,p.y+ny*16-1);}
+ for(const side of [-1,1]){const rail=points.map((p,i)=>{const a=points[Math.max(0,i-1)],b=points[Math.min(points.length-1,i+1)],d=Math.hypot(b.x-a.x,b.y-a.y)||1;return{x:p.x-(b.y-a.y)/d*8*side,y:p.y+(b.x-a.x)/d*8*side};});for(const [width,color]of [[5,0x171b1e],[3,0x939da2],[1,0xe3e9e8]]){g.lineStyle(width,color);g.beginPath();g.moveTo(rail[0].x,rail[0].y);for(const p of rail.slice(1))g.lineTo(p.x,p.y);g.strokePath();}}
+ g.generateTexture(key,T,T);g.destroy();}
+ for(let i=0;i<RAIL_ROUTE.length;i++){const p=RAIL_ROUTE[i],a=RAIL_ROUTE[Math.max(0,i-1)],b=RAIL_ROUTE[Math.min(RAIL_ROUTE.length-1,i+1)];const dirs=[a,b].map(q=>q.x<p.x?'W':q.x>p.x?'E':q.y<p.y?'N':q.y>p.y?'S':'');let f=dirs.includes('N')||dirs.includes('S')?1:0;if(dirs.includes('N')&&dirs.includes('E'))f=2;if(dirs.includes('E')&&dirs.includes('S'))f=3;if(dirs.includes('S')&&dirs.includes('W'))f=4;if(dirs.includes('W')&&dirs.includes('N'))f=5;objects.push(scene.add.image((p.x+.5)*T,(p.y+.5)*T,'rail-connected-'+f).setDisplaySize(T,T).setDepth(-1.7));}
  const stations=[{id:'entry',x:49,y:83,bx:49,by:88,label:'入口駅'},{id:'boss',x:53,y:26,bx:54,by:28,label:'ボス前駅'}];
  const gates=stations.map(s=>{const gate=scene.add.image((s.x+.5)*T,(s.y+.5)*T,'maze_rail_gate').setDisplaySize(76,76).setDepth(s.y+.9);const text=scene.add.text((s.x+.5)*T,(s.y-1)*T,'',{fontFamily:'Meiryo',fontSize:'12px',align:'center',color:'#a9f2e8',stroke:'#06121b',strokeThickness:4}).setOrigin(.5,1).setDepth(s.y+2);objects.push(gate,text);return{s,gate,text,opened:false};});
  const status=scene.add.text(20,160,'',{fontFamily:'Meiryo',fontSize:'14px',color:'#e8dba6',backgroundColor:'#07121bcc',padding:{x:8,y:6}}).setScrollFactor(0).setDepth(2102);objects.push(status);
