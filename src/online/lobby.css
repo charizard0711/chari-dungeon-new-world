@@ -130,3 +130,9 @@
 .zero-lobby .lobby-field-error[hidden]{display:none}
 .zero-lobby input[aria-invalid=true]{border-color:#ed94bb;box-shadow:0 0 0 1px #ed94bb55,0 0 12px #e65b9520}
 .zero-lobby .lobby-notice.is-error{padding:10px 16px;border:1px solid #c884a480;border-radius:8px;background:linear-gradient(110deg,#311a32ee,#14233eee);color:#ffd1df;font:14px/1.5 'Yu Gothic UI',Meiryo,sans-serif;text-align:left}
+
+/* Quiet edge glow; no continuous animation or game-loop work. */
+.zero-lobby button.lobby-art-button:not(:disabled) .lobby-button-art{filter:drop-shadow(0 0 3px #70d9ff38)}
+.zero-lobby button.lobby-art-button[data-finish=violet]:not(:disabled) .lobby-button-art{filter:drop-shadow(0 0 3px #bd8cff38)}
+.zero-lobby button.lobby-art-button:not(:disabled):is(:hover,:focus-visible) .lobby-button-art{filter:brightness(1.12) drop-shadow(0 0 5px #8bdcff66)}
+.zero-lobby button.lobby-art-button[data-finish=violet]:not(:disabled):is(:hover,:focus-visible) .lobby-button-art{filter:brightness(1.12) drop-shadow(0 0 5px #c39aff66)}
