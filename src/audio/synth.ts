@@ -263,11 +263,12 @@ const SE_SPECS: Partial<Record<SeName, { len: number; segs: SeSeg[] }>> = {
     { type: 'noise', f0: 2400, t: 0, d: .018, vol: .38 },
     { type: 'sine', f0: 1800, f1: 620, t: .003, d: .045, vol: .3 }
   ] },
-  click: { len: .38, segs: [
-    {type:'sine',f0:1046.5,f1:1090,t:0,d:.11,vol:.23},
-    {type:'sine',f0:1568,t:.035,d:.18,vol:.14},
-    {type:'sine',f0:2093,t:.06,d:.22,vol:.075},
-    {type:'sine',f0:3136,t:.09,d:.23,vol:.025}
+  // Original crystalline UI chime; no third-party recordings.
+  click: { len: .29, segs: [
+    {type:'sine',f0:1318.5,f1:1396.9,t:0,d:.055,vol:.18},
+    {type:'sine',f0:2093,t:.018,d:.12,vol:.10},
+    {type:'sine',f0:2793.8,t:.035,d:.21,vol:.045},
+    {type:'sine',f0:4186,t:.05,d:.16,vol:.012}
   ] },
   step: { len: 0.08, segs: [{ type: 'noise', f0: 220, t: 0, d: 0.05, vol: 0.25 }] },
   attack: {

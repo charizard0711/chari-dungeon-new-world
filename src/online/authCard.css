@@ -1,0 +1,51 @@
+/* Shared crystal frame for login, registration and verification mail. */
+.zero-lobby .lobby-auth-card{position:relative;isolation:isolate;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:12px;width:min(770px,96%);padding:25px 58px 24px;margin:8px auto 18px;flex:none;border:1px solid #71c8f0;border-radius:22px;background:linear-gradient(125deg,#0b2036ed,#08172be8 55%,#203e61df);box-shadow:0 0 3px #c0f6ff,inset 0 0 35px #3b8dcd24,0 0 22px #268dce30;font-family:'Yu Gothic UI',Meiryo,sans-serif}
+.zero-lobby .lobby-auth-card:before{content:'';position:absolute;inset:5px;border:1px solid #65c7f338;border-radius:18px;pointer-events:none;z-index:-1}
+.zero-lobby .lobby-auth-card:after{content:'';position:absolute;inset:-1px;border-radius:22px;pointer-events:none;background:linear-gradient(90deg,transparent 15%,#b9faff 50%,transparent 85%) center bottom/65% 2px no-repeat,linear-gradient(transparent,#79eaff,transparent) left center/2px 45% no-repeat,linear-gradient(transparent,#79eaff,transparent) right center/2px 45% no-repeat;filter:drop-shadow(0 0 5px #1bd4ff)}
+.zero-lobby .lobby-auth-card .lobby-heading{width:100%;padding:0}
+.zero-lobby .lobby-auth-card .lobby-heading:before{display:none}
+.zero-lobby .lobby-auth-card h2{font:600 clamp(24px,3.7cqh,36px)/1.25 'Yu Gothic UI',Meiryo,sans-serif;letter-spacing:.06em;margin:0 0 8px}
+.zero-lobby .lobby-auth-card>p{margin:0;font-size:14px;color:#afcee1}
+.zero-lobby .lobby-auth-card form{display:flex;flex-direction:column;gap:17px;width:100%;padding:5px 8px 0;background:none;border:0;border-radius:0;box-shadow:none}
+.zero-lobby .auth-captcha{width:100%;min-height:65px;display:flex;justify-content:center;overflow:hidden;border-radius:9px;background:#113a3838;border:1px solid #4f9b8a55;padding:5px;box-sizing:border-box}
+.zero-lobby .auth-field{width:100%}
+.zero-lobby .auth-field label{display:flex;align-items:center;gap:10px;margin:0 0 7px;font-size:17px;font-weight:600;color:#d2e2f2}
+.zero-lobby .auth-input-wrap{position:relative}
+.zero-lobby .auth-field input{margin:0;border:1px solid #788ac1;border-radius:9px;background:linear-gradient(100deg,#10243b,#08182be8);padding:13px 45px 13px 16px;font-size:16px;box-shadow:inset 0 1px 3px #030d1c88}
+.zero-lobby .auth-field input::placeholder{color:#7890aa;opacity:1}
+.zero-lobby .auth-field input:focus{outline:1px solid #7fe9ff;outline-offset:1px;box-shadow:0 0 12px #36c8ff25}
+.zero-lobby .auth-field .lobby-field-error{display:block;margin-top:6px}.zero-lobby .auth-field .lobby-field-error[hidden]{display:none}
+.zero-lobby .auth-mail-icon{display:inline-block;width:18px;height:12px;border:1.5px solid #b5cfe1;border-radius:2px;position:relative;flex:none}
+.zero-lobby .auth-mail-icon:after{content:'';position:absolute;width:10px;height:10px;border:solid #b5cfe1;border-width:0 1.5px 1.5px 0;transform:rotate(45deg);left:2px;top:-6px}
+.zero-lobby .auth-lock-icon{position:relative;display:inline-block;width:14px;height:12px;background:#b5cfe1;border-radius:2px;margin:4px 2px 0;flex:none}
+.zero-lobby .auth-lock-icon:before{content:'';position:absolute;width:8px;height:8px;border:2px solid #b5cfe1;border-radius:7px 7px 0 0;left:1px;top:-7px}.zero-lobby .auth-lock-icon:after{content:'';position:absolute;width:2px;height:5px;left:6px;top:3px;background:#14253b}
+.zero-lobby button.auth-reveal{position:absolute;right:7px;top:5px;width:36px;height:36px;padding:0;border:0;box-shadow:none;background:none;border-radius:5px}
+.zero-lobby button.auth-reveal:before{content:'';position:absolute;width:17px;height:11px;border:1.5px solid #9cb9ce;border-radius:70% 10%;transform:rotate(45deg);left:9px;top:11px}.zero-lobby button.auth-reveal:after{content:'';position:absolute;width:5px;height:5px;background:#aac9dc;border-radius:50%;left:16px;top:15px}.zero-lobby button.auth-reveal[aria-pressed=false]{background:linear-gradient(45deg,transparent 47%,#a2b8cd 48% 52%,transparent 53%) center/23px 23px no-repeat}
+.zero-lobby .lobby-auth-card button.lobby-primary{width:80%;height:76px;margin:0 auto;flex:none}
+.zero-lobby .auth-submit-icon{font-size:25px;font-weight:400;line-height:1}
+.zero-lobby .lobby-auth-card .lobby-auth-links{width:100%;gap:12px 18px;margin-top:0}
+.zero-lobby .lobby-auth-card .lobby-auth-links>p{display:flex;align-items:center;gap:16px;font-size:14px;margin:0 0 4px;white-space:nowrap;color:#c5ddeb}
+.zero-lobby .lobby-auth-card .lobby-auth-links>p:before,.zero-lobby .lobby-auth-card .lobby-auth-links>p:after{content:'';height:1px;background:#6192b84d;flex:1}
+.zero-lobby .lobby-auth-card .lobby-auth-links>button:not(.lobby-google):not(.lobby-microsoft){height:47px;padding:8px 10px;border:1px solid #71bce7;border-radius:18px;background:linear-gradient(125deg,#173d60,#12243c 48%,#394776);box-shadow:inset 0 1px 2px #abdeff50,inset 0 -3px 12px #5289d84d;font-size:14px;font-weight:600}
+.zero-lobby .lobby-auth-card .lobby-auth-links>button:nth-of-type(2){border-color:#9b94e6}
+.zero-lobby .lobby-auth-card .lobby-auth-links>.lobby-google,.zero-lobby .lobby-auth-card .lobby-auth-links>.lobby-microsoft{font-size:14px;border-radius:10px;height:44px;min-height:44px}
+.zero-lobby .lobby-auth-card .lobby-notice{margin:0;max-width:100%;font-size:14px}
+.zero-lobby .auth-corner{position:absolute;width:58px;height:58px;background:url('/assets/ui/auth-corner.svg') center/contain no-repeat;pointer-events:none;filter:drop-shadow(0 0 4px #29bfff);z-index:2}
+.zero-lobby .auth-corner.tl{left:-3px;top:-3px}.zero-lobby .auth-corner.tr{right:-3px;top:-3px;transform:scaleX(-1)}.zero-lobby .auth-corner.bl{left:-3px;bottom:-3px;transform:scaleY(-1)}.zero-lobby .auth-corner.br{right:-3px;bottom:-3px;transform:scale(-1)}
+@container(max-height:800px){.zero-lobby .lobby-auth-card{gap:8px;padding:18px 46px;margin-top:0}.zero-lobby .lobby-auth-card form{gap:12px}.zero-lobby .auth-field input{padding-top:10px;padding-bottom:10px}.zero-lobby .auth-field label{font-size:15px;margin-bottom:5px}.zero-lobby .lobby-auth-card button.lobby-primary{height:64px}.zero-lobby .lobby-auth-card .lobby-auth-links{gap:9px 14px}.zero-lobby .lobby-auth-card .lobby-auth-links>button:not(.lobby-google):not(.lobby-microsoft){height:42px}}
+@container(max-width:620px){.zero-lobby .lobby-auth-card{padding:22px 18px;width:100%;border-radius:17px}.zero-lobby .lobby-auth-card h2{font-size:23px}.zero-lobby .lobby-auth-card form{padding:0}.zero-lobby .lobby-auth-card>p{font-size:12px}.zero-lobby .lobby-auth-card .lobby-auth-links{gap:9px}.zero-lobby .lobby-auth-card .lobby-auth-links>button{flex-basis:100%!important;font-size:13px}.zero-lobby .lobby-auth-card .lobby-auth-links>p{font-size:12px;gap:6px}.zero-lobby .lobby-auth-card button.lobby-primary{width:100%}.zero-lobby .auth-corner{width:44px;height:44px}}
+/* The vendor's flexible widget needs a block-width parent. */
+.zero-lobby .auth-captcha{display:block}
+.zero-lobby .auth-submit-icon{font-size:0;display:inline-block;width:23px;height:23px;background:url('/assets/ui/auth-enter.svg') center/contain no-repeat}
+.zero-lobby .lobby-auth-links>button[data-auth-action]{display:inline-flex;align-items:center;justify-content:center;gap:10px}
+.zero-lobby .lobby-auth-links>button[data-auth-action]:before{content:'';width:21px;height:21px;flex:none;background:url('/assets/ui/auth-enter.svg') center/contain no-repeat}
+.zero-lobby .lobby-auth-links>button[data-auth-action=mail]:before{background-image:url('/assets/ui/auth-mail.svg')}
+.zero-lobby .lobby-auth-links>button[data-auth-action=create]:before{background-image:url('/assets/ui/auth-user.svg')}
+.zero-lobby[data-view=signup] .lobby-auth-links>button[data-auth-action]{flex-basis:100%}
+.zero-lobby[data-view=signup] .lobby-auth-card{gap:8px;padding-top:18px;padding-bottom:18px}
+.zero-lobby[data-view=signup] .lobby-auth-card form{gap:10px}
+.zero-lobby[data-view=signup] .auth-field input{padding-top:10px;padding-bottom:10px}
+.zero-lobby[data-view=signup] .auth-field label{font-size:15px;margin-bottom:5px}
+.zero-lobby[data-view=signup] .lobby-auth-card button.lobby-primary{height:64px}
+.zero-lobby[data-view=signup] .lobby-auth-card .lobby-auth-links{gap:8px 16px}
+.zero-lobby[data-view=signup] .lobby-auth-card .lobby-auth-links>button[data-auth-action]{height:40px}

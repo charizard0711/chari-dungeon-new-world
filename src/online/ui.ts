@@ -4,6 +4,7 @@ import type Phaser from 'phaser';
 import { online, onlineConfigured, town, type TownState } from './api';
 import './online.css';
 import './lobby.css';
+import './authCard.css';
 import {openOnlineSettings} from './release';
 import {Audio} from '../audio/manager';
 import { captchaSiteKey, mountCaptcha } from '../ranking/captcha';
@@ -86,6 +87,9 @@ export function mountOnlineLobby(scene:Phaser.Scene,previewState?:WorldState) {
     const signup=mode==='signup',resend=mode==='resend';
     const title=resend?'確認メールの再送':signup?'アカウント作成':'オンラインにログイン';
     shell(title,mode);notice.textContent=feedback;
+    const card=node('section');card.className='lobby-auth-card';card.setAttribute('aria-label',title);
+    card.append(...Array.from(content.childNodes));content.append(card);content=card;
+    for(const corner of ['tl','tr','bl','br']){const ornament=node('span');ornament.className=`auth-corner ${corner}`;ornament.setAttribute('aria-hidden','true');card.append(ornament);}
     if(!onlineConfigured){content.append(node('p','オンラインは準備中です。接続先の設定後に利用できます。'));return;}
     content.append(node('p',resend?'登録したメールアドレスに確認メールを送ります。':signup?'オンライン専用のアカウントを作成します。':'作成済みのアカウントでログインしてください。'));
     const form=node('form'),email=node('input'),password=node('input'),name=node('input'),confirmation=node('input');
@@ -95,11 +99,19 @@ export function mountOnlineLobby(scene:Phaser.Scene,previewState?:WorldState) {
     if(signup)password.minLength=8;
     name.maxLength=20;name.required=true;name.setAttribute('autocomplete','nickname');
     confirmation.type='password';confirmation.autocomplete='new-password';confirmation.required=true;
-    const field=(label:string,input:HTMLInputElement)=>{const l=node('label',label);l.append(input);form.append(l);};
+    const field=(label:string,input:HTMLInputElement)=>{
+      const row=node('div');row.className='auth-field';const l=node('label');
+      input.id=`auth-${mode}-${input===email?'email':input===confirmation?'confirmation':'password'}`;l.htmlFor=input.id;
+      const glyph=node('span');glyph.className=input===email?'auth-mail-icon':'auth-lock-icon';glyph.setAttribute('aria-hidden','true');l.append(glyph,document.createTextNode(label));
+      const wrap=node('div');wrap.className='auth-input-wrap';wrap.append(input);
+      input.placeholder=input===email?'メールアドレスを入力':input===confirmation?'パスワードをもう一度入力':'パスワードを入力';
+      if(input!==email){const reveal=button('',()=>{const show=input.type==='password';input.type=show?'text':'password';reveal.setAttribute('aria-pressed',String(show));reveal.setAttribute('aria-label',show?'パスワードを隠す':'パスワードを表示');});reveal.className='auth-reveal';reveal.setAttribute('aria-label','パスワードを表示');reveal.setAttribute('aria-pressed','false');wrap.append(reveal);}
+      row.append(l,wrap);form.append(row);
+    };
     field('メールアドレス',email);
     if(!resend)field(signup?'パスワード（8文字以上）':'パスワード',password);
     if(signup)field('パスワード（確認用）',confirmation);
-    const submit=node('button',resend?'確認メールを送信':signup?'アカウントを作成':'ログイン');submit.type='submit';submit.classList.add('lobby-primary');finishLobbyButton(submit,submit.textContent??'ログイン','cyan');form.append(submit);
+    const submit=node('button',resend?'確認メールを送信':signup?'アカウントを作成':'ログイン');submit.type='submit';submit.classList.add('lobby-primary');finishLobbyButton(submit,submit.textContent??'ログイン','cyan');submit.querySelector('img')!.src='assets/ui/lobby-buttons/auth.svg';const loginIcon=node('span','↪');loginIcon.className='auth-submit-icon';loginIcon.setAttribute('aria-hidden','true');submit.querySelector('.lobby-button-caption')?.prepend(loginIcon);form.append(submit);
     const requireCaptcha=()=>{if(captchaSiteKey&&!captchaToken)throw new Error('本人確認が完了するまでお待ちください。');};
     const validate=installFormValidation(form);
     form.onsubmit=e=>{e.preventDefault();void run(async()=>{
@@ -126,7 +138,7 @@ export function mountOnlineLobby(scene:Phaser.Scene,previewState?:WorldState) {
     });};
     content.append(form,notice);
     if(captchaSiteKey){
-      const challenge=node('div');form.prepend(challenge);
+      const challenge=node('div');challenge.className='auth-captcha';form.prepend(challenge);
       void mountCaptcha(challenge,token=>{captchaToken=token;}).then(handle=>{
         if(disposed||!challenge.isConnected)handle.destroy();else captcha=handle;
       }).catch(error);
@@ -152,6 +164,7 @@ export function mountOnlineLobby(scene:Phaser.Scene,previewState?:WorldState) {
         }catch(e){microsoft.disabled=false;microsoftCaption.textContent='Microsoftでログイン';throw e;}
       }));microsoft.className='lobby-microsoft';const microsoftCaption=node('span','Microsoftでログイン');const microsoftLogo=document.createElement('img');microsoftLogo.src='assets/ui/microsoft.svg';microsoftLogo.alt='';microsoftLogo.width=20;microsoftLogo.height=20;microsoft.replaceChildren(microsoftLogo,microsoftCaption);links.append(microsoft);
     }
+    for(const action of links.querySelectorAll('button:not(.lobby-google):not(.lobby-microsoft)')){(action as HTMLElement).dataset.authAction=action.textContent?.includes('新規')?'create':action.textContent?.includes('メール')?'mail':'login';}
     content.append(links);
     content.append(node('p','Chari Dungeon: ZERO のアカウントです。'));
     const privacy=node('a','プライバシーポリシー');privacy.href='privacy.html';privacy.target='_blank';privacy.rel='noopener';privacy.style.color='#a8dfff';privacy.style.fontSize='12px';content.append(privacy);
