@@ -140,11 +140,11 @@ export function mountOnlineLobby(scene:Phaser.Scene,previewState?:WorldState) {
     if(resend)links.append(button('ログイン画面へ戻る',()=>auth('login',email.value)));
     if(mode==='login'||signup){
       const google=button('Googleでログイン',()=>void run(async()=>{
-        google.disabled=true;google.textContent='Googleへ移動中…';
+        google.disabled=true;googleCaption.textContent='Googleへ移動中…';
         try{const redirect=new URL('auth-google.html',location.href);if(new URLSearchParams(location.search).get('mute')==='1')redirect.searchParams.set('mute','1');
           const {error:e}=await online!.auth.signInWithOAuth({provider:'google',options:{redirectTo:redirect.href,queryParams:{prompt:'select_account'}}});if(e)throw e;
-        }catch(e){google.disabled=false;google.textContent='Googleでログイン';throw e;}
-      }));google.className='lobby-google';links.append(google);
+        }catch(e){google.disabled=false;googleCaption.textContent='Googleでログイン';throw e;}
+      }));google.className='lobby-google';const googleCaption=node('span','Googleでログイン');const googleLogo=document.createElement('img');googleLogo.src='assets/ui/google-g.svg';googleLogo.alt='';googleLogo.width=20;googleLogo.height=20;google.replaceChildren(googleLogo,googleCaption);links.append(google);
       const microsoft=button('Microsoftでログイン（準備中）',()=>{});microsoft.disabled=true;links.append(microsoft);
     }
     content.append(links);
