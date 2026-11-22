@@ -31,6 +31,9 @@ const config: Phaser.Types.Core.GameConfig = {
   scene: [BootScene, TitleScene, UIScene]
 };
 
+// The game uses right-click for actions, including DOM overlays above the canvas.
+document.addEventListener('contextmenu', event => event.preventDefault(), {capture: true});
+
 installLocalization();
 const game = new Phaser.Game(config);
 installScreenSizing(game);
