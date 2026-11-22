@@ -13,3 +13,18 @@
 .online-screen{background:linear-gradient(#031a22d9,#07151de8)}
 @media(max-width:600px){.new-world-logo{width:94%;max-height:42%;margin-top:-12%}.new-world-caption{letter-spacing:.1em;margin-bottom:30px}.new-world-language{top:14px;right:14px}.online-screen header img{width:66%;max-height:100px}.new-world-footer{font-size:10px}}
 @media(prefers-reduced-motion:reduce){.new-world-title button{transition:none}}
+.new-world-title.zero-lobby{container-type:size;background:linear-gradient(90deg,#03101b18,#04122666 50%,#03102030),url('/assets/new-world/lobby-night-v2.png') center/cover;color:#dfedff}
+.new-world-title .new-world-logo{width:min(48%,550px);max-height:40%;margin:0 0 15px;filter:drop-shadow(0 0 20px #499cdb55)}
+.new-world-title .new-world-caption{color:#c4dcec;font-size:clamp(14px,2.5cqh,20px);margin:0 0 28px}
+.new-world-title .new-world-actions{width:min(360px,74%);gap:6px}
+.new-world-title button.new-world-start{width:100%;height:100px;min-width:0;letter-spacing:.12em}
+.new-world-title .new-world-start .lobby-button-caption{font-size:26px;gap:15px}
+.new-world-title button.new-world-settings{width:230px;min-width:0;height:65px}
+.new-world-title .new-world-language{color:#d0e5fa;border-color:#657eab;background:#091a30cc;border-radius:8px}
+.new-world-title .new-world-footer{color:#96bedb}
+.town-entry-caption{left:50%;right:auto;bottom:12%;transform:translateX(-50%);width:min(480px,78%);text-align:center;color:#e0f5ff}
+.town-loading-logo{width:min(300px,65%);max-height:160px;object-fit:contain;filter:drop-shadow(0 0 12px #4ebcfa55)}
+.town-entry-eyebrow{color:#abd7ed}.town-entry-progress{height:4px;padding:1px;border-color:#77b3e0;background:#07182b}
+.town-entry-progress>div{background:linear-gradient(90deg,#54dff4,#a882ff);box-shadow:0 0 10px #6cdcff}.town-entry-percent{color:#b9d9ee}
+@container(max-height:550px){.new-world-title .new-world-logo{max-height:33%;margin-bottom:0}.new-world-title .new-world-caption{margin-bottom:8px}.new-world-title button.new-world-start{height:80px}.new-world-title button.new-world-settings{height:55px}}
+.new-world-title.zero-lobby select.new-world-language{width:auto;max-width:160px;margin:0;right:25px;top:22px}

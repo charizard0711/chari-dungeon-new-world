@@ -1,3 +1,4 @@
+import {installFormValidation} from './formValidation';
 import {finishLobbyButton} from './lobbyButtons';
 import type Phaser from 'phaser';
 import { online, onlineConfigured, town, type TownState } from './api';
@@ -28,6 +29,7 @@ export function mountOnlineLobby(scene:Phaser.Scene,previewState?:WorldState) {
   const resize=new ResizeObserver(fit);resize.observe(scene.game.canvas);window.addEventListener('resize',fit);window.addEventListener('scroll',fit);fit();
   const sceneInputEnabled=scene.input.enabled;scene.input.enabled=false;
   root.addEventListener('keydown',event=>event.stopPropagation());
+  root.addEventListener('click',event=>{const b=(event.target as Element).closest('button');if(b&&!b.disabled)Audio.playSe('click');});
   const keyboard=scene.input.keyboard, enabled=keyboard?.enabled;if(keyboard)keyboard.enabled=false;
   let disposed=false, joined=false, busy=false, timer:ReturnType<typeof setInterval>|undefined;
   let revision=0, userId='', state:TownState|undefined;
@@ -42,7 +44,7 @@ export function mountOnlineLobby(scene:Phaser.Scene,previewState?:WorldState) {
     content=node('main');content.className='lobby-content';const heading=node('div');heading.className='lobby-heading';heading.append(node('h2',title),node('div','◆ ◇ ◆'));content.append(heading);root.append(content);
   };
   const notice=node('p');notice.className='lobby-notice';notice.setAttribute('role','status');
-  const error=(e:unknown)=>{notice.textContent=e instanceof Error?e.message:'接続できませんでした。';};
+  const error=(e:unknown)=>{notice.classList.add('is-error');notice.setAttribute('role','alert');notice.textContent=e instanceof Error?e.message:'接続できませんでした。';};
   const enter=async(characterId:string)=>{
     if((import.meta as any).env.DEV&&previewState){notice.textContent='デザイン確認用です。本番ではこのキャラクターで町に入場します。';return;}
     const entryLoading=mountTownLoading(scene);
@@ -71,14 +73,15 @@ export function mountOnlineLobby(scene:Phaser.Scene,previewState?:WorldState) {
     for(const value of ['male','female'] as const){const choice=button(value==='male'?'男':'女',()=>{gender=value;genders.forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.gender===value)));});choice.className='online-gender-choice';choice.dataset.gender=value;choice.setAttribute('aria-pressed',String(value===gender));const sprite=mountCharacterPreview(scene,{id:'preview-'+value,slot:1,name:value==='male'?'男':'女',gender:value,hp:100,inventory:{},gear:{weapon:true,weapon_key:'w_iron_dagger',armor:true,armor_key:'leather'}});choice.prepend(sprite);genders.push(choice);choices.append(choice);}
     const name=node('input');name.required=true;name.minLength=2;name.maxLength=12;name.setAttribute('autocomplete','nickname');const label=node('label','冒険者名（2〜12文字）');label.append(name);
     const hair=node('select');hair.setAttribute('aria-label','作成するキャラクターの髪色');for(const color of HAIR_COLORS){const option=node('option',color.name);option.value=color.key;hair.append(option);}const hairLabel=node('label','髪色（作成時は無料／後からの変更は床屋で1,000G）');hairLabel.append(hair);const submit=node('button','作成して町へ');submit.type='submit';finishLobbyButton(submit,'作成して町へ','cyan');form.append(choices,label,hairLabel,submit);
-    form.onsubmit=e=>{e.preventDefault();void run(async()=>{if(!form.reportValidity())return;if((import.meta as any).env.DEV&&previewState){notice.textContent='デザイン確認用のためキャラクターは保存しません。';return;}const updated=await world('create_character',{name:name.value.trim(),gender,hair_color:hair.value});const created=updated.characters.find(c=>!state.characters.some(old=>old.id===c.id));if(!created)throw Error('キャラクター一覧を更新してください。');await enter(created.id);});};
+    const validate=installFormValidation(form);
+    form.onsubmit=e=>{e.preventDefault();void run(async()=>{if(!validate())return;if((import.meta as any).env.DEV&&previewState){notice.textContent='デザイン確認用のためキャラクターは保存しません。';return;}const updated=await world('create_character',{name:name.value.trim(),gender,hair_color:hair.value});const created=updated.characters.find(c=>!state.characters.some(old=>old.id===c.id));if(!created)throw Error('キャラクター一覧を更新してください。');await enter(created.id);});};
     content.append(form,notice,button('キャラクター選択へ戻る',()=>characters(state)));
   };
   const servers=()=>{
     shell('キャラクターを読み込み中…');content.append(notice);
     void world('list').then(state=>{if(!disposed)characters(state);}).catch(error);
   };
-  const run=async(fn:()=>Promise<void>)=>{if(busy||disposed)return;busy=true;notice.textContent='';try{await fn();}catch(e){error(e);}finally{busy=false;}};
+  const run=async(fn:()=>Promise<void>)=>{if(busy||disposed)return;busy=true;notice.classList.remove('is-error');notice.setAttribute('role','status');notice.textContent='';try{await fn();}catch(e){error(e);}finally{busy=false;}};
   const auth=(mode:'login'|'signup'|'resend'='login',savedEmail='',feedback='')=>{
     const signup=mode==='signup',resend=mode==='resend';
     const title=resend?'確認メールの再送':signup?'アカウント作成':'オンラインにログイン';
@@ -98,9 +101,11 @@ export function mountOnlineLobby(scene:Phaser.Scene,previewState?:WorldState) {
     if(signup)field('パスワード（確認用）',confirmation);
     const submit=node('button',resend?'確認メールを送信':signup?'アカウントを作成':'ログイン');submit.type='submit';submit.classList.add('lobby-primary');finishLobbyButton(submit,submit.textContent??'ログイン','cyan');form.append(submit);
     const requireCaptcha=()=>{if(captchaSiteKey&&!captchaToken)throw new Error('本人確認が完了するまでお待ちください。');};
+    const validate=installFormValidation(form);
     form.onsubmit=e=>{e.preventDefault();void run(async()=>{
-      if(!form.reportValidity())return;
-      if(signup&&password.value!==confirmation.value)throw new Error('確認用パスワードが一致しません。');
+      confirmation.setCustomValidity('');
+      if(!validate())return;
+      if(signup&&password.value!==confirmation.value){confirmation.setCustomValidity('パスワードが一致しません。');validate();return;}
       requireCaptcha();
       if(resend){
         const {error:e}=await online!.auth.resend({type:'signup',email:email.value.trim(),options:{captchaToken,emailRedirectTo:'https://charidungeon.com/'}});

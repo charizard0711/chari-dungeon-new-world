@@ -12,7 +12,7 @@ export function mountTownLoading(scene:Phaser.Scene,destination?:string){
   const bar=document.createElement('div');bar.className='town-entry-progress';bar.setAttribute('role','progressbar');bar.setAttribute('aria-label','町の読み込み状況');bar.setAttribute('aria-valuemin','0');bar.setAttribute('aria-valuemax','100');
   const fill=document.createElement('div');bar.append(fill);
   const percent=document.createElement('span');percent.className='town-entry-percent';
-  panel.append(eyebrow,title,status,bar,percent);root.append(panel);document.body.append(root);
+  const logo=document.createElement('img');logo.src='assets/new-world/logo-silver-v2.png';logo.alt='Chari Dungeon: ZERO';logo.className='town-loading-logo';panel.append(logo,eyebrow,title,status,bar,percent);root.append(panel);document.body.append(root);
   const started=Date.now();
   const setDestination=(label:string,dungeon:boolean)=>{title.textContent=label;painting.src=new URL(dungeon?'assets/online/adventure-v2/loading.webp':'assets/new-world/title-world-v1.webp',scene.game.canvas.ownerDocument.baseURI).href;};
   let disposed=false,timer:ReturnType<typeof setTimeout>|undefined;

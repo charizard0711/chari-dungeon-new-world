@@ -233,3 +233,13 @@ canvas {
 #loading-screen[data-mode="boot"]::after, #loading-screen[data-mode="boot"] .loading-sparks, #loading-screen[data-mode="boot"] h2, #loading-screen[data-mode="boot"] .loading-percent, #loading-screen[data-mode="boot"] .loading-hint { display: none; }
 #loading-screen[data-mode="boot"] .loading-walk, #loading-screen[data-mode="boot"] .loading-boot-title { display: block; }
 #loading-screen[data-mode="boot"] .loading-fill::after { display: none; }
+/* ZERO boot: brand and a compact real-progress gauge. */
+#loading-screen[data-mode=boot]{background:#051021;justify-content:center;color:#d2eaff}
+.loading-brand{display:none}
+#loading-screen[data-mode=boot] .loading-brand{display:block;width:min(330px,78vw);max-height:240px;object-fit:contain;margin:0 auto 32px;filter:drop-shadow(0 0 18px #439bd64d)}
+#loading-screen[data-mode=boot] .loading-walk,#loading-screen[data-mode=boot] .loading-boot-title{display:none}
+#loading-screen[data-mode=boot] .loading-card{width:min(360px,80%);color:#c7e8ff}
+#loading-screen[data-mode=boot] .loading-track{height:4px;padding:1px;border:1px solid #517ca7;background:#071326}
+#loading-screen[data-mode=boot] .loading-fill{background:linear-gradient(90deg,#53dbf3,#a47cff);box-shadow:0 0 12px #5cdbff}
+#loading-screen[data-mode=boot] .loading-percent{display:block;font:12px 'Yu Gothic UI',sans-serif;color:#a8cfe9}
+#loading-screen[data-mode=boot] .loading-status{color:#b8cee5}
