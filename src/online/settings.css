@@ -14,3 +14,7 @@
 .zero-lobby button.lobby-google:hover{background:#f0f4f9;border-color:#747775}
 .zero-lobby button.lobby-google img{width:20px;height:20px;flex:none;object-fit:contain;filter:none}
 @media(max-width:480px){.zero-settings-overlay.zero-lobby{padding:16px}.zero-settings-dialog{padding:26px 24px 20px}}
+
+.zero-lobby button.lobby-microsoft{display:flex;align-items:center;justify-content:center;gap:12px;min-height:44px;padding:10px 16px;border:1px solid #8c8c8c;border-radius:6px;background:#fff;color:#5e5e5e;font:600 14px/20px "Segoe UI",Arial,sans-serif;text-shadow:none;box-shadow:none}
+.zero-lobby button.lobby-microsoft:hover{background:#f0f4f9}
+.zero-lobby button.lobby-microsoft img{width:20px;height:20px;flex:none;filter:none}

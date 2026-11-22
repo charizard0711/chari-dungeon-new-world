@@ -23,7 +23,7 @@ export default defineConfig(({ command, mode }) => {
       watch: { ignored: ['**/dist-verifier/**', '**/outputs/**'] }
     },
     build: {
-      rollupOptions: { input: { main: 'index.html', authConfirm: 'auth-confirm.html', authGoogle: 'auth-google.html' } },
+      rollupOptions: { input: { main: 'index.html', authConfirm: 'auth-confirm.html', authGoogle: 'auth-google.html', authMicrosoft: 'auth-microsoft.html' } },
       outDir: mode === 'verifier' ? 'dist-verifier' : 'dist',
       sourcemap: false,
       target: 'es2020',

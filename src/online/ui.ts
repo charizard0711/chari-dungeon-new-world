@@ -145,7 +145,12 @@ export function mountOnlineLobby(scene:Phaser.Scene,previewState?:WorldState) {
           const {error:e}=await online!.auth.signInWithOAuth({provider:'google',options:{redirectTo:redirect.href,queryParams:{prompt:'select_account'}}});if(e)throw e;
         }catch(e){google.disabled=false;googleCaption.textContent='Googleでログイン';throw e;}
       }));google.className='lobby-google';const googleCaption=node('span','Googleでログイン');const googleLogo=document.createElement('img');googleLogo.src='assets/ui/google-g.svg';googleLogo.alt='';googleLogo.width=20;googleLogo.height=20;google.replaceChildren(googleLogo,googleCaption);links.append(google);
-      const microsoft=button('Microsoftでログイン（準備中）',()=>{});microsoft.disabled=true;links.append(microsoft);
+      const microsoft=button('Microsoftでログイン',()=>void run(async()=>{
+        microsoft.disabled=true;microsoftCaption.textContent='Microsoftへ移動中…';
+        try{const redirect=new URL('auth-microsoft.html',location.href);if(new URLSearchParams(location.search).get('mute')==='1')redirect.searchParams.set('mute','1');
+          const {error:e}=await online!.auth.signInWithOAuth({provider:'azure',options:{scopes:'email',redirectTo:redirect.href,queryParams:{prompt:'select_account'}}});if(e)throw e;
+        }catch(e){microsoft.disabled=false;microsoftCaption.textContent='Microsoftでログイン';throw e;}
+      }));microsoft.className='lobby-microsoft';const microsoftCaption=node('span','Microsoftでログイン');const microsoftLogo=document.createElement('img');microsoftLogo.src='assets/ui/microsoft.svg';microsoftLogo.alt='';microsoftLogo.width=20;microsoftLogo.height=20;microsoft.replaceChildren(microsoftLogo,microsoftCaption);links.append(microsoft);
     }
     content.append(links);
     content.append(node('p','Chari Dungeon: ZERO のアカウントです。'));
