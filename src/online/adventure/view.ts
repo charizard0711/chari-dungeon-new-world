@@ -74,7 +74,7 @@ export function mountAdventureView(scene:any){
      n.x=e.x;n.y=e.y;
     }else if(!n.moving)n.dir=n.lastFacing;
     if(e.hp<n.hp)hit(n);n.hp=e.hp;if((e.attackBeat??-1)>n.attackBeat){n.attackBeat=e.attackBeat;const respond=()=>{if(!n.root.active||n.dead)return;if(e.rangedAttack){const target=scene.packet.players.find((p:any)=>p.character_id===e.target);if(target){const bolt=scene.add.circle(n.root.x,n.root.y-18,5,0x9ce6ff).setDepth(35);scene.tweens.add({targets:bolt,x:(target.x+.5)*T,y:(target.y+.5)*T,duration:175,onComplete:()=>bolt.destroy()});}}if(n.hitUntil<scene.time.now){scene.tweens.killTweensOf(n.body);scene.tweens.add({targets:n.body,angle:n.dir==='left'?-12:12,duration:75,yoyo:true,onComplete:()=>n.body.active&&n.body.setAngle(0)});}};const actor=scene.actors.get(e.target),playerFirst=weaponAttackSpeed(actor?.weapon?.weaponType)>=enemyAttackSpeed(e.key);scene.time.delayedCall(pending&&playerFirst?Math.max(0,scene.combatImpactUntil-scene.time.now)+70:0,respond);}
-    n.bar.clear();
+    const bw=e.boss?100:e.elite?64:38,ratio=Math.max(0,Math.min(1,e.hp/Math.max(1,e.max)));n.bar.clear().fillStyle(0x21121e,.95).fillRect(-bw/2,-n.size,bw,5).fillStyle(e.boss?0xe775ce:0xb5d26e).fillRect(-bw/2,-n.size,bw*ratio,5);
    }
   }
 
