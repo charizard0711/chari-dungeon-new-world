@@ -15,7 +15,7 @@ function load(): Promise<Turnstile> {
 export async function mountCaptcha(node: HTMLElement, changed: (token?: string) => void) {
   const api=await load();
   if(!node.isConnected)return {destroy:()=>{},reset:()=>{}};
-  const id=api.render(node,{sitekey:captchaSiteKey,theme:'dark',size:'flexible',callback:(token:string)=>changed(token),
+  const id=api.render(node,{sitekey:captchaSiteKey,theme:'dark',size:node.clientWidth<310?'compact':'flexible',callback:(token:string)=>changed(token),
     'expired-callback':()=>changed(), 'error-callback':()=>changed()});
   return {destroy:()=>api.remove(id),reset:()=>{changed();api.reset(id)}};
 }

@@ -49,3 +49,14 @@
 .zero-lobby[data-view=signup] .lobby-auth-card button.lobby-primary{height:64px}
 .zero-lobby[data-view=signup] .lobby-auth-card .lobby-auth-links{gap:8px 16px}
 .zero-lobby[data-view=signup] .lobby-auth-card .lobby-auth-links>button[data-auth-action]{height:40px}
+
+@container(max-width:620px){
+ .zero-lobby .lobby-auth-card{min-width:0;max-width:100%;padding:20px 12px;box-sizing:border-box}
+ .zero-lobby .lobby-auth-card form,.zero-lobby .auth-field,.zero-lobby .lobby-auth-links{min-width:0;max-width:100%;box-sizing:border-box}
+ .zero-lobby .lobby-auth-card .lobby-auth-links>p{white-space:normal;text-align:center}
+ .zero-lobby .lobby-auth-card .lobby-auth-links>button{min-width:0;max-width:100%;white-space:normal;height:auto;min-height:44px;box-sizing:border-box}
+ .zero-lobby .lobby-auth-card button.lobby-primary{height:60px;max-width:100%}
+ .zero-lobby .lobby-auth-card h2{font-size:clamp(20px,6cqw,26px)}
+ .zero-lobby .auth-field input{min-width:0;font-size:16px}
+}
+@container(max-width:400px){.zero-lobby .auth-captcha{display:flex;justify-content:center}}

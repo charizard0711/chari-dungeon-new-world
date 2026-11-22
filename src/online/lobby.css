@@ -136,3 +136,31 @@
 .zero-lobby button.lobby-art-button[data-finish=violet]:not(:disabled) .lobby-button-art{filter:drop-shadow(0 0 3px #bd8cff38)}
 .zero-lobby button.lobby-art-button:not(:disabled):is(:hover,:focus-visible) .lobby-button-art{filter:brightness(1.12) drop-shadow(0 0 5px #8bdcff66)}
 .zero-lobby button.lobby-art-button[data-finish=violet]:not(:disabled):is(:hover,:focus-visible) .lobby-button-art{filter:brightness(1.12) drop-shadow(0 0 5px #c39aff66)}
+
+/* Final responsive overrides: keep art, caption and hit area in the same bounds. */
+@container(max-width:620px){
+ .zero-lobby .lobby-header{flex-shrink:0;min-width:0}
+ .zero-lobby nav{min-width:0}.zero-lobby nav button{min-width:0;padding:6px;font-size:11px}
+ .zero-lobby .lobby-content,.zero-lobby[data-view=characters] .lobby-content{flex:0 0 auto;min-height:0;padding:18px 10px max(20px,env(safe-area-inset-bottom));box-sizing:border-box}
+ .zero-lobby .lobby-heading{width:100%;box-sizing:border-box}
+ .zero-lobby[data-view=characters] h2{font-size:clamp(22px,6cqw,30px)}
+ .zero-lobby[data-view=characters] .online-character-grid{width:100%;gap:8px}
+ .zero-lobby[data-view=characters] .online-character-card{min-height:250px;padding:12px 6px;overflow-wrap:anywhere}
+ .zero-lobby[data-view=characters] .online-character-card h3{font-size:clamp(12px,3.6cqw,16px)}
+ .zero-lobby[data-view=characters] .online-character-card strong{font-size:16px;max-width:100%}
+ .zero-lobby[data-view=characters] .lobby-character-stage{height:115px}
+ .zero-lobby[data-view=characters] .online-character-preview,.zero-lobby[data-view=characters] .online-character-preview canvas{width:min(100%,110px);height:auto;aspect-ratio:1}
+ .zero-lobby button.lobby-art-button{max-width:100%;min-width:0;box-sizing:border-box;flex-shrink:0;height:54px}
+ .zero-lobby .online-character-card>button.lobby-art-button{height:54px;width:100%}
+ .zero-lobby .lobby-button-caption{max-width:80%;font-size:clamp(10px,3.4cqw,15px);gap:4px;letter-spacing:0;white-space:normal;line-height:1.25;text-align:center}
+ .zero-lobby .lobby-button-icon{width:16px;height:16px}
+ .zero-lobby[data-view=characters] button.lobby-confirm{position:relative;inset:auto;width:min(100%,280px);height:64px;margin:4px auto 0}
+ .zero-lobby .lobby-confirm .lobby-button-caption{padding:0;font-size:20px;gap:8px}
+ .zero-lobby .lobby-confirm .lobby-button-icon{width:20px;height:20px}
+ .zero-lobby button.lobby-logout{width:min(100%,220px);height:52px;margin:4px auto}
+ .zero-lobby button.lobby-logout .lobby-button-caption{font-size:14px}
+ .zero-lobby.new-world-title button.new-world-start{height:70px;width:100%}
+ .zero-lobby.new-world-title .new-world-start .lobby-button-caption{font-size:22px;gap:8px}
+ .zero-lobby.new-world-title button.new-world-settings{width:min(100%,210px);height:54px}
+ .zero-lobby.new-world-title .new-world-logo{width:85%;max-height:34%}
+}
