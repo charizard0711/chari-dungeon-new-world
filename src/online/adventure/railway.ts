@@ -1,3 +1,4 @@
+import {BOARDING_PANELS} from './stage';
 import {railTilePath} from './railGeometry';
 import {RAIL_ROUTE,railPose} from './railRoute';
 import {partyCanSee,partySightRadius} from './visibility';
@@ -21,9 +22,22 @@ export function mountRailStations(scene:any){
  g.generateTexture(key,T,T);g.destroy();}
  for(let i=0;i<RAIL_ROUTE.length;i++){const p=RAIL_ROUTE[i],a=RAIL_ROUTE[Math.max(0,i-1)],b=RAIL_ROUTE[Math.min(RAIL_ROUTE.length-1,i+1)];const dirs=[a,b].map(q=>q.x<p.x?'W':q.x>p.x?'E':q.y<p.y?'N':q.y>p.y?'S':'');let f=dirs.includes('N')||dirs.includes('S')?1:0;if(dirs.includes('N')&&dirs.includes('E'))f=2;if(dirs.includes('E')&&dirs.includes('S'))f=3;if(dirs.includes('S')&&dirs.includes('W'))f=4;if(dirs.includes('W')&&dirs.includes('N'))f=5;objects.push(scene.add.image((p.x+.5)*T,(p.y+.5)*T,'rail-connected-'+f).setDisplaySize(T,T).setDepth(-1.7));}
  const stations=[{id:'entry',x:49,y:83,bx:49,by:88,label:'入口駅'},{id:'boss',x:53,y:26,bx:54,by:28,label:'ボス前駅'}];
+ const platform=scene.add.graphics().setDepth(-1.6);objects.push(platform);
+ for(const station of stations){const entry=station.id==='entry',left=entry?47:53,right=entry?53:56,top=entry?84:26,bottom=entry?89:30;
+  for(let y=top;y<=bottom;y++)for(let x=left;x<=right;x++){if(C.rows[y]?.[x]!=='.'||RAIL_ROUTE.some(p=>p.x===x&&p.y===y))continue;
+   platform.fillStyle((x+y)%2?0x798c96:0x83969e).fillRect(x*T,y*T,T,T).lineStyle(1,0x475c65,.8).strokeRect(x*T+1,y*T+1,T-2,T-2);
+   platform.lineStyle(1,0xc6d5d5,.5).lineBetween(x*T+4,y*T+5,(x+1)*T-4,y*T+5);
+  }
+  const panel=BOARDING_PANELS.find(p=>p.id===station.id)!;
+  platform.fillStyle(0xe3c369).fillRect(panel.x*T+3,panel.y*T+3,T-6,5);
+  const building=scene.add.image((entry?45:59)*T,(entry?87:30)*T,'maze_station_v3').setOrigin(.5,1).setDisplaySize(4*T,2.67*T).setDepth(entry?86:29);
+  const sign=scene.add.text(building.x,building.y-1.4*T,station.label,{fontFamily:'Meiryo',fontSize:'13px',fontStyle:'bold',color:'#ffe8af',stroke:'#172b3d',strokeThickness:3}).setOrigin(.5).setDepth(entry?86.1:29.1);
+  objects.push(building,sign);
+ }
+ const pads=BOARDING_PANELS.map(p=>{const g=scene.add.graphics().setDepth(-.8),text=scene.add.text((p.x+.5)*T,(p.y+.5)*T,'乗車',{fontFamily:'Meiryo',fontSize:'12px',fontStyle:'bold',color:'#efffff',stroke:'#082b36',strokeThickness:3}).setOrigin(.5).setDepth(-.7);objects.push(g,text);return{p,g,text};});
  const gates=stations.map(s=>{const gate=scene.add.image((s.x+.5)*T,(s.y+.5)*T,'maze_rail_gate').setDisplaySize(76,76).setDepth(s.y+.9);const text=scene.add.text((s.x+.5)*T,(s.y-1)*T,'',{fontFamily:'Meiryo',fontSize:'12px',align:'center',color:'#a9f2e8',stroke:'#06121b',strokeThickness:4}).setOrigin(.5,1).setDepth(s.y+2);objects.push(gate,text);return{s,gate,text,opened:false};});
  const status=scene.add.text(20,160,'',{fontFamily:'Meiryo',fontSize:'14px',color:'#e8dba6',backgroundColor:'#07121bcc',padding:{x:8,y:6}}).setScrollFactor(0).setDepth(2102);objects.push(status);
- return{update(){const a=scene.packet.adventure;for(const g of gates){const{s,text,gate}=g,open=!!a.railGates?.[s.id],visible=partyCanSee(s.x,s.y,scene.packet.players,partySightRadius(a.snapshot),(x,y)=>C.rows[y]?.[x]!=='.',a.snapshot);text.setVisible(visible).setText(`${s.label} · 500G\n${open?'改札開放 · 列車まで進む':a.railUnlocked?'クリックで改札を開く':'ボス戦に参加すると解放'}`);if(open!==g.opened){g.opened=open;scene.tweens.add({targets:gate,displayWidth:open?24:76,x:(s.x+.5)*T+(open?-27:0),duration:400,ease:'Sine.easeInOut'});}}
+ return{update(){const a=scene.packet.adventure;for(const {p,g,text}of pads){const open=!!a.railGates?.[p.id],pulse=.3+Math.sin(scene.time.now*.004)*.12;g.clear().fillStyle(open?0x42f4d9:0x5d8ca7,open?pulse:.16).fillRoundedRect(p.x*T+3,p.y*T+3,T-6,T-6,5).lineStyle(2,open?0xb1fff4:0x6e9bb3,.95).strokeRoundedRect(p.x*T+4,p.y*T+4,T-8,T-8,5);text.setAlpha(open?1:.65);}for(const g of gates){const{s,text,gate}=g,open=!!a.railGates?.[s.id],visible=partyCanSee(s.x,s.y,scene.packet.players,partySightRadius(a.snapshot),(x,y)=>C.rows[y]?.[x]!=='.',a.snapshot);text.setVisible(visible).setText(`${s.label} · 500G\n${open?'光るパネルを踏んで乗車':a.railUnlocked?'クリックで改札を開く':'ボス戦に参加すると解放'}`);if(open!==g.opened){g.opened=open;scene.tweens.add({targets:gate,displayWidth:open?24:76,x:(s.x+.5)*T+(open?-27:0),duration:400,ease:'Sine.easeInOut'});}}
  const trip=a.railTrip;status.setVisible(!!trip);if(trip){const p=railPose(trip,railNow(scene));status.setText(`魔導列車 · ${trip.reverse?'入口駅':'ボス前駅'}へ\n${Math.round(p.progress*100)}% · 運賃500G`);}
  },destroy(){objects.forEach(o=>o.destroy());}};
 }

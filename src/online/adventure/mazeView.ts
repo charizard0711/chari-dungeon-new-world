@@ -1,3 +1,4 @@
+import {bossStage,inStage} from './stage';
 import {streamTerrain,TERRAIN_CHUNK} from './terrainChunks';
 import {drawContinuousWalls} from './continuousWalls';
 import {ADVENTURE_CONFIG as C} from './layout';
@@ -6,7 +7,7 @@ import {townSoundLevel} from '../presentation';
 const T=48;
 export function drawMazeGround(scene:any){
  const floor=scene.make.image({x:0,y:0,key:'maze_floor',add:false}).setOrigin(0).setDisplaySize(T,T);
- const ground=(x:number,y:number)=>C.rows[y]?.[x]==='.';
+ const arena=bossStage(scene.packet.adventure);const ground=(x:number,y:number)=>inStage(arena,x,y)&&C.rows[y]?.[x]==='.';
  streamTerrain(scene,C.width,C.height,(cx,cy)=>{
  const rt=scene.add.renderTexture(cx*T,cy*T,TERRAIN_CHUNK*T,TERRAIN_CHUNK*T).setOrigin(0).setDepth(-5);
  rt.beginDraw();for(let y=cy;y<Math.min(cy+TERRAIN_CHUNK,C.height);y++)for(let x=cx;x<Math.min(cx+TERRAIN_CHUNK,C.width);x++){
@@ -23,14 +24,14 @@ export function mountMazeMechanics(scene:any){
  function motor(x:number,y:number){if(Math.abs(scene.player.x-x)+Math.abs(scene.player.y-y)>12)return;const volume=townSoundLevel(scene.registry.get('onlineAudio'),scene.sound.mute,scene.game.config.audio.noAudio||new URLSearchParams(location.search).get('mute')==='1','equip');if(volume>0)scene.sound.play('maze_motor',{volume});}
  return {update(){const a=scene.packet.adventure;if(!a||a.floor!==1)return;const s=a.snapshot,bridge=s.bridge??{phase:'down',at:0},boss=s.bossEncounter??{phase:'waiting',at:0};const now=(scene.packet.serverTime??Date.now())+performance.now()-(scene.packet.clockReceivedAt??performance.now());
   if(!initial&&bridge.phase!==lastBridge)motor(92,39);if(!initial&&boss.phase!==lastBoss&&['opening','returning'].includes(boss.phase))motor(50,7);lastBridge=bridge.phase;lastBoss=boss.phase;initial=false;
-  g.clear();bars.clear();g.fillStyle(0x030710).fillRect(94*T,36*T,4*T,2*T);
+  g.clear();bars.clear();if(!bossStage(a)){g.fillStyle(0x030710).fillRect(94*T,36*T,4*T,2*T);
   const raised=bridge.phase==='up'?1:bridge.phase==='rising'?Math.min(1,Math.max(0,(now-bridge.at)/1200)):Math.max(0,1-(now-bridge.at)/800);
   if(raised>0)for(let y=36;y<=37;y++)for(let x=94;x<=97;x++){g.fillStyle(0x65777c,raised).fillRect(x*T+2,y*T+(1-raised)*T+2,T-4,(T-4)*raised).lineStyle(2,0xc0a66c,raised).strokeRect(x*T+2,y*T+(1-raised)*T+2,T-4,(T-4)*raised);}
   g.fillStyle(bridge.phase==='down'?0x354759:0x5ddcca).fillRect(92*T+5,39*T+5,T-10,T-10).lineStyle(3,0xf1d48b).strokeRect(92*T+5,39*T+5,T-10,T-10);
-  const phase=boss.phase;if(phase==='opening'&&scene.player.x>=41&&scene.player.x<=58&&scene.player.y>=3&&scene.player.y<=22){scene.cameraFollow?.stop();cinematicCamera=true;scene.cameras.main.centerOn(50.5*T,8*T);}else if(cinematicCamera){cinematicCamera=false;const actor=scene.actors.get(scene.packet.active?.id);if(actor)scene.cameraFollow?.follow(actor.anchor);}const n=boss.padCount??0;for(let i=0;i<n;i++){const x=(47+i*2)*T,y=15*T;g.fillStyle(0x5ddedb,.25+Math.sin(scene.time.now*.005)*.12).fillRect(x+3,y+3,T-6,T-6).lineStyle(2,0xa1fff1).strokeRect(x+3,y+3,T-6,T-6);}
+  }const arena=bossStage(a);const phase=boss.phase;if(phase==='opening'&&scene.player.x>=41&&scene.player.x<=58&&scene.player.y>=3&&scene.player.y<=22){scene.cameraFollow?.stop();cinematicCamera=true;scene.cameras.main.centerOn(50.5*T,8*T);}else if(cinematicCamera){cinematicCamera=false;const actor=scene.actors.get(scene.packet.active?.id);if(actor)scene.cameraFollow?.follow(actor.anchor);}const n=boss.padCount??0;for(let i=0;arena&&i<n;i++){const x=(47+i*2)*T,y=15*T;g.fillStyle(0x5ddedb,.25+Math.sin(scene.time.now*.005)*.12).fillRect(x+3,y+3,T-6,T-6).lineStyle(2,0xa1fff1).strokeRect(x+3,y+3,T-6,T-6);}
   const opening=phase==='opening'?Math.min(1,(now-boss.at)/1600):phase==='returning'?1-Math.min(1,(now-boss.at)/1600):['battle','cleared'].includes(phase)?1:0;
-  cageClosed.setAlpha(1-opening);cageOpen.setAlpha(opening);
-  emerging.setVisible(['opening','returning'].includes(phase));if(emerging.visible)emerging.setPosition(50.5*T,(5+Math.max(0,Math.min(1,phase==='opening'?(now-boss.at-900)/1700:1-(now-boss.at)/1800))*5)*T);
+  cageClosed.setVisible(arena).setAlpha(1-opening);cageOpen.setVisible(arena).setAlpha(opening);
+  emerging.setVisible(arena&&['opening','returning'].includes(phase));if(emerging.visible)emerging.setPosition(50.5*T,(5+Math.max(0,Math.min(1,phase==='opening'?(now-boss.at-900)/1700:1-(now-boss.at)/1800))*5)*T);
   if(['opening','battle','returning'].includes(phase)){bars.fillStyle(0x342934).fillRect(49*T,23*T,2*T,T);bars.lineStyle(4,0xd3b57d);for(let x=49*T+6;x<51*T;x+=12)bars.lineBetween(x,23*T,x,24*T);}
   const multiplier=s.fountainBuffs?.[scene.packet.active?.id]??1;buff.setText(multiplier>1?`✧ 泉の祝福　攻撃・防御 ×${multiplier}\nフロアクリアまで`:'').setVisible(multiplier>1);
   const light=s.lightTurns?.[scene.packet.active?.id]??0;if(light>0)buff.setVisible(true).setText((multiplier>1?`✧ 攻・防 ×${multiplier}\n`:'')+`☀ 壁越しの光：あと${light}ターン`);

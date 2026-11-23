@@ -243,3 +243,10 @@ canvas {
 #loading-screen[data-mode=boot] .loading-fill{background:linear-gradient(90deg,#53dbf3,#a47cff);box-shadow:0 0 12px #5cdbff}
 #loading-screen[data-mode=boot] .loading-percent{display:block;font:12px 'Yu Gothic UI',sans-serif;color:#a8cfe9}
 #loading-screen[data-mode=boot] .loading-status{color:#b8cee5}
+
+/* Solid, explicit pixel height: global border-box must not collapse the fill. */
+#loading-screen .loading-track,#loading-screen[data-mode=boot] .loading-track{height:18px;padding:3px;box-sizing:border-box;border:1px solid #7edbff;background:#10263d;overflow:visible;box-shadow:0 0 0 2px #030a16,0 0 15px #259ecf33}
+#loading-screen .loading-fill,#loading-screen[data-mode=boot] .loading-fill{display:block;min-height:10px;height:10px;max-width:100%;border-radius:5px;background:linear-gradient(90deg,#24bee7,#82ecff 60%,#c1a2ff);box-shadow:0 0 9px #5cdfff,0 0 2px #fff inset}
+#loading-screen[data-mode=boot] .loading-percent{font-size:16px;font-weight:700;color:#e2f9ff;margin-top:14px}
+
+#loading-screen{z-index:3000}

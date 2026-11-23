@@ -11,7 +11,7 @@ export function crystalPanel(scene:any,x:number,y:number,w:number,h:number,title
  if(title)frame.add(scene.add.text(x+(h>150?48:16),y+7,title,{fontFamily:'Meiryo',fontSize:'12px',color:'#d7f1ff',fontStyle:'bold'}));return frame;
 }
 export function crystalMenu(h:any){
- const items=[['ui_nav_inventory','持ち物',()=>h.openInventory()],['ui_nav_codex','冒険図鑑',()=>h.setOverlay('codex')],['ui_nav_friends','フレンド',()=>h.townUI?.open('friends')],['ui_nav_guild','ギルド',()=>h.townUI?.open('guild')],['ui_nav_friends','パーティ',()=>h.townUI?.open('party')],['ui_nav_settings','設定',()=>h.showSettings()],['ui_nav_damage_log','詳細ログ',()=>h.setOverlay('details')],['ui_online_map','マップ',()=>h.townUI?.openMap()]] as const;
+ const items=[['ui_nav_inventory','持ち物',()=>h.openInventory()],['ui_nav_codex','冒険図鑑',()=>h.setOverlay('codex')],['ui_nav_friends','フレンド',()=>h.townUI?.open('friends')],['ui_nav_guild','ギルド',()=>h.townUI?.open('guild')],['ui_nav_friends','パーティ',()=>h.townUI?.open('party')],['ui_nav_friends','エモート',()=>h.inboxUI?.emotes()],['ui_nav_damage_log','詳細ログ',()=>h.setOverlay('details')],['ui_online_map','マップ',()=>h.townUI?.openMap()]] as const;
  items.forEach(([icon,label,fn],i)=>{const x=1044+i%2*112,y=372+Math.floor(i/2)*47;const g=crystalPanel(h,x,y,108,41);h.add.image(x+20,y+20,icon).setDisplaySize(23,23);h.add.text(x+38,y+20,label,{fontFamily:'Meiryo',fontSize:'11px',color:'#e6f6ff'}).setOrigin(0,.5);h.add.zone(x,y,108,41).setOrigin(0).setInteractive({useHandCursor:true}).on('pointerover',()=>g.setAlpha(.75)).on('pointerout',()=>g.setAlpha(1)).on('pointerdown',()=>{Audio.playSe('click');fn();});});
 }
 export function crystalStatus(h:any){

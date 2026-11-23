@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {EMOTES,emoteText,speakEmote,setEmoteVoice} from '../src/online/emotes';
+const saved=new Map<string,string>(),spoken:any[]=[];
+Object.assign(globalThis,{localStorage:{getItem:(k:string)=>saved.get(k),setItem:(k:string,v:string)=>saved.set(k,v)},location:{search:'?mute=1'},document:{hidden:false},window:{speechSynthesis:{getVoices:()=>[{lang:'ja-JP',name:'Microsoft Haruka'}],speak:(u:any)=>spoken.push(u),cancel:()=>{}}},SpeechSynthesisUtterance:class{constructor(public text:string){}}});
+const scene:any={registry:{get:()=>({seOn:true,seVolume:.2})},sound:{mute:false},game:{config:{audio:{noAudio:false}}}};
+assert.equal(new Set(EMOTES.map(e=>e.id)).size,12);
+assert.equal(emoteText('【エモート】こんにちは！'),'こんにちは！');assert.equal(emoteText('普通のチャット'),'普通のチャット');
+speakEmote(scene,'【エモート】こんにちは！');assert.equal(spoken.length,0,'mute=1 must suppress speech');
+location.search='';scene.game.config.audio.noAudio=true;speakEmote(scene,'【エモート】こんにちは！');assert.equal(spoken.length,0);
+scene.game.config.audio.noAudio=false;setEmoteVoice(false);speakEmote(scene,'【エモート】こんにちは！');assert.equal(spoken.length,0);
+setEmoteVoice(true);speakEmote(scene,'普通のチャット');assert.equal(spoken.length,0);
+speakEmote(scene,'【エモート】こんにちは！');assert.equal(spoken.length,1);assert.equal(spoken[0].voice.name,'Microsoft Haruka');assert.equal(spoken[0].volume,.4);
+speakEmote(scene,'【エモート】ありがとう！');assert.equal(spoken.length,1,'rapid emotes do not queue overlapping voices');
+console.log('Emote catalog, speech selection, audio settings, mute and spam guard: passed (mock audio only)');

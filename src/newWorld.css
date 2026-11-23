@@ -28,3 +28,5 @@
 .town-entry-progress>div{background:linear-gradient(90deg,#54dff4,#a882ff);box-shadow:0 0 10px #6cdcff}.town-entry-percent{color:#b9d9ee}
 @container(max-height:550px){.new-world-title .new-world-logo{max-height:33%;margin-bottom:0}.new-world-title .new-world-caption{margin-bottom:8px}.new-world-title button.new-world-start{height:80px}.new-world-title button.new-world-settings{height:55px}}
 .new-world-title.zero-lobby select.new-world-language{width:auto;max-width:160px;margin:0;right:25px;top:22px}
+
+.town-entry-progress{height:18px;box-sizing:border-box;padding:3px;border:1px solid #7edbff;background:#10263d;overflow:visible;box-shadow:0 0 12px #259ecf44}.town-entry-progress>div{display:block;height:10px;min-height:10px;border-radius:4px;background:linear-gradient(90deg,#24bee7,#82ecff 60%,#c1a2ff);box-shadow:0 0 9px #5cdfff}.town-entry-percent{font-size:16px;font-weight:700;color:#e2f9ff}
