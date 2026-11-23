@@ -25,3 +25,6 @@ export interface PartyState{id:string;leaderId:string;isLeader:boolean;limit:num
 export interface PartyInvite{id:string;name:string;leaderName:string;incoming:boolean;}
 export interface ChannelMessage{id:number;channel:'guild'|'party';group_id:string;name:string;message:string;character_id:string;}
 export interface WorldState{party?:PartyState|null;partyInvites?:PartyInvite[];channelMessages?:ChannelMessage[];}
+
+export interface MapPin{characterId:string;name:string;scope:"party"|"room";floor:number;x:number;y:number;}
+export interface WorldState{mapPins?:MapPin[];}
