@@ -4,7 +4,7 @@ export interface OnlineCharacter {hair_color?:string;}
 export interface WorldPlayer {railTrip?:import('./adventure/railRoute').RailTrip;hair_color?:string;guild_flag?:number|null;guild_name?:string|null;}
 export type EquipmentSlot='weapon'|'armor'|'shield'|'necklace';
 export interface EquipmentInstance {id:string;key:string;dur:number;max:number;}
-export interface QuickSlot {category:EquipmentSlot|'item';key:string;instanceId?:string;}
+export interface QuickSlot {category:EquipmentSlot|'item'|'emote';key:string;instanceId?:string;}
 export interface OnlineCharacter { id:string; slot:number; name:string; gender:'male'|'female'; hp:number;skillStepsRemaining?:number;timeStopTurns?:number; inventory:Record<string,number>; gear:{weapon:boolean;armor:boolean;shield?:boolean;weapon_key?:string;armor_key?:string;shield_key?:string;necklace?:boolean;necklace_key?:string;weapon_instance_id?:string;armor_instance_id?:string;shield_instance_id?:string;necklace_instance_id?:string};equipment?:{weapon:string[];armor:string[];shield:string[];necklace?:string[]};catalogUnlocked?:boolean; }
 export interface OnlineCharacter {location?:'town'|'warehouse'|'dungeon'|'house';warehouse?:{equipment:Partial<Record<EquipmentSlot,string[]>>;instances:Partial<Record<EquipmentSlot,EquipmentInstance[]>>;inventory:Record<string,number>;gold:number};gold?:number;instances?:Partial<Record<EquipmentSlot,EquipmentInstance[]>>;quickSlots?:(QuickSlot|null)[];}
 export interface WorldPlayer { character_id:string; name:string; gender:'male'|'female';armor?:string;weapon?:string|null;shield?:string|null; x:number;y:number;dir:'up'|'down'|'left'|'right'; }

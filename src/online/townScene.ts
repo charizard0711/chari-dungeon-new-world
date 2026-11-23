@@ -1,5 +1,5 @@
 import {bossStage,inStage} from './adventure/stage';
-import {emoteText,speakEmote} from './emotes';
+import {emoteText,speakEmote,emoteFromMessage,emoteFrame,EMOTE_ART,prepareEmoteArt} from './emotes';
 import {mountInbox} from './inbox';
 import {crystalPanel,crystalMenu,crystalStatus,crystalFrames,crystalRefresh,crystalMiniMap} from './crystalHud';
 import {railPose} from './adventure/railRoute';
@@ -101,6 +101,7 @@ export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)
   init(data:{state:WorldState;preview?:boolean;entryLoading?:TownLoading}){if(this.entryLoading&&this.entryLoading!==data.entryLoading)this.entryLoading.destroy();this.entryLoading=data.entryLoading??mountTownLoading(this as Phaser.Scene,data.state.adventure?.inside?`${data.state.adventure.name}へ`:undefined);this.chatAfterId=entryMessageId(data.state.messages);this.preview=!!data.preview&&(import.meta as any).env.DEV&&location.hostname==='localhost';this.packet=data.state;this.deathPlaying=false;this.deathReveal=false;this.deathRevision=data.state.adventure?.snapshot.deaths?.[data.state.active?.id??'']??0;this.entryLoading?.setDestination(this.inHouse?`${this.packet.house!.ownerName}の家へ`:this.inDungeon?(bossStage(this.packet.adventure)?'結晶門の守護者 · ボスエリアへ':`${this.packet.adventure?.name} · 第${this.packet.adventure?.floor}層へ`):'はじまりの町へ',this.inDungeon);this.tapTarget=undefined;this.moveQueue=[];this.moveSending=false;this.lastMoveSent=0;this.confirmedPacket=data.state;this.playerSignature='';this.adventureBoardPending=false;this.sceneWorld=this.worldKind;this.housingModal=false;this.hoverHousing=undefined;this.housePending=undefined;this.sceneFloor=this.packet.adventure?.floor??1;this.transitioning=false;this.adventureView=undefined;this.adventureHover=undefined;this.generation++;this.gameEnded=false;this.requestBusy=false;this.pollBusy=false;this.actors=new Map();this.destination=undefined;this.lastMove=0;this.logHistory=[];this.adventureHistory=[];this.lastBubbleId=undefined;this.lastHitId=undefined;this.bubbles.clear();this.autoPickupIgnored=new Set();this.attackTarget=false;this.lastAttackAttempt=-1000;this.attackVisualUntil=0;this.combatImpactUntil=0;this.skillArmed=false;this.player=new Player();this.player.weapons=[makeWeapon('w_iron_dagger',[])];this.player.armors[0].trait=undefined;this.syncPlayer();}
   rigReady:Promise<unknown>=Promise.resolve();
   preload(){
+   this.load.image('online_emotes_v1',EMOTE_ART);
    this.load.svg('crystal_corner','assets/ui/auth-corner.svg',{width:64,height:64});
    if(!this.inDungeon&&!this.inHouse)preloadGarden(this);
    this.rigReady=Promise.allSettled(this.packet.players.map(p=>prepareCharacterAppearance(p.gender,p.armor??'leather',p.hair_color??'brown',p.weapon)));
@@ -133,7 +134,7 @@ export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)
    this.load.image('online_town_fountain','assets/terrain/objects/healing-fountain-pixel.png');
   }
   create(){
-   this.musicName='';if(this.inDungeon)Audio.preloadBgm('boss');
+   prepareEmoteArt(this);this.musicName='';if(this.inDungeon)Audio.preloadBgm('boss');
    this.busy=true;this.entryLoading?.update(.98,this.inDungeon?'遺跡と冒険者を準備中…':'町と冒険者を準備中…');
    const loading=this.game.canvas.ownerDocument.getElementById('loading-screen');if(loading)loading.style.display='none';
    if(this.inHouse){this.npcSprites.clear();this.groundSprites=[];this.groundMotions=[];this.groundSignature='';this.trainingBarrel=undefined;mountHouseInterior(this);this.cursorTile=this.add.rectangle(0,0,TILE,TILE,0xffffff,.12).setStrokeStyle(1,0xffffff,.3).setDepth(34).setVisible(false);}else if(this.inDungeon){this.npcSprites.clear();this.groundSprites=[];this.groundMotions=[];this.groundSignature='';this.trainingBarrel=undefined;this.adventureView=mountAdventureView(this);this.cursorTile=this.add.rectangle(0,0,TILE,TILE,0xffffff,.12).setStrokeStyle(1,0xffffff,.3).setDepth(34).setVisible(false);}else{
@@ -208,13 +209,13 @@ export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)
   }
   renderTownEvents(){
    const newestMessage=Math.max(0,...this.packet.messages.map(m=>Number(m.id)));
-   if(this.lastBubbleId!==undefined)for(const message of this.packet.messages)if(Number(message.id)>this.lastBubbleId&&Number(message.id)>this.chatAfterId&&message.character_id&&this.actors.has(message.character_id)){this.showBubble(message.character_id,emoteText(message.message));speakEmote(this,message.message);}
+   if(this.lastBubbleId!==undefined)for(const message of this.packet.messages)if(Number(message.id)>this.lastBubbleId&&Number(message.id)>this.chatAfterId&&message.character_id&&this.actors.has(message.character_id)){this.showBubble(message.character_id,message.message);speakEmote(this,message.message);}
    this.lastBubbleId=newestMessage;
    const hits=this.packet.trainingHits??[],newestHit=Math.max(0,...hits.map(h=>Number(h.id)));
    if(this.lastHitId!==undefined)for(const hit of hits)if(Number(hit.id)>this.lastHitId)this.showTrainingHit(hit);
    this.lastHitId=newestHit;
   }
-  showBubble(id:string,message:string){this.bubbles.get(id)?.root.destroy();const text=this.add.text(0,0,chatBubbleText(message),{fontFamily:'Meiryo',fontSize:'12px',color:'#17241f',wordWrap:{width:164,useAdvancedWrap:true},lineSpacing:3}).setOrigin(.5,1);const w=Math.max(36,text.width+18),h=text.height+14;const bg=this.add.graphics();bg.fillStyle(0xfff9e8,.97).fillRoundedRect(-w/2,-h,w,h,8);bg.lineStyle(1,0x9f8960,.95).strokeRoundedRect(-w/2,-h,w,h,8);bg.fillStyle(0xfff9e8,.97).fillTriangle(-5,0,5,0,0,7);text.setY(-7);const root=this.add.container(0,0,[bg,text]).setDepth(120);this.bubbles.set(id,{root,until:this.time.now+6000});}
+  showBubble(id:string,message:string){this.bubbles.get(id)?.root.destroy();const emote=emoteFromMessage(message);if(emote&&this.textures.exists('online_emotes_v1')){const sticker=this.add.image(0,0,'online_emotes_v1','emote-'+emoteFrame(emote.id)).setOrigin(.5,1).setDisplaySize(108,108);const root=this.add.container(0,0,[sticker]).setDepth(120);root.setScale(.65);this.tweens.add({targets:root,scaleX:1,scaleY:1,duration:200,ease:'Back.easeOut'});this.bubbles.set(id,{root,until:this.time.now+4500});return;}message=emoteText(message);const text=this.add.text(0,0,chatBubbleText(message),{fontFamily:'Meiryo',fontSize:'12px',color:'#17241f',wordWrap:{width:164,useAdvancedWrap:true},lineSpacing:3}).setOrigin(.5,1);const w=Math.max(36,text.width+18),h=text.height+14;const bg=this.add.graphics();bg.fillStyle(0xfff9e8,.97).fillRoundedRect(-w/2,-h,w,h,8);bg.lineStyle(1,0x9f8960,.95).strokeRoundedRect(-w/2,-h,w,h,8);bg.fillStyle(0xfff9e8,.97).fillTriangle(-5,0,5,0,0,7);text.setY(-7);const root=this.add.container(0,0,[bg,text]).setDepth(120);this.bubbles.set(id,{root,until:this.time.now+6000});}
   queueTraining(){this.attackTarget=true;this.destination=undefined;this.pickupTarget=undefined;}
   tryTraining(){const dx=TRAINING_TARGET.x-this.player.x,dy=TRAINING_TARGET.y-this.player.y;const type=this.player.weapon?.weaponType;const reach=type==='bow'||type==='handgun'?3:type==='lance'?2:1;
    if((dx===0||dy===0)&&Math.abs(dx)+Math.abs(dy)<=reach){if(this.time.now-this.lastAttackAttempt<attackTiming(this.player.weapon?.weaponType,this.player.weapon?.key==='w_hero_sword').duration)return;this.attackTarget=false;this.destination=undefined;this.lastAttackAttempt=this.time.now;void this.action('train').catch(e=>this.log(e.message));return;}
