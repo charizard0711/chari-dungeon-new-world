@@ -11,7 +11,6 @@ for(const s of STATIONS){const floor=scene.make.image({x:0,y:0,key:'station_modu
 const line=scene.add.graphics().setDepth(-1.65);objects.push(line);const edge=s.cream?s.trackX:s.trackX+1;line.fillStyle(0xd0a953).fillRect(edge*T-4,s.y*T+T,7,(s.h-2)*T);line.lineStyle(1,0xffe1a0).lineBetween(edge*T-5,(s.y+1)*T,edge*T-5,(s.y+s.h-1)*T);
 for(let x=s.x+1;x<s.x+s.w-1;x+=3){if(Math.abs(x-s.gateX)>2)art(s.cream?2:3,x,s.y+1,3,2,s.y+.95);if(s.cream||x+3<=54||x>55)art(s.cream?2:3,x,s.y+s.h,3,2,s.y+s.h+.8);}
 for(let y=s.y+2;y<s.y+s.h;y+=3){art(8,s.x,y,1,3,y+.8);art(8,s.x+s.w-1,y,1,3,y+.8);}
-art(16,s.cream?s.x+1:s.x+6,s.y+1,7,2,s.y+1.1);
 for(let y=s.y+2;y<s.y+s.h-4;y+=2)art(16,s.platformX,y+2,2,2,y+2.2);
 const title=scene.add.text((s.gateX+.5)*T,(s.gateY-1.4)*T,s.name,{fontFamily:'Meiryo',fontSize:'17px',fontStyle:'bold',color:'#ffe5a4',stroke:'#11232d',strokeThickness:4}).setOrigin(.5,1).setDepth(s.gateY+2);objects.push(title);
 }
