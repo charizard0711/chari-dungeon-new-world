@@ -1,0 +1,42 @@
+{
+  "license": "CC0-1.0",
+  "processed": "Mono 32kHz MP3 96kbps; trimmed, filtered, levelled, short edge fades. No audible playback during testing.",
+  "sources": [
+    {
+      "asset": "run.mp3",
+      "author": "ralph.whitehead",
+      "title": "Steam Train Engine Pass (Stereo).wav",
+      "page": "https://freesound.org/people/ralph.whitehead/sounds/470646/",
+      "download": "https://cdn.freesound.org/previews/470/470646_1971023-hq.mp3",
+      "trim": [
+        62,
+        70
+      ],
+      "sha256": "67a6df17f36cc3badec6c4d9fb68d133dd38dc7c4c2058128d1d10e51a711d73"
+    },
+    {
+      "asset": "brake.mp3",
+      "author": "JotrainG",
+      "title": "Train Wheels Ringing Around Bend.wav",
+      "page": "https://freesound.org/people/JotrainG/sounds/700035/",
+      "download": "https://cdn.freesound.org/previews/700/700035_14219512-hq.mp3",
+      "trim": [
+        0,
+        3
+      ],
+      "sha256": "92a3faed1e02b9a841939b91258bb2f7b29924237198961971838648468d6644"
+    },
+    {
+      "asset": "arrival.mp3",
+      "author": "Oscar de Ávila",
+      "title": "Depressurization of the brakes of a train.mp3",
+      "page": "https://freesound.org/people/Oscar%20de%20%C3%81vila/sounds/140036/",
+      "download": "https://cdn.freesound.org/previews/140/140036_2228523-hq.mp3",
+      "trim": [
+        0,
+        4.165
+      ],
+      "sha256": "cb9f15ed63a1fc265a763473ca9d7d13253a749f0f0fb79688d23b52f9b079f7"
+    }
+  ]
+}
