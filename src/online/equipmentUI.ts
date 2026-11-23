@@ -170,7 +170,7 @@ export function mountTownEquipmentUI(hud:any,gs:any){
  }
  function renderGacha(){
   if(gacha){updateGachaControls();return;}
-  tabs.replaceChildren();body.className='town-gacha-body';body.replaceChildren();gacha=createGachaPresentation();
+  tabs.replaceChildren();body.className='town-gacha-body';body.replaceChildren();gacha=createGachaPresentation(phase=>{const audio=gs.registry.get('onlineAudio');if(!audio?.seOn||gs.sound.mute||gs.game.config.audio.noAudio||new URLSearchParams(location.search).get('mute')==='1')return;const key=phase==='spinning'?'maze_motor':phase==='drop'?'online_charia_drop':phase==='opening'?'online_charia_jingle':'';if(key&&gs.cache.audio.exists(key))gs.sound.play(key,{volume:Math.min(1,audio.seVolume)*.45});});
   const info=node('div');info.className='town-gacha-info';info.append(node('h3','運命をひらく、魔法のガチャ'),node('p','1回 1,000G\n武器・服・盾・ネックレスのいずれかを獲得します。\nD 35% / C 25% / B 18% / A 12% / S 6% / SS 3% / SSS 1%\n武器は1%の確率で色違いになります。'));
   gachaRollButton=node('button','ガチャを回す 1,000G');gachaRollButton.type='button';
   gachaRollButton.onclick=async()=>{if(pending||gs.requestBusy||gacha?.running)return;const presentation=gacha!;gachaResult!.textContent='';const playing=presentation.play(async()=>{const before=new Set(entries().map(keyOf));await gs.action('gacha');const key=gs.packet.reward;reward=entries().find(e=>!before.has(keyOf(e))&&(baseKey(e.key)===key||e.definition.key===key));if(!reward)throw Error('所持品を更新して獲得アイテムを確認してください。');return{name:reward.definition.name,grade:reward.definition.grade??'D',starred:reward.key.startsWith('star_'),icon:makeIcon(reward)};});updateGachaControls();
