@@ -1,3 +1,4 @@
+import {createRailAudio} from './railAudio';
 import {mountStationArchitecture,STATIONS,prepareStationArt} from './stations';
 import {BOARDING_PANELS} from './stage';
 import {railTilePath} from './railGeometry';
@@ -12,7 +13,7 @@ export function prepareRailArt(scene:any){
 
 export function railNow(scene:any){return (scene.packet.serverTime??Date.now())+performance.now()-(scene.packet.clockReceivedAt??performance.now());}
 export function mountRailStations(scene:any){
- prepareRailArt(scene);prepareStationArt(scene);const architecture=mountStationArchitecture(scene);const T=48,objects:any[]=[];
+ prepareRailArt(scene);prepareStationArt(scene);const architecture=mountStationArchitecture(scene),audio=createRailAudio(scene);const T=48,objects:any[]=[];
  const sheet=scene.textures.get('maze_rail_directions'),src=sheet.getSourceImage();if(!sheet.has('north')){const c=document.createElement('canvas');c.width=src.width;c.height=src.height;const ctx=c.getContext('2d')!;ctx.drawImage(src,0,0);const rgba=ctx.getImageData(0,0,c.width,c.height).data;for(const [i,name]of ['north','east','south','west'].entries()){const x0=Math.round((i%2)*src.width/2),y0=Math.round(Math.floor(i/2)*src.height/2),x1=Math.round((i%2+1)*src.width/2),y1=Math.round((Math.floor(i/2)+1)*src.height/2);let left=x1,top=y1,right=x0,bottom=y0;for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++)if(rgba[(y*c.width+x)*4+3]>180){left=Math.min(left,x);top=Math.min(top,y);right=Math.max(right,x);bottom=Math.max(bottom,y);}sheet.add(name,0,left,top,right-left+1,bottom-top+1);}}
  // Generate all six tiles from identical edge centres and gauge. Curves are tangent to straights.
  for(let frame=0;frame<6;frame++){const key='rail-connected-'+frame;if(scene.textures.exists(key))continue;const g=scene.add.graphics(),points=railTilePath(frame);
@@ -27,8 +28,8 @@ export function mountRailStations(scene:any){
  const gates=stations.map(s=>{const gate=scene.add.image((s.x+.5)*T,(s.y+.5)*T,'station_modules_v4','part-12').setDisplaySize(76,76).setDepth(s.y+.9);const text=scene.add.text((s.x+.5)*T,(s.y-1)*T,'',{fontFamily:'Meiryo',fontSize:'12px',align:'center',color:'#a9f2e8',stroke:'#06121b',strokeThickness:4}).setOrigin(.5,1).setDepth(s.y+2);objects.push(gate,text);return{s,gate,text,opened:false};});
  const status=scene.add.text(20,160,'',{fontFamily:'Meiryo',fontSize:'14px',color:'#e8dba6',backgroundColor:'#07121bcc',padding:{x:8,y:6}}).setScrollFactor(0).setDepth(2102);objects.push(status);
  return{update(){const a=scene.packet.adventure;for(const {p,g,text}of pads){const open=!!a.railGates?.[p.id],pulse=.3+Math.sin(scene.time.now*.004)*.12;g.clear().fillStyle(open?0x42f4d9:0x5d8ca7,open?pulse:.16).fillRoundedRect(p.x*T+3,p.y*T+3,T-6,T-6,5).lineStyle(2,open?0xb1fff4:0x6e9bb3,.95).strokeRoundedRect(p.x*T+4,p.y*T+4,T-8,T-8,5);text.setAlpha(open?1:.65);}for(const g of gates){const{s,text,gate}=g,open=!!a.railGates?.[s.id],visible=partyCanSee(s.x,s.y,scene.packet.players,partySightRadius(a.snapshot),(x,y)=>C.rows[y]?.[x]!=='.',a.snapshot);text.setVisible(visible).setText(`${s.label} · 500G\n${open?'光るパネルを踏んで乗車':a.railUnlocked?'クリックで改札を開く':'ボス戦に参加すると解放'}`);if(open!==g.opened){g.opened=open;gate.setFrame(open?'part-13':'part-12');scene.tweens.add({targets:gate,alpha:{from:.6,to:1},duration:300});}}
- const trip=a.railTrip;status.setVisible(!!trip);if(trip){const p=railPose(trip,railNow(scene));status.setText(`魔導列車 · ${trip.reverse?'入口駅':'ボス前駅'}へ\n${Math.round(p.progress*100)}% · 運賃500G`);}
- },destroy(){architecture.destroy();objects.forEach(o=>o.destroy());}};
+ const trip=a.railTrip;audio.update(trip,railNow(scene));status.setVisible(!!trip);if(trip){const p=railPose(trip,railNow(scene));status.setText(`魔導列車 · ${trip.reverse?'入口駅':'ボス前駅'}へ\n${Math.round(p.progress*100)}% · 運賃500G`);}
+ },destroy(){audio.destroy();architecture.destroy();objects.forEach(o=>o.destroy());}};
 }
 export function renderRailActor(scene:any,a:any,p:any){
  if(!p?.railTrip){if(a.railImage){a.railImage.destroy();a.railImage=undefined;a.renderer.sparkles?.setVisible(true);a.body.setVisible(true);a.shadow.setVisible(true);a.leftFoot.setVisible(true);a.rightFoot.setVisible(true);}return false;}

@@ -1,0 +1,7 @@
+# Railway sound — 2026-11-23
+
+Local rider only: an 8-second running loop starts on boarding, its level and playback rate follow the existing 3-second acceleration/deceleration envelope. A 3-second wheel squeal begins 3 seconds before arrival; the stop triggers a 4.165-second brake-air release. Both directions use the same server trip clock. Repeated polls do not restart sounds. Early cancellation and scene teardown stop playback; normal arrival allows its tail to finish. Current effect volume, sound-off, manager mute, noAudio, URL mute and hidden-document guards apply. No audible testing was performed.
+
+Sources and SHA256 hashes: public/assets/online/railway-audio-v1/CREDITS.json. All three recordings are CC0. Running: ralph.whitehead, Steam Train Engine Pass (Stereo), Freesound 470646 (62–70 seconds). Braking: JotrainG, Train Wheels Ringing Around Bend, Freesound 700035 (0–3 seconds). Arrival: Oscar de Ávila, Depressurization of the brakes of a train, Freesound 140036 (full clip). Public high-quality MP3 previews were downloaded, filtered 65–6500 Hz, levelled to -23 LUFS / -3 dBTP, edge-faded, encoded mono 32kHz / 96kbps. Combined files: 185028 bytes.
+
+Validation: test-rail-audio.mjs uses mock playback, checks repeated-packet deduplication, timing, reverse journey, early cancellation, late join seek, every mute guard, teardown, hashes and file budgets. Production TypeScript/Vite build passed. No map or database migration required.
