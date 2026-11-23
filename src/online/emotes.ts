@@ -9,19 +9,28 @@ export const EMOTES=[
 export function emoteFromMessage(message:string){return EMOTES.find(e=>message===`【エモート】${e.label}`);}
 export function emoteText(message:string){return emoteFromMessage(message)?.label??message;}
 export function emoteVoiceEnabled(){return localStorage.getItem('zero-emote-voice')!=='off';}
-export function setEmoteVoice(enabled:boolean){localStorage.setItem('zero-emote-voice',enabled?'on':'off');if(!enabled&&'speechSynthesis' in window)window.speechSynthesis.cancel();}
-let lastSpoken=0;
-/** Only fixed emotes are spoken; history, arbitrary chat and muted tests are never read aloud. */
+export function setEmoteVoice(enabled:boolean){localStorage.setItem('zero-emote-voice',enabled?'on':'off');if(!enabled)stopEmoteVoice();}
+export const EMOTE_VOICE_CREDIT='VOICEVOX:春日部つむぎ';
+export const emoteVoiceKey=(id:string)=>'online_emote_voice_'+id;
+export const emoteVoicePath=(id:string)=>`assets/online/emotes-voice-v1/${id}.wav`;
+let lastSpoken=-Infinity;
+let currentVoice:{scene:any;sound:any}|undefined;
+function stopEmoteVoice(scene?:any){if(currentVoice&&(!scene||currentVoice.scene===scene)){const voice=currentVoice;currentVoice=undefined;voice.sound.stop();voice.sound.destroy();}}
+function canSpeak(scene:any){const audio=scene.registry.get('onlineAudio');return emoteVoiceEnabled()&&audio?.seOn&&audio.seVolume>0&&!scene.sound.mute&&!scene.game.config.audio.noAudio&&new URLSearchParams(location.search).get('mute')!=='1'&&!document.hidden;}
+export function preloadEmoteVoices(scene:any){for(const e of EMOTES)if(!scene.cache.audio.exists(emoteVoiceKey(e.id)))scene.load.audio(emoteVoiceKey(e.id),emoteVoicePath(e.id));}
+/** Stop a clip immediately on mute, voice-off, hidden tab, or leaving the scene. */
+export function installEmoteVoice(scene:any){
+ const sync=()=>{const voice=currentVoice;if(!voice||voice.scene!==scene)return;if(!canSpeak(scene))stopEmoteVoice(scene);else voice.sound.setVolume(Math.min(1,scene.registry.get('onlineAudio').seVolume*2));};
+ document.addEventListener('visibilitychange',sync);scene.events.on('update',sync);
+ scene.events.once('shutdown',()=>{stopEmoteVoice(scene);scene.events.off('update',sync);document.removeEventListener('visibilitychange',sync);});
+}
+/** Play only fixed, locally hosted greeting clips. Never speak chat text or queue voices. */
 export function speakEmote(scene:any,message:string){
- const emote=emoteFromMessage(message),audio=scene.registry.get('onlineAudio');
- if(!emote||!emoteVoiceEnabled()||!audio?.seOn||audio.seVolume<=0||scene.sound.mute||scene.game.config.audio.noAudio||new URLSearchParams(location.search).get('mute')==='1'||document.hidden||!('speechSynthesis' in window))return;
- const now=Date.now();if(now-lastSpoken<1800)return;lastSpoken=now;
- const synth=window.speechSynthesis;if(synth.speaking||synth.pending)return;
- const voices=synth.getVoices().filter(v=>/^ja(?:-|_)/i.test(v.lang));
- const voice=voices.find(v=>/Nanami|Haruka|Kyoko|O-Ren|女性|female/i.test(v.name))??voices[0];
- // No Japanese voice installed: retain the bubble rather than use another language's pronunciation.
- if(!voice)return;
- const u=new SpeechSynthesisUtterance(emote.label);u.voice=voice;u.lang='ja-JP';u.pitch=1.13;u.rate=1.04;u.volume=Math.min(1,audio.seVolume*2);synth.speak(u);
+ const emote=emoteFromMessage(message);if(!emote||!canSpeak(scene)||currentVoice)return;
+ const now=Date.now(),key=emoteVoiceKey(emote.id);if(now-lastSpoken<1800||!scene.cache.audio.exists(key))return;
+ const sound=scene.sound.add(key,{volume:Math.min(1,scene.registry.get('onlineAudio').seVolume*2)}),voice={scene,sound};currentVoice=voice;
+ sound.once('complete',()=>{if(currentVoice===voice)currentVoice=undefined;sound.destroy();});
+ if(sound.play())lastSpoken=now;else stopEmoteVoice(scene);
 }
 
 export const EMOTE_ART='assets/online/emotes-v1/greetings.png';

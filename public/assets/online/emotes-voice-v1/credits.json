@@ -1,0 +1,96 @@
+{
+  "credit": "VOICEVOX:春日部つむぎ",
+  "engine": "VOICEVOX Core 0.17.1",
+  "model": "0.vvm / 春日部つむぎ ノーマル / style 8",
+  "terms": [
+    "https://voicevox.hiroshiba.jp/term/",
+    "https://tsumugi-official.studio.site/rule",
+    "https://tsumugi-official.studio.site/rule2"
+  ],
+  "clips": [
+    {
+      "id": "morning",
+      "text": "おはよう！",
+      "seconds": 0.715,
+      "bytes": 34348,
+      "sha256": "9d6aa3291a7c79fc6649b943cad96c8c4f8bcb4e2c217b6238746f57a1a0c122"
+    },
+    {
+      "id": "hello",
+      "text": "こんにちは！",
+      "seconds": 0.917,
+      "bytes": 44076,
+      "sha256": "de53cb52d56737f2b5324426f8ac47fe1558a374353f731aecfac18b5d8b0f5e"
+    },
+    {
+      "id": "evening",
+      "text": "こんばんは！",
+      "seconds": 0.821,
+      "bytes": 39468,
+      "sha256": "89b069129ab31aff7d3c00db6828cafd90abafbfa73ea644cfec76e69e59e653"
+    },
+    {
+      "id": "thanks",
+      "text": "ありがとう！",
+      "seconds": 0.832,
+      "bytes": 39980,
+      "sha256": "12436bf5862304b8d1e45da8fb2cb7693b4565abc2e9878b97895991fa23f9c2"
+    },
+    {
+      "id": "please",
+      "text": "よろしくね！",
+      "seconds": 0.811,
+      "bytes": 38956,
+      "sha256": "f50086b66999e12fb1fe28414d22dc5d7ef0b1073edad36ac03969d0c16b95b6"
+    },
+    {
+      "id": "goodjob",
+      "text": "おつかれさま！",
+      "seconds": 0.96,
+      "bytes": 46124,
+      "sha256": "ee94542cf0759901355b38ad1677706303363c172c2310dda45ddeecf3a489d0"
+    },
+    {
+      "id": "sorry",
+      "text": "ごめんね！",
+      "seconds": 0.725,
+      "bytes": 34860,
+      "sha256": "4a2044d27aff898cabf26a69da8253ff9bd387e538b6445b5230297292574e25"
+    },
+    {
+      "id": "yes",
+      "text": "了解！",
+      "seconds": 0.715,
+      "bytes": 34348,
+      "sha256": "051a303f745157ab5904f8baa66d174aeac584bc8b26c01eca759fa848fe32db"
+    },
+    {
+      "id": "wait",
+      "text": "ちょっと待ってね！",
+      "seconds": 1.003,
+      "bytes": 48172,
+      "sha256": "ee78b04f7f07074d31b0c470a667b331c80b25557251f30e4ffc7f4ad7406dfc"
+    },
+    {
+      "id": "go",
+      "text": "行こう！",
+      "seconds": 0.608,
+      "bytes": 29228,
+      "sha256": "a653fb32be5ad5a53fe47ff9204a2bcafa09b957be71fcde579b214883a6f187"
+    },
+    {
+      "id": "nice",
+      "text": "やったー！",
+      "seconds": 0.704,
+      "bytes": 33836,
+      "sha256": "da7140a2712751b2e2ce487f9d9650eab991ce9d2c88ac21ce8fbc52618488fb"
+    },
+    {
+      "id": "bye",
+      "text": "またね！",
+      "seconds": 0.608,
+      "bytes": 29228,
+      "sha256": "9887287392f056c80e07d28c07dcf936950b0f38ce4f003a57db7c6c7c9d048f"
+    }
+  ]
+}

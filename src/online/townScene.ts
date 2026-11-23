@@ -1,5 +1,5 @@
 import {bossStage,inStage} from './adventure/stage';
-import {emoteText,speakEmote,emoteFromMessage,emoteFrame,EMOTE_ART,prepareEmoteArt} from './emotes';
+import {emoteText,speakEmote,emoteFromMessage,emoteFrame,EMOTE_ART,prepareEmoteArt,preloadEmoteVoices,installEmoteVoice} from './emotes';
 import {mountInbox} from './inbox';
 import {crystalPanel,crystalMenu,crystalStatus,crystalFrames,crystalRefresh,crystalMiniMap} from './crystalHud';
 import {railPose} from './adventure/railRoute';
@@ -101,7 +101,7 @@ export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)
   init(data:{state:WorldState;preview?:boolean;entryLoading?:TownLoading}){if(this.entryLoading&&this.entryLoading!==data.entryLoading)this.entryLoading.destroy();this.entryLoading=data.entryLoading??mountTownLoading(this as Phaser.Scene,data.state.adventure?.inside?`${data.state.adventure.name}へ`:undefined);this.chatAfterId=entryMessageId(data.state.messages);this.preview=!!data.preview&&(import.meta as any).env.DEV&&location.hostname==='localhost';this.packet=data.state;this.deathPlaying=false;this.deathReveal=false;this.deathRevision=data.state.adventure?.snapshot.deaths?.[data.state.active?.id??'']??0;this.entryLoading?.setDestination(this.inHouse?`${this.packet.house!.ownerName}の家へ`:this.inDungeon?(bossStage(this.packet.adventure)?'結晶門の守護者 · ボスエリアへ':`${this.packet.adventure?.name} · 第${this.packet.adventure?.floor}層へ`):'はじまりの町へ',this.inDungeon);this.tapTarget=undefined;this.moveQueue=[];this.moveSending=false;this.lastMoveSent=0;this.confirmedPacket=data.state;this.playerSignature='';this.adventureBoardPending=false;this.sceneWorld=this.worldKind;this.housingModal=false;this.hoverHousing=undefined;this.housePending=undefined;this.sceneFloor=this.packet.adventure?.floor??1;this.transitioning=false;this.adventureView=undefined;this.adventureHover=undefined;this.generation++;this.gameEnded=false;this.requestBusy=false;this.pollBusy=false;this.actors=new Map();this.destination=undefined;this.lastMove=0;this.logHistory=[];this.adventureHistory=[];this.lastBubbleId=undefined;this.lastHitId=undefined;this.bubbles.clear();this.autoPickupIgnored=new Set();this.attackTarget=false;this.lastAttackAttempt=-1000;this.attackVisualUntil=0;this.combatImpactUntil=0;this.skillArmed=false;this.player=new Player();this.player.weapons=[makeWeapon('w_iron_dagger',[])];this.player.armors[0].trait=undefined;this.syncPlayer();}
   rigReady:Promise<unknown>=Promise.resolve();
   preload(){
-   this.load.image('online_emotes_v1',EMOTE_ART);
+   this.load.image('online_emotes_v1',EMOTE_ART);preloadEmoteVoices(this);
    this.load.svg('crystal_corner','assets/ui/auth-corner.svg',{width:64,height:64});
    if(!this.inDungeon&&!this.inHouse)preloadGarden(this);
    this.rigReady=Promise.allSettled(this.packet.players.map(p=>prepareCharacterAppearance(p.gender,p.armor??'leather',p.hair_color??'brown',p.weapon)));
@@ -134,7 +134,7 @@ export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)
    this.load.image('online_town_fountain','assets/terrain/objects/healing-fountain-pixel.png');
   }
   create(){
-   prepareEmoteArt(this);this.musicName='';if(this.inDungeon)Audio.preloadBgm('boss');
+   prepareEmoteArt(this);installEmoteVoice(this);this.musicName='';if(this.inDungeon)Audio.preloadBgm('boss');
    this.busy=true;this.entryLoading?.update(.98,this.inDungeon?'遺跡と冒険者を準備中…':'町と冒険者を準備中…');
    const loading=this.game.canvas.ownerDocument.getElementById('loading-screen');if(loading)loading.style.display='none';
    if(this.inHouse){this.npcSprites.clear();this.groundSprites=[];this.groundMotions=[];this.groundSignature='';this.trainingBarrel=undefined;mountHouseInterior(this);this.cursorTile=this.add.rectangle(0,0,TILE,TILE,0xffffff,.12).setStrokeStyle(1,0xffffff,.3).setDepth(34).setVisible(false);}else if(this.inDungeon){this.npcSprites.clear();this.groundSprites=[];this.groundMotions=[];this.groundSignature='';this.trainingBarrel=undefined;this.adventureView=mountAdventureView(this);this.cursorTile=this.add.rectangle(0,0,TILE,TILE,0xffffff,.12).setStrokeStyle(1,0xffffff,.3).setDepth(34).setVisible(false);}else{
