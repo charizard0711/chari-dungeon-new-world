@@ -1,3 +1,4 @@
+import {streamTerrain,TERRAIN_CHUNK} from './terrainChunks';
 import {ADVENTURE_CONFIG as C} from './layout';
 const T=48,LIFT=28,W=C.width,H=C.height;
 const ground=(x:number,y:number)=>C.rows[y]?.[x]==='.';
@@ -8,7 +9,7 @@ export function wallTheme(x:number,y:number){return x>=40&&x<=59&&y>=2&&y<=23?2:
 /** World-aligned wall union, baked once; no geometry work during movement. */
 export function drawContinuousWalls(scene:any){
 const atlas=scene.textures.get('maze_continuous_wall').getSourceImage() as HTMLImageElement;
-const canvas=document.createElement('canvas');canvas.width=16*T;canvas.height=16*T+LIFT+16;
+const canvas=document.createElement('canvas');canvas.width=TERRAIN_CHUNK*T;canvas.height=TERRAIN_CHUNK*T+LIFT+16;
 const ctx=canvas.getContext('2d')!;let theme=0;
 const patterns=[0,1,2].map(row=>{const tile=document.createElement('canvas');tile.width=256;tile.height=104;const g=tile.getContext('2d')!,sw=atlas.width/3,sh=atlas.height/3;g.drawImage(atlas,6,row*sh+8,sw-12,sh-16,0,0,256,104);return ctx.createPattern(tile,'repeat')!;});
 const topPatterns=[0,1,2].map(row=>{const tile=document.createElement('canvas');tile.width=192;tile.height=96;tile.getContext('2d')!.drawImage(atlas,10,row*atlas.height/3+150,atlas.width/3-20,220,0,0,192,96);return ctx.createPattern(tile,'repeat')!;});
@@ -26,14 +27,15 @@ function drawWalls(){
  ctx.beginPath();for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(wall(x,y)){const l=x*T,r=l+T,t=y*T-LIFT,b=t+T;if(!wall(x,y-1)){ctx.moveTo(l,t);ctx.lineTo(r,t);}if(!wall(x,y+1)){ctx.moveTo(l,b);ctx.lineTo(r,b);}if(!wall(x-1,y)){ctx.moveTo(l,t);ctx.lineTo(l,b);}if(!wall(x+1,y)){ctx.moveTo(r,t);ctx.lineTo(r,b);}}ctx.lineWidth=4;ctx.strokeStyle='#0b1723c0';ctx.stroke();ctx.lineWidth=1;ctx.strokeStyle=['#b3bfc3','#e4e5cc','#a897ba'][theme];ctx.stroke();
 }
 
-for(let cy=0;cy<H;cy+=16)for(let cx=0;cx<W;cx+=16){
- if(!Array.from({length:16},(_,dy)=>Array.from({length:16},(_,dx)=>wall(cx+dx,cy+dy)).some(Boolean)).some(Boolean))continue;
+streamTerrain(scene,W,H,(cx,cy)=>{
+ if(!Array.from({length:TERRAIN_CHUNK},(_,dy)=>Array.from({length:TERRAIN_CHUNK},(_,dx)=>wall(cx+dx,cy+dy)).some(Boolean)).some(Boolean))return {destroy(){}};
  const key=`maze-connected-${cx}-${cy}`;
- if(!scene.textures.exists(key)){
+ if(scene.textures.exists(key))scene.textures.remove(key);
  ctx.clearRect(0,0,canvas.width,canvas.height);ctx.save();ctx.translate(-cx*T,-cy*T+LIFT);
- for(theme=0;theme<3;theme++){ctx.save();ctx.beginPath();for(let y=cy;y<Math.min(cy+16,H);y++)for(let x=cx;x<Math.min(cx+16,W);x++)if(wall(x,y)&&wallTheme(x,y)===theme)ctx.rect(x*T,y*T-LIFT,T,T+LIFT+14);ctx.clip();drawWalls();ctx.restore();}
+ for(theme=0;theme<3;theme++){ctx.save();ctx.beginPath();for(let y=cy;y<Math.min(cy+TERRAIN_CHUNK,H);y++)for(let x=cx;x<Math.min(cx+TERRAIN_CHUNK,W);x++)if(wall(x,y)&&wallTheme(x,y)===theme)ctx.rect(x*T,y*T-LIFT,T,T+LIFT+14);ctx.clip();drawWalls();ctx.restore();}
  ctx.restore();const copy=document.createElement('canvas');copy.width=canvas.width;copy.height=canvas.height;copy.getContext('2d')!.drawImage(canvas,0,0);scene.textures.addCanvas(key,copy);
- }
- scene.add.image(cx*T,cy*T-LIFT,key).setOrigin(0).setDepth(-3);
-}
+ const image=scene.add.image(cx*T,cy*T-LIFT,key).setOrigin(0).setDepth(-3);
+ return {destroy(){image.destroy();scene.textures.remove(key);copy.width=copy.height=1;}};
+});
+scene.events.once('shutdown',()=>{canvas.width=canvas.height=1;});
 }

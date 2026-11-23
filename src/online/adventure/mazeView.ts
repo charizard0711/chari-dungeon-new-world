@@ -1,16 +1,19 @@
+import {streamTerrain,TERRAIN_CHUNK} from './terrainChunks';
 import {drawContinuousWalls} from './continuousWalls';
 import {ADVENTURE_CONFIG as C} from './layout';
 import {terrainFrame} from './scenery';
 import {townSoundLevel} from '../presentation';
 const T=48;
 export function drawMazeGround(scene:any){
- const floor=scene.add.image(0,0,'maze_floor').setOrigin(0).setDisplaySize(T,T).setVisible(false),wall=scene.add.image(0,0,'adventure_wall').setOrigin(0).setDisplaySize(T,T).setVisible(false),royal=scene.add.image(0,0,'maze_boss_wall').setOrigin(0).setDisplaySize(T,T).setVisible(false);
+ const floor=scene.make.image({x:0,y:0,key:'maze_floor',add:false}).setOrigin(0).setDisplaySize(T,T);
  const ground=(x:number,y:number)=>C.rows[y]?.[x]==='.';
- for(let cy=0;cy<C.height;cy+=16)for(let cx=0;cx<C.width;cx+=16){const rt=scene.add.renderTexture(cx*T,cy*T,16*T,16*T).setOrigin(0).setDepth(-5);for(let y=cy;y<Math.min(cy+16,C.height);y++)for(let x=cx;x<Math.min(cx+16,C.width);x++){
-  if(x>=94&&x<=97&&y>=36&&y<=37)continue;
-  if(ground(x,y)){floor.setFrame(terrainFrame(undefined,x,y));rt.draw(floor,(x-cx)*T,(y-cy)*T);}
-
- }}floor.destroy();wall.destroy();royal.destroy();drawContinuousWalls(scene);
+ streamTerrain(scene,C.width,C.height,(cx,cy)=>{
+ const rt=scene.add.renderTexture(cx*T,cy*T,TERRAIN_CHUNK*T,TERRAIN_CHUNK*T).setOrigin(0).setDepth(-5);
+ rt.beginDraw();for(let y=cy;y<Math.min(cy+TERRAIN_CHUNK,C.height);y++)for(let x=cx;x<Math.min(cx+TERRAIN_CHUNK,C.width);x++){
+ if(x>=94&&x<=97&&y>=36&&y<=37)continue;
+ if(ground(x,y)){floor.setFrame(terrainFrame(undefined,x,y));rt.batchDraw(floor,(x-cx)*T,(y-cy)*T);}}
+ rt.endDraw();return rt;});
+ scene.events.once('shutdown',()=>floor.destroy());drawContinuousWalls(scene);
 }
 export function mountMazeMechanics(scene:any){
  const g=scene.add.graphics().setDepth(-1),bars=scene.add.graphics().setDepth(27),emerging=scene.add.image(50.5*T,5*T,'adventure_vesper_v2',0).setDisplaySize(114,114).setDepth(26).setVisible(false);
