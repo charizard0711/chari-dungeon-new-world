@@ -7,3 +7,5 @@ Minimap caches unchanged terrain/visibility inputs; ally names appear at map mar
 Validation: build; test-latency-pins.mjs (room/party sharing, outside-room isolation, expiry, membership, boss boundary, scoped wrapper patch); test-party-chat.mjs; test-emote-shortcuts.mjs. Muted browser checked map coordinates, both pin colors, minimap marker and emote caption. Browser preview uses synthetic packets; live multiplayer latency reduction has not been measured and is not claimed. No paid server changes made. Earlier investigation showed current CPU 2%, RAM 59%, 6/60 connections; historical RPC statement max 7.8s was not correlated to the user's exact session.
 
 Remaining architectural limit: room-wide JSON mutation remains serialized; per-floor/per-arena persistent records require a separate state migration rather than pretending rendering separation is server partitioning.
+
+Idle dungeon polling changed from 300ms to 500ms (40% fewer idle polls); active action responses continue to refresh state and movement retains the 152ms cadence.
