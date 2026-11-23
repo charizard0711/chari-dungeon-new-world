@@ -1,3 +1,4 @@
+import {mountStationArchitecture,STATIONS,prepareStationArt} from './stations';
 import {BOARDING_PANELS} from './stage';
 import {railTilePath} from './railGeometry';
 import {RAIL_ROUTE,railPose} from './railRoute';
@@ -11,8 +12,8 @@ export function prepareRailArt(scene:any){
 
 export function railNow(scene:any){return (scene.packet.serverTime??Date.now())+performance.now()-(scene.packet.clockReceivedAt??performance.now());}
 export function mountRailStations(scene:any){
- prepareRailArt(scene);const T=48,objects:any[]=[];
- const sheet=scene.textures.get('maze_rail_directions'),src=sheet.getSourceImage();if(!sheet.has('north'))for(const [i,name]of ['north','east','south','west'].entries())sheet.add(name,0,(i%2)*src.width/2,Math.floor(i/2)*src.height/2,src.width/2,src.height/2);
+ prepareRailArt(scene);prepareStationArt(scene);const architecture=mountStationArchitecture(scene);const T=48,objects:any[]=[];
+ const sheet=scene.textures.get('maze_rail_directions'),src=sheet.getSourceImage();if(!sheet.has('north')){const c=document.createElement('canvas');c.width=src.width;c.height=src.height;const ctx=c.getContext('2d')!;ctx.drawImage(src,0,0);const rgba=ctx.getImageData(0,0,c.width,c.height).data;for(const [i,name]of ['north','east','south','west'].entries()){const x0=Math.round((i%2)*src.width/2),y0=Math.round(Math.floor(i/2)*src.height/2),x1=Math.round((i%2+1)*src.width/2),y1=Math.round((Math.floor(i/2)+1)*src.height/2);let left=x1,top=y1,right=x0,bottom=y0;for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++)if(rgba[(y*c.width+x)*4+3]>180){left=Math.min(left,x);top=Math.min(top,y);right=Math.max(right,x);bottom=Math.max(bottom,y);}sheet.add(name,0,left,top,right-left+1,bottom-top+1);}}
  // Generate all six tiles from identical edge centres and gauge. Curves are tangent to straights.
  for(let frame=0;frame<6;frame++){const key='rail-connected-'+frame;if(scene.textures.exists(key))continue;const g=scene.add.graphics(),points=railTilePath(frame);
  g.fillStyle(0x30383b).fillRect(0,0,T,T);
@@ -21,25 +22,13 @@ export function mountRailStations(scene:any){
  for(const side of [-1,1]){const rail=points.map((p,i)=>{const a=points[Math.max(0,i-1)],b=points[Math.min(points.length-1,i+1)],d=Math.hypot(b.x-a.x,b.y-a.y)||1;return{x:p.x-(b.y-a.y)/d*8*side,y:p.y+(b.x-a.x)/d*8*side};});for(const [width,color]of [[5,0x171b1e],[3,0x939da2],[1,0xe3e9e8]]){g.lineStyle(width,color);g.beginPath();g.moveTo(rail[0].x,rail[0].y);for(const p of rail.slice(1))g.lineTo(p.x,p.y);g.strokePath();}}
  g.generateTexture(key,T,T);g.destroy();}
  for(let i=0;i<RAIL_ROUTE.length;i++){const p=RAIL_ROUTE[i],a=RAIL_ROUTE[Math.max(0,i-1)],b=RAIL_ROUTE[Math.min(RAIL_ROUTE.length-1,i+1)];const dirs=[a,b].map(q=>q.x<p.x?'W':q.x>p.x?'E':q.y<p.y?'N':q.y>p.y?'S':'');let f=dirs.includes('N')||dirs.includes('S')?1:0;if(dirs.includes('N')&&dirs.includes('E'))f=2;if(dirs.includes('E')&&dirs.includes('S'))f=3;if(dirs.includes('S')&&dirs.includes('W'))f=4;if(dirs.includes('W')&&dirs.includes('N'))f=5;objects.push(scene.add.image((p.x+.5)*T,(p.y+.5)*T,'rail-connected-'+f).setDisplaySize(T,T).setDepth(-1.7));}
- const stations=[{id:'entry',x:49,y:83,bx:49,by:88,label:'入口駅'},{id:'boss',x:53,y:26,bx:54,by:28,label:'ボス前駅'}];
- const platform=scene.add.graphics().setDepth(-1.6);objects.push(platform);
- for(const station of stations){const entry=station.id==='entry',left=entry?47:53,right=entry?53:56,top=entry?84:26,bottom=entry?89:30;
-  for(let y=top;y<=bottom;y++)for(let x=left;x<=right;x++){if(C.rows[y]?.[x]!=='.'||RAIL_ROUTE.some(p=>p.x===x&&p.y===y))continue;
-   platform.fillStyle((x+y)%2?0x798c96:0x83969e).fillRect(x*T,y*T,T,T).lineStyle(1,0x475c65,.8).strokeRect(x*T+1,y*T+1,T-2,T-2);
-   platform.lineStyle(1,0xc6d5d5,.5).lineBetween(x*T+4,y*T+5,(x+1)*T-4,y*T+5);
-  }
-  const panel=BOARDING_PANELS.find(p=>p.id===station.id)!;
-  platform.fillStyle(0xe3c369).fillRect(panel.x*T+3,panel.y*T+3,T-6,5);
-  const building=scene.add.image((entry?45:59)*T,(entry?87:30)*T,'maze_station_v3').setOrigin(.5,1).setDisplaySize(4*T,2.67*T).setDepth(entry?86:29);
-  const sign=scene.add.text(building.x,building.y-1.4*T,station.label,{fontFamily:'Meiryo',fontSize:'13px',fontStyle:'bold',color:'#ffe8af',stroke:'#172b3d',strokeThickness:3}).setOrigin(.5).setDepth(entry?86.1:29.1);
-  objects.push(building,sign);
- }
+ const stations=STATIONS.map(s=>({id:s.id,x:s.gateX,y:s.gateY,label:s.name}));
  const pads=BOARDING_PANELS.map(p=>{const g=scene.add.graphics().setDepth(-.8),text=scene.add.text((p.x+.5)*T,(p.y+.5)*T,'乗車',{fontFamily:'Meiryo',fontSize:'12px',fontStyle:'bold',color:'#efffff',stroke:'#082b36',strokeThickness:3}).setOrigin(.5).setDepth(-.7);objects.push(g,text);return{p,g,text};});
- const gates=stations.map(s=>{const gate=scene.add.image((s.x+.5)*T,(s.y+.5)*T,'maze_rail_gate').setDisplaySize(76,76).setDepth(s.y+.9);const text=scene.add.text((s.x+.5)*T,(s.y-1)*T,'',{fontFamily:'Meiryo',fontSize:'12px',align:'center',color:'#a9f2e8',stroke:'#06121b',strokeThickness:4}).setOrigin(.5,1).setDepth(s.y+2);objects.push(gate,text);return{s,gate,text,opened:false};});
+ const gates=stations.map(s=>{const gate=scene.add.image((s.x+.5)*T,(s.y+.5)*T,'station_modules_v4','part-12').setDisplaySize(76,76).setDepth(s.y+.9);const text=scene.add.text((s.x+.5)*T,(s.y-1)*T,'',{fontFamily:'Meiryo',fontSize:'12px',align:'center',color:'#a9f2e8',stroke:'#06121b',strokeThickness:4}).setOrigin(.5,1).setDepth(s.y+2);objects.push(gate,text);return{s,gate,text,opened:false};});
  const status=scene.add.text(20,160,'',{fontFamily:'Meiryo',fontSize:'14px',color:'#e8dba6',backgroundColor:'#07121bcc',padding:{x:8,y:6}}).setScrollFactor(0).setDepth(2102);objects.push(status);
- return{update(){const a=scene.packet.adventure;for(const {p,g,text}of pads){const open=!!a.railGates?.[p.id],pulse=.3+Math.sin(scene.time.now*.004)*.12;g.clear().fillStyle(open?0x42f4d9:0x5d8ca7,open?pulse:.16).fillRoundedRect(p.x*T+3,p.y*T+3,T-6,T-6,5).lineStyle(2,open?0xb1fff4:0x6e9bb3,.95).strokeRoundedRect(p.x*T+4,p.y*T+4,T-8,T-8,5);text.setAlpha(open?1:.65);}for(const g of gates){const{s,text,gate}=g,open=!!a.railGates?.[s.id],visible=partyCanSee(s.x,s.y,scene.packet.players,partySightRadius(a.snapshot),(x,y)=>C.rows[y]?.[x]!=='.',a.snapshot);text.setVisible(visible).setText(`${s.label} · 500G\n${open?'光るパネルを踏んで乗車':a.railUnlocked?'クリックで改札を開く':'ボス戦に参加すると解放'}`);if(open!==g.opened){g.opened=open;scene.tweens.add({targets:gate,displayWidth:open?24:76,x:(s.x+.5)*T+(open?-27:0),duration:400,ease:'Sine.easeInOut'});}}
+ return{update(){const a=scene.packet.adventure;for(const {p,g,text}of pads){const open=!!a.railGates?.[p.id],pulse=.3+Math.sin(scene.time.now*.004)*.12;g.clear().fillStyle(open?0x42f4d9:0x5d8ca7,open?pulse:.16).fillRoundedRect(p.x*T+3,p.y*T+3,T-6,T-6,5).lineStyle(2,open?0xb1fff4:0x6e9bb3,.95).strokeRoundedRect(p.x*T+4,p.y*T+4,T-8,T-8,5);text.setAlpha(open?1:.65);}for(const g of gates){const{s,text,gate}=g,open=!!a.railGates?.[s.id],visible=partyCanSee(s.x,s.y,scene.packet.players,partySightRadius(a.snapshot),(x,y)=>C.rows[y]?.[x]!=='.',a.snapshot);text.setVisible(visible).setText(`${s.label} · 500G\n${open?'光るパネルを踏んで乗車':a.railUnlocked?'クリックで改札を開く':'ボス戦に参加すると解放'}`);if(open!==g.opened){g.opened=open;gate.setFrame(open?'part-13':'part-12');scene.tweens.add({targets:gate,alpha:{from:.6,to:1},duration:300});}}
  const trip=a.railTrip;status.setVisible(!!trip);if(trip){const p=railPose(trip,railNow(scene));status.setText(`魔導列車 · ${trip.reverse?'入口駅':'ボス前駅'}へ\n${Math.round(p.progress*100)}% · 運賃500G`);}
- },destroy(){objects.forEach(o=>o.destroy());}};
+ },destroy(){architecture.destroy();objects.forEach(o=>o.destroy());}};
 }
 export function renderRailActor(scene:any,a:any,p:any){
  if(!p?.railTrip){if(a.railImage){a.railImage.destroy();a.railImage=undefined;a.renderer.sparkles?.setVisible(true);a.body.setVisible(true);a.shadow.setVisible(true);a.leftFoot.setVisible(true);a.rightFoot.setVisible(true);}return false;}
@@ -47,6 +36,6 @@ export function renderRailActor(scene:any,a:any,p:any){
  for(const o of [a.body,a.shadow,a.leftFoot,a.rightFoot,a.guildFlag,a.renderer.weapon,a.renderer.offhand,a.renderer.scabbard,a.renderer.waistFitting,a.renderer.sparkles,a.renderer.characterRig.image])o?.setVisible(false);
  for(const aura of ['swordAura','shieldAura','scabbardAura','fittingAura'])if(a.renderer[aura])a.renderer[aura].enabled=false;
  if(!a.railImage){a.railImage=scene.add.image(a.anchor.x,a.anchor.y,'maze_rail_directions');a.body.once('destroy',()=>a.railImage?.destroy());}
- a.railImage.setFrame({up:'north',right:'east',down:'south',left:'west'}[pose.dir]).setDisplaySize(110,110).setPosition(a.anchor.x,a.anchor.y-8+Math.sin(scene.time.now*.025)*.4).setDepth(pose.y+1);
+ a.railImage.setFrame({up:'north',right:'east',down:'south',left:'west'}[pose.dir]).setDisplaySize(pose.dir==='up'||pose.dir==='down'?90:180,pose.dir==='up'||pose.dir==='down'?180:90).setPosition(a.anchor.x,a.anchor.y-8+Math.sin(scene.time.now*.025)*.4).setDepth(pose.y+1);
  a.label.setPosition(a.anchor.x,a.anchor.y+47).setDepth(pose.y+2);return true;
 }

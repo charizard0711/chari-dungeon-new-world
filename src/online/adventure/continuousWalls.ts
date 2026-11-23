@@ -1,8 +1,9 @@
+import {stationAt} from './stations';
 import {streamTerrain,TERRAIN_CHUNK} from './terrainChunks';
 import {ADVENTURE_CONFIG as C} from './layout';
 const T=48,LIFT=28,W=C.width,H=C.height;
 const ground=(x:number,y:number)=>C.rows[y]?.[x]==='.';
-const wallRaw=(x:number,y:number)=>x>=0&&y>=0&&x<W&&y<H&&!ground(x,y)&&[-1,0,1].some(dy=>[-1,0,1].some(dx=>ground(x+dx,y+dy)));
+const wallRaw=(x:number,y:number)=>!stationAt(x,y)&&x>=0&&y>=0&&x<W&&y<H&&!ground(x,y)&&[-1,0,1].some(dy=>[-1,0,1].some(dx=>ground(x+dx,y+dy)));
 const cells=Array.from({length:H},(_,y)=>Array.from({length:W},(_,x)=>wallRaw(x,y)));
 const wall=(x:number,y:number)=>cells[y]?.[x]??false;
 export function wallTheme(x:number,y:number){return x>=40&&x<=59&&y>=2&&y<=23?2:(x<=9&&y>=31&&y<=39||x>=15&&x<=30&&y>=56&&y<=69)?1:0;}
