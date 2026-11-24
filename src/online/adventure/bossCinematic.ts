@@ -27,6 +27,8 @@ export function mountBossCinematic(scene:any){
   if(b?.phase==='battle'||b?.phase==='opening'&&now()-b.at>=9670){const id='intro';needed.add(id);if(!rubble.has(id))rubble.set(id,scene.add.image(50.5*T,11.5*T,fracturedFloorTexture(scene,terrainFrame(undefined,50,11))).setDisplaySize(T,T).setDepth(-3.8));}
   for(const [id,o]of rubble)if(!needed.has(id)){o.destroy();rubble.delete(id);}
   if(!active){if(following){following=false;const actor=scene.actors.get(scene.packet.active?.id);if(actor)scene.cameraFollow?.follow(actor.anchor);}return;}
+  if(scene.hud?.overlayMode==='inbox')scene.hud.inboxUI?.close();
+  if(scene.hud?.overlayMode&&scene.hud.overlayMode!=='none')scene.hud.setOverlay('none');
   scene.stopClickPath();scene.clearMoveInput();scene.moveQueue.length=0;
   const intro=b.phase==='opening',smash=b.smash,passed=now()-(intro?b.at:smash.at),t=intro?passed:passed<1800?8370+passed*1300/1800:9670+(passed-1800),bx=intro?50:smash.x,by=intro?10:smash.y,end=(by+1.08)*T;
   let f=8,x=(bx+.5)*T,y=end;
