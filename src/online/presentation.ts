@@ -33,7 +33,7 @@ export function installGamePresentation(game:Phaser.Game,audio?:TownAudioSetting
   if(game.registry.get('gamePresentationInstalled'))return;
   game.registry.set('gamePresentationInstalled',true);
   const canvas=game.canvas;
-  const preload=canvas.ownerDocument.createElement('link');preload.rel='preload';preload.as='image';preload.href=new URL('assets/new-world/title-world-v1.webp',canvas.ownerDocument.baseURI).href;canvas.ownerDocument.head.append(preload);
+  const preload=canvas.ownerDocument.createElement('link');preload.rel='preload';preload.as='image';preload.href=new URL('assets/new-world/lobby-night-v2.png',canvas.ownerDocument.baseURI).href;canvas.ownerDocument.head.append(preload);
   canvas.classList.add('chari-game-cursor');
   const update=()=>{
     let cursor='arrow';

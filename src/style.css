@@ -250,3 +250,6 @@ canvas {
 #loading-screen[data-mode=boot] .loading-percent{font-size:16px;font-weight:700;color:#e2f9ff;margin-top:14px}
 
 #loading-screen{z-index:3000}
+
+/* Keep the same night artwork visible throughout boot and title handoff. */
+#loading-screen[data-mode=boot]{background:#051021 url('/assets/new-world/lobby-night-v2.png') center/cover no-repeat}

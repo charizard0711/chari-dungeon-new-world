@@ -217,7 +217,7 @@ export class BootScene extends Phaser.Scene {
     }
     this.loadingStage = '画像';
     this.load.image('title-menu-frame', 'assets/ui/title-menu-v1/frame.png');
-    this.load.image('title_citadel_v1', 'assets/new-world/title-world-v1.webp');
+    this.load.image('title_citadel_v1', 'assets/new-world/lobby-night-v2.png');
     this.load.image('title_map_background', 'assets/ui/map-title-v1/background.webp');
     this.load.image('title_golden_crossed_swords', 'assets/new-world/logo-zero-v1.png');
     this.load.image('defeat_male', 'assets/ui/defeat-v1/male.webp');
