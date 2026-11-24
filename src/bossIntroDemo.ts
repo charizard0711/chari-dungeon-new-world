@@ -44,23 +44,24 @@ class Intro extends Phaser.Scene{
  pose(frame:number,x:number,y:number,scale=1){
   const apply=(image:Phaser.GameObjects.Image,n:number)=>{const f=poses[n],key=n<8?'walk':'attack',index=n<8?n:n-8;image.setTexture(key,index).setOrigin(f.ax,f.ay).setPosition(x,y).setDisplaySize(238*scale,238*scale*f.h/f.w);};
   if(frame!==this.lastFrame){if(this.lastFrame>=0)apply(this.ghost,this.lastFrame);this.ghost.setVisible(this.lastFrame>=0);this.blend=this.lastFrame<0?elapsed-22:elapsed;this.lastFrame=frame;}
-  apply(this.boss,frame);const alpha=clamp((elapsed-this.blend)/22);this.boss.setAlpha(alpha);this.ghost.setAlpha(1-alpha);if(alpha>=1)this.ghost.setVisible(false);
+  apply(this.boss,frame);const alpha=clamp((elapsed-this.blend)/(elapsed>=7500&&elapsed<7720?10:22));this.boss.setAlpha(alpha);this.ghost.setAlpha(1-alpha);if(alpha>=1)this.ghost.setVisible(false);
  }
  update(_time:number,delta:number){if(!ready)return;if(!paused)elapsed=Math.min(14000,elapsed+Math.min(delta,50)*rate);const t=elapsed;let f=0,x=BX,y=126,scale=1,label='封印の扉が開く';
   const opening=ease((t-400)/1700);this.closed.setAlpha(1-opening).setY(215-opening*38);this.open.setAlpha(opening);this.door.clear();if(t<2300)this.door.fillStyle(0x03020c,.5*(1-opening)).fillRect(BX-83,50,166,160);
   if(t<2100){y=126+opening*30;}
-  else if(t<6300){const p=clamp((t-2100)/4200),step=(t-2100)/900;f=Math.floor(step*8)%8;y=156+(END-156)*p-Math.abs(Math.sin(step*Math.PI))*3;x=BX+Math.sin(step*Math.PI)*2;label='重い足取りで部屋から歩み出る';}
+  else if(t<6300){const p=clamp((t-2100)/4200),step=(t-2100)/1050,foot=step%1,number=Math.floor(step);f=(number%2)*4+(foot<.34?0:foot<.62?1:foot<.82?2:3);y=156+(END-156)*(number+ease((foot-.12)/.76))/4+(foot<.2?Math.sin(foot/.2*Math.PI)*2.8:0);x=BX+(number%2?1:-1)*Math.sin(foot*Math.PI)*1.6;label='重い足取りで部屋から歩み出る';}
   else{y=END;f=8;label='大剣を構える';}
-  if(t>=6800&&t<7350){f=[8,9,16,15][Math.min(3,Math.floor((t-6800)/550*4))];label='横薙ぎの溜め';x=BX+ease((t-6800)/550)*5;}
-  if(t>=7350&&t<7720){f=[10,13,12,11][Math.min(3,Math.floor((t-7350)/370*4))];label='大きく横薙ぎ';x=BX+5-12*ease((t-7350)/370);scale=1.03;}
-  if(t>=7720&&t<8370){f=[14,17][Math.min(1,Math.floor((t-7720)/650*2))];label='斬撃の余韻';x=BX-7*(1-ease((t-7720)/650));}
+  if(t>=6500&&t<7500){const p=clamp((t-6500)/1000);f=[8,9,16,15][p<.18?0:p<.44?1:p<.7?2:3];label='深く溜める';x=BX+ease(p)*8;y=END+ease(p)*3;}
+  if(t>=7500&&t<7720){const p=clamp((t-7500)/220);f=[10,13,12,11][Math.min(3,Math.floor(p*4))];label='一気に振り抜く';x=BX+8-20*(1-Math.pow(1-p,3));scale=1.025;}
+  if(t>=7720&&t<8370){f=[14,17][Math.min(1,Math.floor((t-7720)/650*2))];label='斬撃の余韻';x=BX-12*(1-ease((t-7720)/650));}
   if(t>=8370&&t<9420){f=18+Math.min(2,Math.floor((t-8370)/1050*3));label='頭上へ大きく振り上げる';y=END-5*ease((t-8370)/1050);}
   if(t>=9420&&t<IMPACT){f=21+Math.min(1,Math.floor((t-9420)/(IMPACT-9420)*2));label='地面へ突き刺す';y=END-9+20*ease((t-9420)/(IMPACT-9420));}
   if(t>=IMPACT){f=23;label=t<10800?'床が砕け、衝撃が広がる':'剣を地面に突き立てたまま威圧';y=END+11;}
   this.pose(f,x,y,scale);this.shadow.setPosition(x,y-6).setAlpha(t<2100?.15:.5);this.boss.setDepth(y<210?4:15);this.ghost.setDepth(this.boss.depth-.1);
   this.fx.clear();
   // Wide horizontal crescent with fading layered trails, not a rotating whole-body cutout.
-  if(t>=7310&&t<8000){const p=clamp((t-7310)/480),fade=1-clamp((t-7670)/330);for(let i=0;i<6;i++){const end=Math.PI+.05,start=end-(.4+p*2.4);this.fx.lineStyle(10-i*1.3,i<2?0xeedbff:0x9e4bff,fade*(.48-i*.06));this.fx.beginPath();for(let n=0;n<=36;n++){const a=start+(end-start)*n/36,px=BX+Math.cos(a)*(153+i*2),py=END-112+Math.sin(a)*(48+i*2);if(n===0)this.fx.moveTo(px,py);else this.fx.lineTo(px,py);}this.fx.strokePath();}}
+  if(t>=7500&&t<7970){const p=clamp((t-7500)/220),fade=1-clamp((t-7720)/250);for(let i=0;i<7;i++){const end=.05+p*Math.PI,start=Math.max(.05,end-(.35+p*1.7));this.fx.lineStyle(11-i*1.4,i<2?0xffedff:0xa35bff,fade*(.6-i*.07));this.fx.beginPath();for(let n=0;n<=40;n++){const a=start+(end-start)*n/40,px=BX+Math.cos(a)*(153+i*2),py=END-112+Math.sin(a)*(40+i*2);if(n===0)this.fx.moveTo(px,py);else this.fx.lineTo(px,py);}this.fx.strokePath();}}
+  if(t>=2100&&t<6300){const step=(t-2100)/1050,contact=step%1;if(contact<.22){const p=contact/.22,side=Math.floor(step)%2?1:-1;this.fx.lineStyle(1,0xc6a0a0,(1-p)*.24).strokeEllipse(BX+side*17,y+3,20+p*34,5+p*9);for(let i=0;i<6;i++)this.fx.fillStyle(0xa98a83,(1-p)*.35).fillCircle(BX+side*17+Math.cos(i)*p*22,y+Math.sin(i)*p*5-p*6,2);}}
   const hit=t-IMPACT;if(hit<0)this.ground.setTexture('floor',13);else this.ground.setTexture('fractured-floor-'+(hit<85?1:hit<440?2:3));
   if(hit>=0&&hit<1200){const p=hit/1200;for(let i=0;i<2;i++)this.fx.lineStyle(5-i*2,0xcb9aff,(1-p)*(.7-i*.2)).strokeEllipse(BX,448,45+p*470+i*18,15+p*120+i*7);for(let i=0;i<28;i++){const a=i*2.39996,dist=(40+i%7*10)*Math.min(1,hit/450),dy=-Math.sin(Math.min(1,hit/800)*Math.PI)*(22+i%5*8);this.fx.fillStyle(i%3?0x8d697e:0xdbbaff,(1-p)*.9).fillTriangle(BX+Math.cos(a)*dist,448+Math.sin(a)*dist*.35+dy,BX+Math.cos(a)*dist+6,450+Math.sin(a)*dist*.35+dy,BX+Math.cos(a)*dist+2,442+Math.sin(a)*dist*.35+dy);}}
   const shake=hit>=0&&hit<450?(1-hit/450)*5:0;this.cameras.main.setScroll(Math.sin(hit*.1)*shake,Math.cos(hit*.13)*shake);
