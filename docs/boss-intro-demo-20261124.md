@@ -1,0 +1,7 @@
+# Floor boss entrance preview
+
+Local demo only: boss-intro-demo.html / src/bossIntroDemo.ts. No production scene or database changes, no publication. Force noAudio:true and use ?mute=1. Timeline: door opens 0.4–2.1s, boss walks from interior 2.1–6.3s, two-handed windup and horizontal slash 6.8–8.37s, sword raised 8.37–9.42s, plunge and contact at 9.67s, fracture/shards/shockwave, final name reveal at 10.9s. Player stays still. Replay, pause, 0.5/0.25x and timeline scrubbing are available.
+
+Generated with built-in image_gen, using the current Vesper atlas as visual reference. Workspace assets: public/assets/online/boss-intro-demo-v1/boss.png and ground.png. Boss prompt: exactly 4x2 equal cells, same horned purple crystal armor, gold trim and cyan chest gem, replace paired sickles with one two-handed crystal greatsword. Eight poses: two forward walk poses, windup, wide horizontal slash, follow-through, overhead raise, downward plunge, kneeling planted stance. Transparent, full weapon in cell, feet aligned, coherent grip, no floor/effects/text. Ground prompt: 2x2 same red-brown square flagstone in pristine, cracked slit, shattering and settled rubble states. Central sword socket aligned across frames; purple fissures, visible stone thickness, transparent gutters, no sword or character.
+
+TypeScript check passed. Browser review is muted. Eight painted boss key poses are blended over 70ms; this is a reviewable first pass rather than a final high-frame-count character animation.
