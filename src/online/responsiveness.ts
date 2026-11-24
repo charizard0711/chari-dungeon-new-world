@@ -3,7 +3,7 @@ import type {WorldState} from './worldApi';
 /** Prediction changes only the local position; inventory, enemies and rewards stay authoritative. */
 export function predictedWorld(state:WorldState,steps:readonly {x:number;y:number}[]):WorldState {
  const end=steps[steps.length-1],id=state.active?.id;
- if(!end||!id)return state;
+ if(!end||!id||(state.adventure?.snapshot.panelParalysis?.[id]??0)>0)return state;
  const prior=steps[steps.length-2]??state.players.find(p=>p.character_id===id);
  const dir=prior?(end.x>prior.x?'right':end.x<prior.x?'left':end.y>prior.y?'down':'up'):undefined;
  return {...state,players:state.players.map(p=>p.character_id===id?{...p,...end,dir:dir??p.dir}:p)};

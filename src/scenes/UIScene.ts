@@ -947,7 +947,7 @@ export class UIScene extends Phaser.Scene {
     this.refreshSkillButton();
     this.refreshSlotAuras();
     const p = this.gs.player;
-    this.fountainBadge?.setVisible(p.fountainBlessingFloor !== null);
+    this.fountainBadge?.setVisible(p.fountainBlessingFloor !== null && !(this.gs as any).packet);
     (this.fountainBadge?.getByName('fountain-rate') as Phaser.GameObjects.Text | undefined)?.setText(`攻・防 ×${p.fountainBlessingRate}`);
     const th = this.gs.dungeon?.glacialArena
       ? { ...getTheme(this.gs.floor), name: '氷晶の広間', accent: 0x8adfff }

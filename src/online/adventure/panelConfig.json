@@ -1,0 +1,80 @@
+[
+  {
+    "id": "heal_entry",
+    "kind": "heal",
+    "x": 46,
+    "y": 77
+  },
+  {
+    "id": "heal_spring",
+    "kind": "heal",
+    "x": 18,
+    "y": 66
+  },
+  {
+    "id": "heal_store",
+    "kind": "heal",
+    "x": 71,
+    "y": 68
+  },
+  {
+    "id": "heal_hall",
+    "kind": "heal",
+    "x": 44,
+    "y": 53
+  },
+  {
+    "id": "heal_barracks",
+    "kind": "heal",
+    "x": 17,
+    "y": 40
+  },
+  {
+    "id": "heal_spider",
+    "kind": "heal",
+    "x": 71,
+    "y": 43
+  },
+  {
+    "id": "heal_golem",
+    "kind": "heal",
+    "x": 18,
+    "y": 17
+  },
+  {
+    "id": "heal_treasury",
+    "kind": "heal",
+    "x": 72,
+    "y": 17
+  },
+  {
+    "id": "heal_boss",
+    "kind": "heal",
+    "x": 43,
+    "y": 20
+  },
+  {
+    "id": "heal_blessing",
+    "kind": "heal",
+    "x": 4,
+    "y": 36
+  },
+  {
+    "id": "heal_coop",
+    "kind": "heal",
+    "x": 100,
+    "y": 36
+  },
+  {
+    "id": "paralysis_1",
+    "kind": "paralysis",
+    "x": 36,
+    "y": 26
+  },
+  {
+    "id": "paralysis_2",
+    "kind": "paralysis",
+    "x": 65,
+    "y": 54
+  }
+]

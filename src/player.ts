@@ -32,6 +32,8 @@ export class Player {
   baseAtkMin = 5;
   baseAtkMax = 12;
   baseDef = 3;
+  panelAttackRate = 1;
+  panelDefenceRate = 1;
   transformationAttackRate = 1;
   transformationDefBonus = 0;
   fountainBlessingFloor: number | null = null;
@@ -80,7 +82,7 @@ export class Player {
         if (m.code === 'A') v += m.level;
       }
     }
-    return Math.max(1, Math.floor(v * this.transformationAttackRate * this.fountainBlessingRate));
+    return Math.max(1, Math.floor(v * this.transformationAttackRate * this.fountainBlessingRate * this.panelAttackRate));
   }
 
   get atkMax(): number {
@@ -93,7 +95,7 @@ export class Player {
         if (m.code === 'B') v += m.level;
       }
     }
-    return Math.max(1, Math.floor(v * this.transformationAttackRate * this.fountainBlessingRate));
+    return Math.max(1, Math.floor(v * this.transformationAttackRate * this.fountainBlessingRate * this.panelAttackRate));
   }
 
   get def(): number {
@@ -101,7 +103,7 @@ export class Player {
     if(this.necklace)v+=this.necklace.defBonus;
     if (this.armor) v += this.armor.defBonus + (this.armor.plus ?? 0) + armorTraitValue(this.armor,'defense');
     if (this.shield && this.shield.dur > 0) v += this.shield.defBonus + (this.shield.plus ?? 0);
-    return Math.floor((v + this.transformationDefBonus) * this.fountainBlessingRate);
+    return Math.floor((v + this.transformationDefBonus) * this.fountainBlessingRate * this.panelDefenceRate);
   }
 
   hasMagic(code: MagicCode): Magic | undefined {
