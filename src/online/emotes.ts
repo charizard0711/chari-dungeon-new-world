@@ -36,6 +36,7 @@ export function speakEmote(scene:any,message:string){
 export const EMOTE_ART='assets/online/emotes-v1/greetings.png';
 export function emoteById(id:string){return EMOTES.find(e=>e.id===id);}
 export function emoteFrame(id:string){return EMOTES.findIndex(e=>e.id===id);}
-/** Atlas coordinates shared by CSS menus and the in-world Phaser speech image. */
-export function emoteArt(id:string){const i=emoteFrame(id);const art=document.createElement('span');art.className='zero-emote-art';art.setAttribute('aria-hidden','true');art.style.backgroundImage=`url('${new URL(EMOTE_ART,document.baseURI).href}')`;art.style.backgroundPosition=`${(i%4)*100/3}% ${Math.floor(i/4)*50}%`;return art;}
+export const EMOTE_ICON_ART='assets/online/emotes-icons-v2/portraits.png';
+/** Menu portraits are separate from the original in-world speech bubbles. */
+export function emoteArt(id:string){const i=emoteFrame(id);const art=document.createElement('span');art.className='zero-emote-art';art.setAttribute('aria-hidden','true');art.style.backgroundImage=`url('${new URL(EMOTE_ICON_ART,document.baseURI).href}')`;art.style.backgroundPosition=`${(i%4)*100/3}% ${Math.floor(i/4)*50}%`;return art;}
 export function prepareEmoteArt(scene:any){const texture=scene.textures.get('online_emotes_v1');if(!texture||texture.has('emote-0'))return;const source=texture.getSourceImage();for(let i=0;i<12;i++){const x=Math.round(i%4*source.width/4),y=Math.round(Math.floor(i/4)*source.height/3),right=Math.round((i%4+1)*source.width/4),bottom=Math.round((Math.floor(i/4)+1)*source.height/3);texture.add('emote-'+i,0,x,y,right-x,bottom-y);}}
