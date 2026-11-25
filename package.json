@@ -20,7 +20,7 @@
     "deploy": "node scripts/deploy-pages.mjs",
     "test:responsiveness": "node scripts/test-online-responsiveness.mjs && node scripts/test-online-poll-contention.mjs && node scripts/test-online-equipment-streaming.mjs && node scripts/test-online-presentation.mjs",
     "test:housing": "tsx scripts/test-online-housing.ts",
-    "test:boss-rounds": "node scripts/test-online-boss-rounds.mjs"
+    "test:boss-rounds": "node scripts/test-shared-boss-turns.mjs && tsx scripts/test-boss-turn-label.ts"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",

@@ -13,7 +13,7 @@ try{
  const stamp=async ms=>db.query("update online_adventure_rooms set snapshot=jsonb_set(snapshot,'{bossEncounter,smash,at}',to_jsonb(online_adventure_now_ms()-$2::bigint))where id=$1",[room,ms]);
  await login(users[0]);
  for(let stage=1;stage<=2;stage++){
-  await place(0,50,11);await place(1,48,13);await hp(stage===1?321:161);s=await rpc('attack',{dir:'up'});
+  await place(0,50,11);await place(1,48,13);await hp(stage===1?321:161);s=await rpc('attack',{dir:'up'});await db.query("update online_boss_rounds set deadline=online_adventure_now_ms()-1 where room_id=$1",[room]);s=await rpc('poll');
   let b=s.adventure.snapshot.bossEncounter;assert.equal(b.smashCount,stage,'one checkpoint per HP third');assert.equal(s.adventure.snapshot.enemies.find(e=>e.boss).hp,stage===1?320:160,'damage capped at mandatory checkpoint');assert.equal(b.smash.tiles.length,3);assert.equal(b.smash.applied,false);
   const before=(await db.query('select character_id,x,y from online_adventure_members where room_id=$1 order by character_id',[room])).rows;
   for(let i=0;i<2;i++){await login(users[i]);await assert.rejects(rpc('attack',{dir:'up'}),/演出中/);await assert.rejects(rpc('move',{x:50,y:12}),/演出中/);}
