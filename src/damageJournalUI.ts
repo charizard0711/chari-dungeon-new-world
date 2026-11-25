@@ -1,3 +1,4 @@
+import {UNIFIED_CLOSE_TEXTURE} from './unifiedModalFrame';
 import {addPaintedModalFrame} from './paintedModal';
 import Phaser from 'phaser';
 import { openModalMotion } from './modalMotion';
@@ -12,7 +13,7 @@ const FONT = '"Yu Gothic UI", Meiryo, sans-serif';
 export function createDamageJournal(scene: Phaser.Scene, damage: DamageEntry[], adventure: AdventureEntry[],
   difficulty: Difficulty, onClose: () => void, fatalFirst = false) {
   const root = scene.add.container(0, 0).setDepth(220).setName('damage-journal');
-  const mobile = IS_MOBILE, theme = DIFFICULTY_RULES[difficulty];
+  const mobile = IS_MOBILE, online=scene.sys.settings.key==='OnlineUIScene',theme = online?{...DIFFICULTY_RULES[difficulty],color:0x84c9d4,text:'#e8eff4'}:DIFFICULTY_RULES[difficulty];
   const w = mobile ? GAME_W - 16 : 920, h = mobile ? GAME_H - 60 : 680;
   const x = (GAME_W - w) / 2, y = (GAME_H - h) / 2;
   let tab: 'damage' | 'adventure' = 'damage', page = 0;
@@ -40,9 +41,9 @@ export function createDamageJournal(scene: Phaser.Scene, damage: DamageEntry[], 
     root.add(scene.add.rectangle(GAME_W / 2, GAME_H / 2, GAME_W, GAME_H, 0x020307, .8).setInteractive());
     root.add(scene.sys.settings.key==='OnlineUIScene'?addPaintedModalFrame(scene,x+w/2,y+h/2,w,h):scene.add.image(x + w / 2, y + h / 2, 'ui_damage_journal_panel').setDisplaySize(w, h)
       .setTint(difficulty === 'hard' ? 0xb0dcff : difficulty === 'master' ? 0xffe29b : 0xe9d2a8));
-    root.add(scene.add.image(x + 42, y + 36, 'ui_nav_damage_log').setDisplaySize(40, 40));
-    text(x + 70, y + 21, '詳細ログ', mobile ? 21 : 26, theme.text, w - 142);
-    const closeArt = scene.add.image(x + w - 38, y + 36, 'ui_close_button').setDisplaySize(38, 38).setName('journal-close');
+    if(!online)root.add(scene.add.image(x + 42, y + 36, 'ui_nav_damage_log').setDisplaySize(40, 40));
+    text(online?x+w/2:x+70, y + 21, '詳細ログ', mobile ? 21 : 26, theme.text, w - 142).setOrigin(online?.5:0,0);
+    const closeArt = scene.add.image(x + w - 38, y + 36, online?UNIFIED_CLOSE_TEXTURE:'ui_close_button').setDisplaySize(38, 38).setName('journal-close');
     closeArt.setInteractive({useHandCursor:true}).on('pointerdown', () => { Audio.playSe('click'); close(); });
     root.add(closeArt);
     const tabW = (w - 54) / 2;

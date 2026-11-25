@@ -1,3 +1,4 @@
+import './unifiedModals.css';
 import {installDomModalMotion} from '../modalMotion';
 import type Phaser from 'phaser';
 import {interactionAt,canInteract} from './townInteractions';
@@ -33,7 +34,8 @@ export function installGamePresentation(game:Phaser.Game,audio?:TownAudioSetting
   if(audio)game.registry.set('onlineAudio',audio);
   if(game.registry.get('gamePresentationInstalled'))return;
   game.registry.set('gamePresentationInstalled',true);
-  const stopModalMotion=installDomModalMotion();game.events.once('destroy',stopModalMotion);
+  document.body.classList.add('zero-unified-modals');
+  const stopModalMotion=installDomModalMotion();game.events.once('destroy',()=>{stopModalMotion();document.body.classList.remove('zero-unified-modals');});
   const canvas=game.canvas;
   const preload=canvas.ownerDocument.createElement('link');preload.rel='preload';preload.as='image';preload.href=new URL('assets/new-world/lobby-night-v2.png',canvas.ownerDocument.baseURI).href;canvas.ownerDocument.head.append(preload);
   canvas.classList.add('chari-game-cursor');

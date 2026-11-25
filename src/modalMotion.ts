@@ -36,6 +36,11 @@ export function installDomModalMotion(host:HTMLElement=document.body){
   for(const element of host.querySelectorAll<HTMLElement>(selector)){
    // Animate the window itself, never a containing scrim or a nested dialog twice.
    if(element.parentElement?.closest(selector))continue;
+   for(const button of element.querySelectorAll?.<HTMLButtonElement>(':scope > header > button, :scope > button')??[]){
+    if(['閉じる','✕','×'].includes(button.textContent?.trim()??'')&&!button.classList.contains('unified-modal-close')){
+     button.setAttribute('aria-label','閉じる');button.textContent='×';button.classList.add('unified-modal-close');
+    }
+   }
    const visible=!element.closest('[hidden]')&&getComputedStyle(element).display!=='none';
    const mode=element.dataset.mode??'',previous=state.get(element);
    if(visible&&(!previous?.visible||previous.mode!==mode)){

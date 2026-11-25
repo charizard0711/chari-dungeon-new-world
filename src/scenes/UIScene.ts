@@ -1,3 +1,4 @@
+import {UNIFIED_CLOSE_TEXTURE} from '../unifiedModalFrame';
 import {requestEquipmentArt} from '../lazyEquipmentArt';
 import { localQaEnabled } from '../buildFlags';
 import { addLanguageControl } from '../i18n';
@@ -1406,7 +1407,7 @@ export class UIScene extends Phaser.Scene {
     // 閉じるボタン
     const cb = this.gs.pendingEquipment
       ? this.add.text(x + w - 44, y + 12, '🔒', { fontSize: '24px' })
-      : this.add.image(x + w - 28, y + 27, 'ui_close_button').setDisplaySize(IS_MOBILE ? 40 : 34, IS_MOBILE ? 40 : 34).setName('painted-modal-close');
+      : this.add.image(x + w - 28, y + 27, this.sys.settings.key==='OnlineUIScene'?UNIFIED_CLOSE_TEXTURE:'ui_close_button').setDisplaySize(IS_MOBILE ? 40 : 34, IS_MOBILE ? 40 : 34).setName('painted-modal-close');
     if (!this.gs.pendingEquipment) {
       cb.setInteractive({ useHandCursor: true });
       cb.on('pointerdown', () => { Audio.playSe('click'); this.setOverlay('none'); });
