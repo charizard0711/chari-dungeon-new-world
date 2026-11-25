@@ -1,0 +1,17 @@
+/* Quiet, familiar chat chrome; message/channel colors remain semantic. */
+body .town-chat,body .town-chat:not(.compact){background:linear-gradient(145deg,#292c2ff7,#1d2023fa);border:1px solid #81878d;border-radius:6px;color:#f1f2f3;padding:6px 10px;box-shadow:inset 0 1px #ffffff20,0 2px 5px #0005}
+body .town-chat-tabs{gap:8px;margin:0 0 5px;border-bottom:1px solid #ffffff15;min-height:25px}
+body .town-chat-tabs button{background:none!important;border:0!important;border-bottom:2px solid transparent!important;border-radius:0!important;box-shadow:none!important;color:#b8bdc2!important;padding:3px 5px 5px;font-size:12px}
+body .town-chat-tabs button[aria-pressed=true]{color:#fff!important;border-bottom-color:#e0e3e6!important;background:none!important;box-shadow:none!important}
+body .town-chat-tabs button:nth-child(3){color:#9bd37c!important}body .town-chat-tabs button:nth-child(4){color:#c1a0e1!important}
+body .town-chat-tabs button:last-child{min-width:65px;margin-left:auto;font-size:11px;padding:3px 2px 5px;color:#d2d5d8!important}
+body .town-chat-log p{font-size:12px;line-height:1.45;margin:2px 0;text-shadow:0 1px #0006}
+body .town-chat-viewport{gap:6px}body .town-chat-scroll{width:7px;gap:0}body .town-chat-scroll>button{display:none}
+body .town-chat-track{border:0;background:#ffffff09;border-radius:5px}
+body .town-chat-thumb{left:0;right:0;border:0!important;border-radius:5px;background:#969b9f!important;min-height:18px}
+body .town-chat-scroll.disabled{opacity:.2}body .town-chat-scroll.disabled .town-chat-thumb{display:none}
+body .town-chat-status{font-size:11px;color:#e5bcb3!important;margin-top:2px}body .town-chat-status:empty{display:none}
+body .town-chat form{gap:7px;margin-top:5px}body .town-chat input{background:#171a1de8;border:1px solid #81878d;color:#fff;border-radius:4px;padding:6px 8px;font-size:12px;box-shadow:inset 0 1px 3px #0004}
+body .town-chat input::placeholder{color:#969ca2}body .town-chat form button{background:linear-gradient(#60666c,#484e54)!important;border:1px solid #7a8188!important;border-radius:4px;color:#fff!important;padding:5px 13px;font-size:12px;box-shadow:inset 0 1px #ffffff15!important}
+body .town-chat button:hover{color:#fff!important;filter:brightness(1.12)}body .town-chat :is(button,input):focus-visible{outline:1px solid #d1d8de;outline-offset:1px}
+body .town-chat.compact{padding-top:4px;padding-bottom:2px}body .town-chat.compact .town-chat-tabs{margin:0;border-bottom:0}

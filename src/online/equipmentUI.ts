@@ -1,3 +1,4 @@
+import {quickSlots,shortcutDrop} from './quickSlots';
 import {emoteById,emoteArt} from './emotes';
 import {weaponAttackSpeed} from './adventure/combatProfiles';
 import {renderPartyPanel} from './partyUI';
@@ -93,11 +94,11 @@ export function mountTownEquipmentUI(hud:any,gs:any){
   button.addEventListener('click',event=>{if(suppressClick){event.preventDefault();event.stopImmediatePropagation();suppressClick=false;}},true);
   button.ondragstart=event=>event.preventDefault();
   button.onpointerdown=event=>{if(event.button!==0)return;event.preventDefault();cancelDrag?.();suppressClick=false;const startX=event.clientX,startY=event.clientY;let moved=false,ghost:HTMLElement|undefined;
-   const target=(x:number,y:number)=>{const drop=document.elementFromPoint(x,y)?.closest<HTMLElement>('[data-quick-slot]');return drop&&quick.contains(drop)?drop:undefined;};
-   const clear=()=>{ghost?.remove();quick.querySelectorAll('.drag-over').forEach(b=>b.classList.remove('drag-over'));cancelDrag=undefined;if(button.hasPointerCapture(event.pointerId))button.releasePointerCapture(event.pointerId);requestAnimationFrame(refresh);};
-   cancelDrag=trackPointerDrag(window,event,{move:ev=>{if(!moved&&Math.hypot(ev.clientX-startX,ev.clientY-startY)>6){moved=true;ghost=makeIcon(e);ghost.classList.add('town-drag-ghost');ghost.setAttribute('aria-hidden','true');document.body.append(ghost);}if(!moved)return;ev.preventDefault();ghost!.style.left=ev.clientX+'px';ghost!.style.top=ev.clientY+'px';const drop=target(ev.clientX,ev.clientY);quick.querySelectorAll<HTMLElement>('[data-quick-slot]').forEach(b=>b.classList.toggle('drag-over',b===drop));},end:ev=>{
+   const target=(x:number,y:number)=>{if(quick.hidden)return;return Array.from(quick.querySelectorAll<HTMLElement>('[data-quick-slot]')).find(slot=>{const r=slot.getBoundingClientRect();return x>=r.left&&x<r.right&&y>=r.top&&y<r.bottom;});};
+   const clear=()=>{button.classList.remove('drag-source');quick.classList.remove('quick-dragging');ghost?.remove();quick.querySelectorAll('.drag-over').forEach(b=>b.classList.remove('drag-over'));cancelDrag=undefined;if(button.hasPointerCapture(event.pointerId))button.releasePointerCapture(event.pointerId);requestAnimationFrame(refresh);};
+   cancelDrag=trackPointerDrag(window,event,{move:ev=>{if(!moved&&Math.hypot(ev.clientX-startX,ev.clientY-startY)>6){moved=true;button.classList.add('drag-source');quick.classList.add('quick-dragging');ghost=makeIcon(e);ghost.classList.add('town-drag-ghost');ghost.setAttribute('aria-hidden','true');document.body.append(ghost);}if(!moved)return;ev.preventDefault();ghost!.style.left=ev.clientX+'px';ghost!.style.top=ev.clientY+'px';const drop=target(ev.clientX,ev.clientY);quick.querySelectorAll<HTMLElement>('[data-quick-slot]').forEach(b=>b.classList.toggle('drag-over',b===drop));},end:ev=>{
     const drop=ev&&moved?target(ev.clientX,ev.clientY):undefined;suppressClick=moved||sourceSlot!==undefined||!!onTap;clear();
-    if(drop){const index=Number(drop.dataset.quickSlot),ref=quickRef(e);if(resolve(ref))void run(async()=>{if(sourceSlot!==undefined)await gs.action('swap_quick_slots',{from:sourceSlot,to:index});else await gs.action('set_quick_slot',{index,ref});const message=sourceSlot===undefined?`${e.definition.name}をショートカットに登録しました。`:'ショートカットを入れ替えました。';say(message);onRegistered?.(message);});}
+    if(drop){const index=Number(drop.dataset.quickSlot),ref=quickRef(e);if(resolve(ref))void run(async()=>{const command=shortcutDrop(index,ref,sourceSlot);if(!command)return;await gs.action(command.action,command.payload);const message=sourceSlot===undefined?`${e.definition.name}をショートカットに登録しました。`:'ショートカットを入れ替えました。';say(message);onRegistered?.(message);});}
     else if(ev&&!moved&&sourceSlot!==undefined){void use(e,true);}
     else if(ev&&!moved&&onTap){onTap();}
     else if(ev&&!moved){selected=keyOf(e);for(const a of grid.children)a.classList.toggle('selected',(a as HTMLElement).dataset.entryId===selected);renderDetail();}
@@ -108,9 +109,9 @@ export function mountTownEquipmentUI(hud:any,gs:any){
  function emoteEntry(id:string):QuickEntry|undefined{const e=emoteById(id);return e?{category:'emote',key:e.id,index:0,count:1,equipped:false,definition:{key:e.id,category:'item',name:e.label,textureKey:'',summary:'エモート',description:'絵の吹き出しで挨拶'}}:undefined;}
  function resolve(ref:QuickSlot|null|undefined):QuickEntry|undefined{if(ref?.category==='emote')return emoteEntry(ref.key);return ref?entries().find(e=>e.category===ref.category&&e.key===ref.key&&(e.category==='item'||e.instance?.id===ref.instanceId)):undefined;}
  function renderQuick(){
-  const c=character();const refs=c?.quickSlots??[{category:'item',key:'potion'} as QuickSlot];quick.replaceChildren();
+  const c=character();const refs=quickSlots(c?.quickSlots);quick.replaceChildren();
   for(let i=0;i<(IS_MOBILE?5:20);i++){
-   const e=resolve(refs[i]),b=e?makeIcon(e):node('button');b.classList.add('town-icon','town-quick-slot');b.type='button';b.dataset.quickSlot=String(i);b.setAttribute('aria-label',`ショートカット ${i<10?'':'Shift+'}${(i+1)%10}${e?' '+e.definition.name:' 空き'}`);
+   const e=resolve(refs[i]),b=e?makeIcon(e):node('button');b.classList.add('town-icon','town-quick-slot');b.type='button';b.dataset.quickSlot=String(i);b.dataset.occupied=String(!!e);if(e)b.title+=String.fromCharCode(10)+'ドラッグで移動・入れ替え';b.setAttribute('aria-label',`ショートカット ${i<10?'':'Shift+'}${(i+1)%10}${e?' '+e.definition.name:' 空き'}`);
    const number=node('span',`${i>=10?'⇧':''}${(i+1)%10}`);number.className='town-quick-label';b.append(number);b.onclick=()=>{if(e)void use(e,true);};
    b.oncontextmenu=event=>{event.preventDefault();void run(()=>gs.action('set_quick_slot',{index:i,ref:null}));};
    b.ondragover=event=>{event.preventDefault();if(event.dataTransfer)event.dataTransfer.dropEffect='copy';b.classList.add('drag-over');};b.ondragleave=()=>b.classList.remove('drag-over');
