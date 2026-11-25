@@ -81,7 +81,8 @@ export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)
    if(this.moveSending)return;this.moveSending=true;
    try{while(this.moveQueue.length&&gen===this.generation){
     const delay=Math.max(0,TOWN_STEP_MS-(Date.now()-this.lastMoveSent));if(delay)await new Promise(resolve=>setTimeout(resolve,delay));if(gen!==this.generation)break;
-    const batch=this.moveQueue.slice(0,!this.preview&&!this.inHouse?3:1),batched=batch.length>1;
+    const candidates=this.moveQueue.slice(0,3),nearEnemy=this.inDungeon&&this.packet.adventure!.snapshot.enemies.some(e=>e.hp>0&&candidates.some(p=>Math.abs(e.x-p.x)+Math.abs(e.y-p.y)<=9));
+    const batch=candidates.slice(0,!this.preview&&!this.inHouse&&!nearEnemy?3:1),batched=batch.length>1;
     const send=()=>this.action(batched?'walk_batch':'move',batched?{steps:batch}:{...batch[0]});this.lastMoveSent=Date.now();
     try{await send();}catch(e){if(gen!==this.generation||!/(移動が速すぎます|少し待ってください)/.test((e as Error).message))throw e;await new Promise(resolve=>setTimeout(resolve,TOWN_STEP_MS));if(gen!==this.generation)break;this.lastMoveSent=Date.now();await send();}
     this.moveQueue.splice(0,batched?Math.max(1,this.lastBatchAccepted):1);

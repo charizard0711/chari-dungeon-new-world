@@ -7,7 +7,7 @@ Production observations (Supabase SQL statistics and Postgres logs, JST):
 
 Changes:
 - Idle dungeon polls opt into nonblocking user/room advisory locks, in the existing user-before-room order. Busy polls defer until the next tick rather than entering the queue. Old clients keep receiving complete packets.
-- Ordinary buffered movement can send at most three cardinal squares per RPC. Every square runs the existing authoritative movement/combat/heal path. A server-clock token bucket retains the 110ms minimum and caps stored credit to three squares. Boss planning and houses retain their existing single-step behavior.
+- Ordinary buffered movement can send at most three cardinal squares per RPC. Every square runs the existing authoritative movement/combat/heal path. A server-clock token bucket retains the 110ms minimum and caps stored credit to three squares. Near enemies, boss planning and houses retain their existing single-step behavior.
 - A partial batch preserves confirmed squares, rejects the blocked remainder, and reconciles prediction without replaying uncertain mutations.
 - Opened chests no longer send repeated failing interactions when a direction key is held against them. Repeated already-open validation errors were also present in the incident logs.
 - Network waits abort after 8 seconds and release busy state. An in-memory ring retains only 100 action/time/status entries, without payloads, chat, identity or tokens.
