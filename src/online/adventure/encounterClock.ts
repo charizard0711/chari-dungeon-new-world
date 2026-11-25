@@ -14,5 +14,5 @@ export function telegraphLabel(resolvesAt:number,serverNow:number){
  return `${(Math.ceil(Math.max(0,resolvesAt-serverNow)/100)/10).toFixed(1)}s`;
 }
 export function enemyMoveDuration(interval=600,queuedCells=1){
- return TOWN_STEP_MS;
+ return Math.max(110,Math.min(400,interval));
 }
