@@ -4,7 +4,7 @@ import {railNow} from './railway';
 import {prepareRailArt,mountRailStations} from './railway';
 import {weaponAttackSpeed,enemyAttackSpeed} from './combatProfiles';
 import {drawMazeGround,mountMazeMechanics} from './mazeView';
-import {isTap,startTapAction} from '../tapActions';
+import {isTap,isPrimaryAction,startTapAction} from '../tapActions';
 import {EncounterClock,telegraphLabel,enemyMoveDuration} from './encounterClock';
 import {partyCanSee,partySightRadius,partyHasLight,enemyVisible,terrainVisibility} from './visibility';
 import {ADVENTURE_CONFIG as C,ADVENTURE_AREAS,ADVENTURE_PROPS,adventureAreaAt} from './layout';
@@ -35,7 +35,7 @@ export function mountAdventureView(scene:any){
  for(const p of interactProps){
   const key=p.kind==='rail_board'?'maze_rail_directions':p.kind==='rail'?'maze_rail_gate':p.kind==='blessing'?'maze_fountain_'+(scene.packet.adventure.snapshot.fountainKind==='normal'?'healing':scene.packet.adventure.snapshot.fountainKind??'healing'):p.kind==='chest'?`online_chest_${p.chestType??'common'}`:ATLAS[p.atlas??'detail'],frame=p.kind==='rail_board'?'south':p.kind==='rail'||p.kind==='chest'||p.kind==='blessing'?undefined:p.frame;
   const image=scene.add.image((p.x+.5)*T,(p.y+1)*T,key,frame).setOrigin(.5,1).setDisplaySize(p.w?p.w*T:p.size,p.h?p.h*T:p.size).setDepth(p.y+.8).setInteractive();props.set(p.id,image);if(p.kind==='rail_board')image.setOrigin(.5,.5).setPosition((p.id==='rail_board_entry'?52.5:49.5)*T,(p.y+.5)*T).setDisplaySize(90,180);if(p.kind==='rail')image.setAlpha(.001);
-  image.on('pointerdown',(pointer:any,_x:any,_y:any,event:any)=>{event?.stopPropagation();if(!(pointer.rightButtonDown()||isTap(pointer)||p.kind==='rail'||p.kind==='rail_board')||scene.busy||scene.hud?.overlayMode!=='none')return;if(isTap(pointer))startTapAction(scene,{x:p.x,y:p.y,reach:1,run:()=>scene.interactAdventure(p.id)});else scene.interactAdventure(p.id);});image.on('pointerover',()=>scene.adventureHover=p.id);image.on('pointerout',()=>scene.adventureHover=undefined);
+  image.on('pointerdown',(pointer:any,_x:any,_y:any,event:any)=>{event?.stopPropagation();if(!(pointer.rightButtonDown()||isPrimaryAction(pointer)||p.kind==='rail'||p.kind==='rail_board')||scene.busy||scene.hud?.overlayMode!=='none')return;if(isPrimaryAction(pointer))startTapAction(scene,{x:p.x,y:p.y,reach:1,run:()=>scene.interactAdventure(p.id)});else scene.interactAdventure(p.id);});image.on('pointerover',()=>scene.adventureHover=p.id);image.on('pointerout',()=>scene.adventureHover=undefined);
  }
  if(floor===1){const portal=scene.add.graphics().setDepth(30),y=arena?22:23;portal.fillStyle(0x63d5fa,.24).fillRect(49*T,y*T,2*T,T).lineStyle(2,0x93eaff,.9).strokeRect(49*T+3,y*T+3,2*T-6,T-6);scene.add.text(50*T,(y+.5)*T,arena?'↓ 遺跡へ':'↑ ボスエリアへ',{fontFamily:'Meiryo',fontSize:'11px',color:'#def7ff',stroke:'#071427',strokeThickness:3}).setOrigin(.5).setDepth(31);}
  let signature='',warningSignature='',hp=scene.player.hp,hoverEnemy:string|undefined;let enemyDetail:any;const encounterClock=new EncounterClock();

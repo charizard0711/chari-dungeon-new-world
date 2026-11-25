@@ -1,4 +1,6 @@
 export const isTap=(pointer:any)=>!!pointer.wasTouch;
+/** Mouse primary click shares non-combat touch interactions. */
+export const isPrimaryAction=(pointer:any)=>isTap(pointer)||!!pointer.leftButtonDown?.();
 export interface TapTarget{x:number;y:number;reach:number;aligned?:boolean;run:()=>void;valid?:()=>boolean;}
 export function withinTapReach(player:{x:number;y:number},target:TapTarget){const dx=Math.abs(player.x-target.x),dy=Math.abs(player.y-target.y);return dx+dy<=target.reach&&(!target.aligned||dx===0||dy===0);}
 export function startTapAction(scene:any,target:TapTarget){scene.stopClickPath();scene.tapTarget=target;advanceTapAction(scene);}
