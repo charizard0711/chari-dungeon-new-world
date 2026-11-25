@@ -12,14 +12,12 @@ export function mountTownLoading(scene:Phaser.Scene,destination?:string){
   const bar=document.createElement('div');bar.className='town-entry-progress';bar.setAttribute('role','progressbar');bar.setAttribute('aria-label','町の読み込み状況');bar.setAttribute('aria-valuemin','0');bar.setAttribute('aria-valuemax','100');
   const fill=document.createElement('div');bar.append(fill);
   const percent=document.createElement('span');percent.className='town-entry-percent';
-  const logo=document.createElement('img');logo.src='assets/new-world/logo-silver-v2.png';logo.alt='Chari Dungeon: ZERO';logo.className='town-loading-logo';panel.append(logo,eyebrow,title,status,bar,percent);root.append(panel);document.body.append(root);
+  const logo=document.createElement('img');logo.src='assets/new-world/logo-silver-v2.png';logo.alt='Chari Dungeon: ZERO';logo.className='town-loading-logo';panel.append(logo,eyebrow,title,status,bar,percent);root.append(panel);const parent=scene.game.canvas.parentElement!;parent.append(root);Object.assign(root.style,{position:'absolute',inset:'0',width:'100%',height:'100%'});
   const started=Date.now();
   const setDestination=(label:string,dungeon:boolean)=>{title.textContent=label;painting.src=new URL(dungeon?'assets/online/adventure-v2/loading.webp':'assets/new-world/title-world-v1.webp',scene.game.canvas.ownerDocument.baseURI).href;};
   let disposed=false,timer:ReturnType<typeof setTimeout>|undefined;
-  const fit=()=>{const r=scene.game.canvas.getBoundingClientRect();Object.assign(root.style,{left:`${r.left}px`,top:`${r.top}px`,width:`${r.width}px`,height:`${r.height}px`});};
-  const resize=new ResizeObserver(fit);resize.observe(scene.game.canvas);window.addEventListener('resize',fit);window.addEventListener('scroll',fit);
-  const destroy=()=>{if(disposed)return;disposed=true;clearTimeout(timer);resize.disconnect();window.removeEventListener('resize',fit);window.removeEventListener('scroll',fit);root.remove();};
+  const destroy=()=>{if(disposed)return;disposed=true;clearTimeout(timer);root.remove();};
   const update=(progress:number,label='町の画像と冒険者を読み込み中…')=>{if(disposed)return;const value=Math.round(Math.max(0,Math.min(1,progress))*100);fill.style.width=`${value}%`;bar.setAttribute('aria-valuenow',String(value));percent.textContent=`${value}%`;status.textContent=label;};
-  fit();update(.03,'サーバーに接続中…');
+  update(.03,'サーバーに接続中…');
   return {root,update,destroy,setDestination,finish(done:()=>void){update(1,'準備ができました');root.setAttribute('aria-busy','false');root.classList.add('ready');void painting.decode().catch(()=>{}).then(()=>{if(!disposed)timer=setTimeout(()=>{destroy();done();},Math.max(220,700-(Date.now()-started)));});}};
 }

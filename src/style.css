@@ -103,6 +103,8 @@ body[data-difficulty="master"] #game-container { border-color: #f1c355aa; box-sh
 }
 
 #game-container {
+  width:var(--initial-game-width,min(100vw,calc(100dvh * 1.684210526)));
+  height:var(--initial-game-height,min(100dvh,calc(100vw * .59375)));
   position: relative;
   overflow: hidden;
   border: 1px solid rgba(196, 151, 76, .5);
@@ -158,7 +160,7 @@ canvas {
 
 /* Immediate HTML artwork stays visible while the game bundle and assets load. */
 #loading-screen {
-  position: fixed; inset: 0; z-index: 10000; overflow: hidden;
+  position: absolute; inset: 0; z-index: 10000; overflow: hidden;
   display: flex; align-items: flex-end; justify-content: center;
   padding: 32px 24px max(28px, env(safe-area-inset-bottom)); box-sizing: border-box;
   color: #f8e2af; background: #081615 url('/assets/ui/loading-gate-v1/gate.webp') center 43% / cover no-repeat;
@@ -190,7 +192,7 @@ canvas {
 @media (prefers-reduced-motion: reduce) { .loading-fill::after, .loading-sparks i { animation: none; } .loading-fill { transition: none; } }
 
 #loading-screen[data-mode="boot"] {
-  position: fixed; inset: 0; z-index: 20;
+  position: absolute; inset: 0; z-index: 20;
   display: flex; align-items: center; justify-content: center;
   padding: 7vh 20px;
   background: radial-gradient(ellipse at 50% 46%, #21151a 0%, #0b090d 42%, #060609 85%);
@@ -253,3 +255,5 @@ canvas {
 
 /* Keep the same night artwork visible throughout boot and title handoff. */
 #loading-screen[data-mode=boot]{background:#051021 url('/assets/new-world/lobby-night-v2.png') center/cover no-repeat}
+/* Boot and travel loaders share the game frame, including its selected size. */
+#loading-screen,#loading-screen[data-mode=boot]{position:absolute;inset:0;z-index:3000}
