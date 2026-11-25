@@ -1,0 +1,59 @@
+{
+  "credit": "VOICEVOX:玄野武宏",
+  "engine": "VOICEVOX Core 0.17.1",
+  "model": "4.vvm / style 11",
+  "terms": [
+    "https://voicevox.hiroshiba.jp/term/",
+    "https://virvoxproject.wixsite.com/official/voicevoxの利用規約"
+  ],
+  "clips": [
+    {
+      "id": "guardian-1",
+      "boss": "guardian",
+      "text": "ふんっ！",
+      "seconds": 0.277,
+      "bytes": 13338,
+      "sha256": "7483ba8b65ed34066c57d140a8073559608029054f132d9467c03e90dfc163a2"
+    },
+    {
+      "id": "guardian-2",
+      "boss": "guardian",
+      "text": "はあっ！",
+      "seconds": 0.293,
+      "bytes": 14092,
+      "sha256": "7c8f91a8358e6ec52a92d446d5bc2e8be307a8c2dd1cef6a2b31de9fa45c40fa"
+    },
+    {
+      "id": "guardian-3",
+      "boss": "guardian",
+      "text": "うおっ！",
+      "seconds": 0.277,
+      "bytes": 13362,
+      "sha256": "d3010842666bd99992bdaae5f6018b3c24ea3a807d284eef044a0709904e8d73"
+    },
+    {
+      "id": "weaver-1",
+      "boss": "weaver",
+      "text": "グァッ！",
+      "seconds": 0.306,
+      "bytes": 14718,
+      "sha256": "dac32e641ec676015733e3d88dfea98140f151e1908d33591276490faddc6842"
+    },
+    {
+      "id": "weaver-2",
+      "boss": "weaver",
+      "text": "シャアッ！",
+      "seconds": 0.368,
+      "bytes": 17694,
+      "sha256": "da6b78b94f3b8091dbf6d1d4b15acc3693f2c07d402ffc6ee87e8b26bb6d738b"
+    },
+    {
+      "id": "weaver-3",
+      "boss": "weaver",
+      "text": "グルァッ！",
+      "seconds": 0.338,
+      "bytes": 16290,
+      "sha256": "f2330eaa1ea9363a29a8702fc07cf7e28790dde5be92b646220cb2c3bf7c9355"
+    }
+  ]
+}
