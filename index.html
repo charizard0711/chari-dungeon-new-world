@@ -9,15 +9,28 @@
     <link rel="apple-touch-icon" sizes="180x180" href="./icons/sword-blue-180.png" />
     <link rel="preload" as="image" href="./assets/new-world/lobby-night-v2.png" fetchpriority="high" />
     <title>Chari Dungeon: ZERO</title>
-    <script type="module" crossorigin src="./assets/main-BuNcdwCR.js"></script>
-    <link rel="modulepreload" crossorigin href="./assets/api-B3ldfvSH.js">
-    <link rel="modulepreload" crossorigin href="./assets/inbox-CMF28hx2.js">
-    <link rel="modulepreload" crossorigin href="./assets/emailLanguage-BX8P3r_4.js">
-    <link rel="stylesheet" crossorigin href="./assets/inbox-BDqFiH5E.css">
-    <link rel="stylesheet" crossorigin href="./assets/main-BY8eg8L-.css">
-  </head>
+      <script>
+      // Match the default game bounds before the module bundle creates its canvas.
+      (() => {
+        const forced = new URLSearchParams(location.search).get('mobile');
+        const mobile = forced === '1' || forced !== '0' && (innerWidth <= 520 || (('ontouchstart' in window || navigator.maxTouchPoints > 0) && Math.min(innerWidth, innerHeight) <= 700));
+        const w = mobile ? 390 : 1280, h = mobile ? 844 : 760;
+        const zoom = Math.min(mobile ? 1 : Infinity, innerWidth / w, innerHeight / h);
+        document.documentElement.style.setProperty('--initial-game-width', `${w * zoom}px`);
+        document.documentElement.style.setProperty('--initial-game-height', `${h * zoom}px`);
+      })();
+    </script>
+  <script type="module" crossorigin src="./assets/main-CfqKnKX6.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/api-B3ldfvSH.js">
+  <link rel="modulepreload" crossorigin href="./assets/inbox-CMF28hx2.js">
+  <link rel="modulepreload" crossorigin href="./assets/emailLanguage-BX8P3r_4.js">
+  <link rel="stylesheet" crossorigin href="./assets/inbox-BDqFiH5E.css">
+  <link rel="stylesheet" crossorigin href="./assets/main-bGDS79We.css">
+</head>
   <body>
-    <div id="loading-screen" data-mode="boot" aria-label="Loading game">
+    <div id="app">
+      <div id="game-container">
+<div id="loading-screen" data-mode="boot" aria-label="Loading game">
       <h1 class="loading-title">Chari Dungeon: ZERO</h1>
       <div class="loading-sparks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
       <div class="loading-card">
@@ -34,8 +47,7 @@
         </div>
       </div>
     </div>
-    <div id="app">
-      <div id="game-container"></div>
+      </div>
     </div>
   
 
