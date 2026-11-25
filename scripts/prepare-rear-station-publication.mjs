@@ -1,0 +1,3 @@
+// Prepare only. Apply after the browser release with the rear station is verified live.
+import fs from 'node:fs/promises';import{makeHousingDb}from './housing-test-db.mjs';
+const{db}=await makeHousingDb();try{const fn=(await db.query("select pg_get_functiondef('online_world_pre_latency(text,jsonb)'::regprocedure)s")).rows[0].s,cfg=await fs.readFile('src/online/adventure/floor1-maze.json','utf8');await fs.mkdir('tmp',{recursive:true});await fs.writeFile('tmp/resume-rear-station.sql',"begin;\nupdate online_adventure_config set data=$layout$"+cfg+"$layout$::jsonb where id='floor1';\n"+fn+";\ncommit;\n");console.log('Prepared tmp/resume-rear-station.sql; no production changes made.');}finally{await db.close();}
