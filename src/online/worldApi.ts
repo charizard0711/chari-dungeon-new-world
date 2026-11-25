@@ -22,6 +22,7 @@ export async function world(action:string,payload:Record<string,unknown>={}):Pro
 }
 
 export interface PartyState{id:string;leaderId:string;isLeader:boolean;limit:number;members:{id:string;name:string;leader:boolean;online:boolean}[];}
+export interface WorldState{townHeal?:number;}
 export interface PartyInvite{id:string;name:string;leaderName:string;incoming:boolean;}
 export interface ChannelMessage{id:number;channel:'guild'|'party';group_id:string;name:string;message:string;character_id:string;}
 export interface WorldState{party?:PartyState|null;partyInvites?:PartyInvite[];channelMessages?:ChannelMessage[];}

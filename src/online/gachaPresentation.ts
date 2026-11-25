@@ -14,7 +14,7 @@ export function createGachaPresentation(onPhase?:(phase:string)=>void){
  let running=false,disposed=false,skip=false,wake:(()=>void)|undefined;
  const phase=(value:string,text:string)=>{if(disposed)return;element.dataset.phase=value;caption.textContent=text;onPhase?.(value);};
  const delay=(ms:number)=>new Promise<void>(resolve=>{if(skip||disposed){resolve();return;}const timer=setTimeout(()=>{wake=undefined;resolve();},ms);wake=()=>{clearTimeout(timer);wake=undefined;resolve();};});
- const finishEarly=()=>{skip=true;wake?.();};
+ const finishEarly=()=>{skip=true;onPhase?.('skip');wake?.();};
  return{element,get running(){return running;},skip:finishEarly,dispose(){disposed=true;finishEarly();},async play(request:()=>Promise<GachaPrize>){
   if(running||disposed)return;running=true;skip=false;prize.setAttribute('aria-hidden','true');phase('spinning','カプセルをかき混ぜています…');
   try{

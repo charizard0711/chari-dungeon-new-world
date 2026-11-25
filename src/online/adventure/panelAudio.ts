@@ -10,6 +10,7 @@ export function preloadPanelAudio(scene:Phaser.Scene){
 
 /** Compare authoritative packets only: prediction, polling and joining must not replay effects. */
 export function panelSoundsForChange(before:WorldState|undefined,after:WorldState):PanelSound[]{
+ if(before?.active?.id&&before.active.id===after.active?.id&&after.active?.location==='town'&&(after.townHeal??0)>(before.townHeal??0))return ['heal'];
  const a=before?.adventure,b=after.adventure,cid=after.active?.id;
  if(!a?.inside||!b?.inside||!cid||cid!==before?.active?.id||a.id!==b.id||a.floor!==b.floor)return [];
  const old=a.snapshot,next=b.snapshot,result:PanelSound[]=[];

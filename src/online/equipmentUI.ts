@@ -23,6 +23,7 @@ import {playTownSound} from './presentation';
 import {trackPointerDrag} from './pointerDrag';
 import {mountAdventureBoard} from './adventure/board';
 import {mountWarehouseUI} from './warehouseUI';
+import {createGachaRattle}from './actionAudio';
 import {createGachaPresentation} from './gachaPresentation';
 
 export type Entry={key:string;category:EquipmentSlot|'item';index:number;instance?:EquipmentInstance;count:number;definition:CatalogEntry;equipped:boolean;price?:number};
@@ -53,7 +54,7 @@ export function mountTownEquipmentUI(hud:any,gs:any){
  let friendName='';const guildDraft:GuildDraft={name:'',description:'',joinName:'',confirm:''};let inspected:PlayerInspection|undefined;
  let inputState:{hud:boolean;town:boolean;hudKeys:boolean;townKeys:boolean}|undefined;
  let cancelDrag:(()=>void)|undefined;
- let gacha:ReturnType<typeof createGachaPresentation>|undefined;
+ let gacha:ReturnType<typeof createGachaPresentation>|undefined;let gachaRattle:ReturnType<typeof createGachaRattle>|undefined;
  let gachaRollButton:HTMLButtonElement|undefined,gachaSkip:HTMLButtonElement|undefined,gachaResult:HTMLElement|undefined;
  function pauseGameInput(){if(inputState)return;inputState={hud:hud.input.enabled,town:gs.input.enabled,hudKeys:hud.input.keyboard?.enabled??false,townKeys:gs.input.keyboard?.enabled??false};hud.input.enabled=false;gs.input.enabled=false;if(hud.input.keyboard)hud.input.keyboard.enabled=false;if(gs.input.keyboard)gs.input.keyboard.enabled=false;}
  function resumeGameInput(){if(!inputState)return;hud.input.enabled=inputState.hud;gs.input.enabled=inputState.town;if(hud.input.keyboard){hud.input.keyboard.resetKeys();hud.input.keyboard.enabled=inputState.hudKeys;}if(gs.input.keyboard){gs.input.keyboard.resetKeys();gs.input.keyboard.enabled=inputState.townKeys;}inputState=undefined;}
@@ -171,7 +172,7 @@ export function mountTownEquipmentUI(hud:any,gs:any){
  }
  function renderGacha(){
   if(gacha){updateGachaControls();return;}
-  tabs.replaceChildren();body.className='town-gacha-body';body.replaceChildren();gacha=createGachaPresentation(phase=>{const audio=gs.registry.get('onlineAudio');if(!audio?.seOn||gs.sound.mute||gs.game.config.audio.noAudio||new URLSearchParams(location.search).get('mute')==='1')return;const key=phase==='spinning'?'maze_motor':phase==='drop'?'online_charia_drop':phase==='opening'?'online_charia_jingle':'';if(key&&gs.cache.audio.exists(key))gs.sound.play(key,{volume:Math.min(1,audio.seVolume)*.45});});
+  tabs.replaceChildren();body.className='town-gacha-body';body.replaceChildren();gachaRattle=createGachaRattle(gs);gacha=createGachaPresentation(phase=>{gachaRattle?.phase(phase);const audio=gs.registry.get('onlineAudio');if(!audio?.seOn||gs.sound.mute||gs.game.config.audio.noAudio||new URLSearchParams(location.search).get('mute')==='1')return;const key=phase==='drop'?'online_charia_drop':phase==='opening'?'online_charia_jingle':'';if(key&&gs.cache.audio.exists(key))gs.sound.play(key,{volume:Math.min(1,audio.seVolume)*.45});});
   const info=node('div');info.className='town-gacha-info';info.append(node('h3','運命をひらく、魔法のガチャ'),node('p','1回 1,000G\n武器・服・盾・ネックレスのいずれかを獲得します。\nD 35% / C 25% / B 18% / A 12% / S 6% / SS 3% / SSS 1%\n武器は1%の確率で色違いになります。'));
   gachaRollButton=node('button','ガチャを回す 1,000G');gachaRollButton.type='button';
   gachaRollButton.onclick=async()=>{if(pending||gs.requestBusy||gacha?.running)return;const presentation=gacha!;gachaResult!.textContent='';const playing=presentation.play(async()=>{const before=new Set(entries().map(keyOf));await gs.action('gacha');const key=gs.packet.reward;reward=entries().find(e=>!before.has(keyOf(e))&&(baseKey(e.key)===key||e.definition.key===key));if(!reward)throw Error('所持品を更新して獲得アイテムを確認してください。');return{name:reward.definition.name,grade:reward.definition.grade??'D',starred:reward.key.startsWith('star_'),icon:makeIcon(reward)};});updateGachaControls();
@@ -211,7 +212,7 @@ export function mountTownEquipmentUI(hud:any,gs:any){
  }
  async function inspectPlayer(id:string){if(id===gs.packet.active?.id||gacha?.running||gs.requestBusy||pending)return;try{await gs.action('inspect_player',{character_id:id});const info=gs.packet.inspection;if(!info||!auxiliaryPanel('inspect',`${info.name} · ステータス・装備`))return;inspected=info;renderInspection();footer.textContent='近くの冒険者の装備を確認し、フレンド・ギルドの申請ができます。';refresh();}catch(e){gs.log((e as Error).message);}}
 
- function clearGacha(){gacha?.dispose();gacha=undefined;gachaRollButton=undefined;gachaSkip=undefined;gachaResult=undefined;closeButton.disabled=false;}
+ function clearGacha(){gachaRattle?.destroy();gachaRattle=undefined;gacha?.dispose();gacha=undefined;gachaRollButton=undefined;gachaSkip=undefined;gachaResult=undefined;closeButton.disabled=false;}
  function renderGuide(){tabs.replaceChildren();body.className='town-guide';body.replaceChildren(node('p','案内人リーフ「ようこそ、はじまりの町へ。\n商人ミラから買い物や装備の修理ができます。\n西のガチャ機では、新しい装備が手に入ります。\nNPCや機械の近くで、右クリックしてみてください。」'));}
  function open(next:'inventory'|'shop'|'gacha'|'friends'|'guild'|'party',filter?:string){
   if(next==='shop'||next==='gacha'){const npc=TOWN_INTERACTIONS.find(n=>n.id===(next==='shop'?'merchant':'gacha'))!;if(!canInteract(gs.player,npc)){gs.log('町の設備に近づいて右クリックしてください。');return;}}

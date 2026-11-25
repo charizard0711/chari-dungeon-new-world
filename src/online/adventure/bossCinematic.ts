@@ -1,9 +1,10 @@
 import frames from '../../bossIntroFrames.json';
 import {bossStage} from './stage';
 import {terrainFrame} from './scenery';
+import {playBossStab}from '../actionAudio';
 export const BOSS_INTRO_MS=14000,SMASH_MS=3800,SMASH_IMPACT_MS=1800;
 export function bossCinematicLocked(a:any,now:number){const b=a?.snapshot?.bossEncounter;return bossStage(a)&&!!b&&(b.phase==='opening'||b.phase==='battle'&&b.smash&&now<b.smash.at+b.smash.duration);}
-export function preloadBossCinematic(scene:any){for(const key of ['walk','attack'])scene.load.image('boss_intro_'+key,`assets/online/boss-intro-demo-v2/${key}.png`);}
+export function preloadBossCinematic(scene:any){scene.load.audio('boss_sword_stab','assets/online/action-audio-v1/boss-sword-stab.wav');for(const key of ['walk','attack'])scene.load.image('boss_intro_'+key,`assets/online/boss-intro-demo-v2/${key}.png`);}
 const clamp=(n:number)=>Math.max(0,Math.min(1,n)),ease=(n:number)=>{n=clamp(n);return n*n*(3-2*n);};
 const poses=[...frames.walk,...frames.attack];
 /** Fracture the existing map texture at its original size; no decorative slab is added. */
@@ -45,6 +46,6 @@ export function mountBossCinematic(scene:any){
   const vp=scene.cameras.main;bars.fillStyle(0x000000,.85).fillRect(0,0,vp.width,23).fillRect(0,vp.height-23,vp.width,23);label.setPosition(vp.width/2,vp.height-49).setText(intro?(t>10900?'結晶門の守護者 ヴェスパー':''):passed<1800?'大地が震える…':'結晶の衝撃');
   if(t>=7500&&t<7970){const q=clamp((t-7500)/220),fade=1-clamp((t-7720)/250);for(let i=0;i<5;i++){const endAngle=.05+q*Math.PI,start=Math.max(.05,endAngle-(.35+q*1.7));fx.lineStyle(8-i*1.3,i?0xa65dff:0xf4deff,fade*(.6-i*.1));fx.beginPath();for(let n=0;n<=32;n++){const an=start+(endAngle-start)*n/32,px=(bx+.5)*T+Math.cos(an)*(115+i),py=end-84+Math.sin(an)*(30+i);if(n===0)fx.moveTo(px,py);else fx.lineTo(px,py);}fx.strokePath();}}
   const hit=t-9670;if(hit>=0&&hit<1100){const q=hit/1100;fx.lineStyle(3,0xd0a0ff,(1-q)*.8).strokeEllipse((bx+.5)*T,(by+1.5)*T,35+q*350,12+q*90);for(let i=0;i<22;i++){const an=i*2.39996,d=(30+i%5*9)*Math.min(1,hit/400),lift=Math.sin(Math.min(1,hit/800)*Math.PI)*(18+i%4*6);fx.fillStyle(0xc4a4b6,(1-q)*.7).fillTriangle((bx+.5)*T+Math.cos(an)*d,(by+1.5)*T+Math.sin(an)*d*.3-lift,(bx+.5)*T+Math.cos(an)*d+4,(by+1.5)*T+Math.sin(an)*d*.3-lift+3,(bx+.5)*T+Math.cos(an)*d+1,(by+1.5)*T+Math.sin(an)*d*.3-lift-4);}
-   const stamp=(intro?b.at:smash.at)+':impact';if(lastStamp!==stamp){lastStamp=stamp;scene.cameras.main.shake(260,.004);}}
+   const stamp=(intro?b.at:smash.at)+':impact';if(lastStamp!==stamp){lastStamp=stamp;scene.cameras.main.shake(260,.004);if(hit<250)playBossStab(scene);}}
  },destroy(){body.destroy();shadow.destroy();fx.destroy();bars.destroy();label.destroy();for(const o of rubble.values())o.destroy();scene.bossCinematicActive=false;}};
 }
