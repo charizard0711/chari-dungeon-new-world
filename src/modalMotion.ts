@@ -36,6 +36,18 @@ export function installDomModalMotion(host:HTMLElement=document.body){
   for(const element of host.querySelectorAll<HTMLElement>(selector)){
    // Animate the window itself, never a containing scrim or a nested dialog twice.
    if(element.parentElement?.closest(selector))continue;
+   // Older shop/settings windows place their heading directly in the panel.
+   // Give them the same header without replacing inputs or their event handlers.
+   const heading=element.querySelector<HTMLElement>(':scope > h2');
+   if(heading&&!element.querySelector(':scope > header')){
+    const header=document.createElement('header');heading.before(header);header.append(heading);
+    const close=Array.from(element.querySelectorAll<HTMLButtonElement>(':scope > button')).find(b=>['閉じる','✕','×'].includes(b.textContent?.trim()??''));
+    if(close)header.append(close);
+   }
+   const title=element.querySelector<HTMLElement>(':scope > header > h2');
+   if(title&&!title.querySelector('.modal-title-label')){
+    const label=document.createElement('span');label.className='modal-title-label';label.textContent=title.textContent;title.replaceChildren(label);
+   }
    for(const button of element.querySelectorAll?.<HTMLButtonElement>(':scope > header > button, :scope > button')??[]){
     if(['閉じる','✕','×'].includes(button.textContent?.trim()??'')&&!button.classList.contains('unified-modal-close')){
      button.setAttribute('aria-label','閉じる');button.textContent='×';button.classList.add('unified-modal-close');

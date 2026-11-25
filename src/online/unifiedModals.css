@@ -24,3 +24,31 @@ body.zero-unified-modals :is([role=dialog],.zero-settings-dialog) *{scrollbar-wi
 @media(max-width:700px){body.zero-unified-modals :is([role=dialog],.zero-settings-dialog)>header{height:52px;min-height:52px;padding:0 12px!important}body.zero-unified-modals :is([role=dialog],.zero-settings-dialog)>header h2{width:calc(100% - 110px);font-size:18px!important}body.zero-unified-modals :is([role=dialog],.zero-settings-dialog)>h2{font-size:20px}body.zero-unified-modals :is([role=dialog],.zero-settings-dialog)>header .town-gold{font-size:10px;margin-right:38px}body.zero-unified-modals :is([role=dialog],.zero-settings-dialog) .unified-modal-close{right:10px;top:8px}}
 body.zero-unified-modals .mobile :is([role=dialog],.zero-settings-dialog)>header h2{width:calc(100% - 110px);font-size:18px!important}
 body.zero-unified-modals :is([role=dialog],.zero-settings-dialog) input[type=range]{accent-color:#80cdd4}
+
+/* Shallow silver bevel: the approved header keeps its dark, quiet center. */
+body.zero-unified-modals :is([role=dialog],.zero-settings-dialog)>header{
+ isolation:isolate;overflow:visible;box-sizing:border-box;
+ border:1px solid #b9c8d0!important;border-top-color:#edf5f8!important;border-bottom-color:#7b919f!important;
+ border-radius:3px!important;
+ background:linear-gradient(180deg,#354751 0,#1c2e39 12%,#101e28 52%,#0c1922 80%,#203440 100%)!important;
+ box-shadow:inset 0 1px #ffffffa6,inset 0 -1px #e0edf39c,inset 2px 0 #d0dfe45c,inset -2px 0 #d0dfe45c,0 3px 5px #0008;
+}
+body.zero-unified-modals :is([role=dialog],.zero-settings-dialog)>header::before{
+ content:'';position:absolute;inset:3px;pointer-events:none;z-index:-1;border:1px solid #97abb84d;border-radius:8px;
+ background:linear-gradient(135deg,#e5f0f5 0,#a1b6c2 5px,transparent 6px) top left/15px 15px no-repeat,linear-gradient(225deg,#e5f0f5 0,#a1b6c2 5px,transparent 6px) top right/15px 15px no-repeat,linear-gradient(45deg,#829aa8 0,#d0e1e9 5px,transparent 6px) bottom left/15px 15px no-repeat,linear-gradient(315deg,#829aa8 0,#d0e1e9 5px,transparent 6px) bottom right/15px 15px no-repeat;
+}
+body.zero-unified-modals :is([role=dialog],.zero-settings-dialog)>header::after{content:'';position:absolute;bottom:-1px;left:35%;width:30%;height:2px;background:linear-gradient(90deg,transparent,#c6efff,transparent);box-shadow:0 0 5px #8cd5ed66;pointer-events:none}
+body.zero-unified-modals :is([role=dialog],.zero-settings-dialog)>header h2{width:max-content;max-width:calc(100% - 240px);overflow:visible;white-space:nowrap;text-shadow:0 1px #000,0 -1px #ffffff33,0 0 7px #a7d9ea26}
+body.zero-unified-modals :is([role=dialog],.zero-settings-dialog)>header h2::before,body.zero-unified-modals :is([role=dialog],.zero-settings-dialog)>header h2::after{content:'';position:absolute;top:50%;width:clamp(24px,7vw,110px);height:7px;pointer-events:none;background:linear-gradient(180deg,#eef7fb,#9cb3c2 40%,#405767 65%,transparent);clip-path:polygon(0 40%,85% 40%,100% 100%,87% 0,0 0)}
+body.zero-unified-modals :is([role=dialog],.zero-settings-dialog)>header h2::before{right:calc(100% + 18px)}
+body.zero-unified-modals :is([role=dialog],.zero-settings-dialog)>header h2::after{left:calc(100% + 18px);transform:scaleX(-1)}
+body.zero-unified-modals :is([role=dialog],.zero-settings-dialog)>header button:not(.town-icon){border-color:#aebfc9!important;box-shadow:inset 0 1px #e5f2f566,inset 0 -1px #080e17,0 1px 2px #0007}
+body.zero-unified-modals :is([role=dialog],.zero-settings-dialog)>header .town-gold{position:relative;z-index:1;background:#13242ed9;padding:3px 5px;border-radius:3px}
+body.zero-unified-modals :is(.housing-modal,.zero-settings-dialog)>header{margin-bottom:10px}
+@media(max-width:700px){body.zero-unified-modals :is([role=dialog],.zero-settings-dialog)>header h2{max-width:calc(100% - 100px);font-size:18px!important}body.zero-unified-modals :is([role=dialog],.zero-settings-dialog)>header h2::before,body.zero-unified-modals :is([role=dialog],.zero-settings-dialog)>header h2::after{width:20px}body.zero-unified-modals :is([role=dialog],.zero-settings-dialog)>header h2::before{right:calc(100% + 9px)}body.zero-unified-modals :is([role=dialog],.zero-settings-dialog)>header h2::after{left:calc(100% + 9px)}}
+body.zero-unified-modals .mobile :is([role=dialog],.zero-settings-dialog)>header h2{width:max-content;max-width:calc(100% - 100px)}
+body.zero-unified-modals .modal-title-label{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+body.zero-unified-modals .mobile .town-window>header:has(.town-gold){height:66px;min-height:66px}
+body.zero-unified-modals .mobile .town-window>header:has(.town-gold) h2{top:9px;line-height:24px}
+body.zero-unified-modals .mobile .town-window>header .town-gold{position:absolute;bottom:5px;left:50%;transform:translateX(-50%);margin:0;font-size:10px;white-space:nowrap}
+@media(max-width:700px){body.zero-unified-modals .town-window>header:has(.town-gold){height:66px;min-height:66px}body.zero-unified-modals .town-window>header:has(.town-gold) h2{top:9px;line-height:24px}body.zero-unified-modals .town-window>header .town-gold{position:absolute;bottom:5px;left:50%;transform:translateX(-50%);margin:0;font-size:10px;white-space:nowrap}}

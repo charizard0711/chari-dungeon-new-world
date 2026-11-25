@@ -7,7 +7,7 @@ let observer,queued,reduce=false,disconnected=false,plays=0,cancels=0;
 globalThis.MutationObserver=class{constructor(f){observer=f;}observe(){}disconnect(){disconnected=true;}};
 globalThis.requestAnimationFrame=f=>(queued=f,1);globalThis.cancelAnimationFrame=()=>{queued=undefined;};
 globalThis.matchMedia=()=>({matches:reduce});globalThis.getComputedStyle=e=>({display:e.hidden?'none':'block'});
-const element={isConnected:true,hidden:true,dataset:{},parentElement:{closest:()=>null},closest(){return this.hidden?this:null;},animate(frames,options){plays++;assert.equal(options.duration,240);assert.equal(frames[0].scale,'.88');return{cancel(){cancels++;}};}};
+const element={isConnected:true,hidden:true,dataset:{},parentElement:{closest:()=>null},querySelector:()=>null,closest(){return this.hidden?this:null;},animate(frames,options){plays++;assert.equal(options.duration,240);assert.equal(frames[0].scale,'.88');return{cancel(){cancels++;}};}};
 const host={querySelectorAll:()=>[element]},stop=installDomModalMotion(host);
 const tick=()=>{observer();queued?.();};
 assert.equal(plays,0);element.hidden=false;tick();assert.equal(plays,1);
