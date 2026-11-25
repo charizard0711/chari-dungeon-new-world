@@ -1,3 +1,4 @@
+import {boundedRequest,recordRequest}from './requestTiming';
 import type {AdventureState} from './adventure/types';
 import { online } from './api';
 export interface OnlineCharacter {hair_color?:string;}
@@ -17,12 +18,13 @@ export interface WorldState {houses?:{id:string;ownerId:string|null;ownerName:st
 export async function world(action:string,payload:Record<string,unknown>={}):Promise<WorldState>{
   if(!online)throw Error('オンラインに接続できません。');
   const started=performance.now();
-  const {data,error}=await online.rpc('online_world',{action,payload});
-  if(error)throw Error(error.message);const received=performance.now();return {...data,clockReceivedAt:received,clockLatencyMs:Math.min(250,(received-started)/2)} as WorldState;
+  try{const client=online;const {data,error}=await boundedRequest(signal=>client.rpc('online_world',{action,payload:action==='poll'?{...payload,allow_deferred:true}:payload}).abortSignal(signal));
+  if(error)throw Error(error.message);if(data?.pollDeferred){const deferred=new Error('');deferred.name='DeferredPoll';throw deferred;}const received=performance.now();recordRequest(action,received-started,'ok');return {...data,clockReceivedAt:received,clockLatencyMs:Math.min(250,(received-started)/2)} as WorldState;
+  }catch(error){recordRequest(action,performance.now()-started,(error as Error).message.includes('状態を再確認')?'timeout':'error');throw error;}
 }
 
 export interface PartyState{id:string;leaderId:string;isLeader:boolean;limit:number;members:{id:string;name:string;leader:boolean;online:boolean}[];}
-export interface WorldState{townHeal?:number;}
+export interface WorldState{townHeal?:number;walkBatch?:{accepted:number;stopped:boolean};}
 export interface PartyInvite{id:string;name:string;leaderName:string;incoming:boolean;}
 export interface ChannelMessage{id:number;channel:'guild'|'party';group_id:string;name:string;message:string;character_id:string;}
 export interface WorldState{party?:PartyState|null;partyInvites?:PartyInvite[];channelMessages?:ChannelMessage[];}

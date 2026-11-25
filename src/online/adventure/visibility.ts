@@ -14,10 +14,10 @@ export function enemyVisible(hidden:boolean,allies:SightSource[],state:SightStat
 /** Reveal wall surfaces alongside visible floor, without extending floor/entity sight.
  * Only original visible ground contributes: wall visibility never propagates.
  */
-export function terrainVisibility(width:number,height:number,canSee:(x:number,y:number)=>boolean,ground:(x:number,y:number)=>boolean){
+export function terrainVisibility(width:number,height:number,canSee:(x:number,y:number)=>boolean,ground:(x:number,y:number)=>boolean,bounds?:{x:number;y:number;r:number;b:number}){
  const visible=new Set<number>();
  const add=(x:number,y:number)=>{if(x>=0&&y>=0&&x<width&&y<height)visible.add(y*width+x);};
- for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+ for(let y=Math.max(0,(bounds?.y??0)-1);y<Math.min(height,(bounds?.b??height-1)+2);y++)for(let x=Math.max(0,(bounds?.x??0)-1);x<Math.min(width,(bounds?.r??width-1)+2);x++){
   if(!canSee(x,y))continue;add(x,y);
   if(ground(x,y))for(const [dx,dy]of [[-1,0],[1,0],[0,-1],[0,1]])if(!ground(x+dx,y+dy))add(x+dx,y+dy);
  }
