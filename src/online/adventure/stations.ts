@@ -15,6 +15,5 @@ for(let y=s.y+2;y<s.y+s.h-4;y+=2)art(16,s.platformX,y+2,2,2,y+2.2);
 const title=scene.add.text((s.gateX+.5)*T,(s.gateY-1.4)*T,s.name,{fontFamily:'Meiryo',fontSize:'17px',fontStyle:'bold',color:'#ffe5a4',stroke:'#11232d',strokeThickness:4}).setOrigin(.5,1).setDepth(s.gateY+2);objects.push(title);
 }
 for(const p of C.railway.decor){art(p.frame,p.x,p.y+p.h,p.w,p.h,p.frame===15?-1.7:p.y+p.h-.1);}
-const crossing=scene.add.graphics().setDepth(-1.4);objects.push(crossing);crossing.fillStyle(0x92846a).fillRect(53*T+3,28*T,T-6,T);for(let y=0;y<T;y+=8)crossing.lineStyle(1,0x463f32).lineBetween(53*T+3,28*T+y,54*T-3,28*T+y);crossing.fillStyle(0xf1c460).fillRect(53*T,28*T,3,T).fillRect(54*T-3,28*T,3,T);
 return{destroy(){for(const o of objects)o.destroy();}};
 }

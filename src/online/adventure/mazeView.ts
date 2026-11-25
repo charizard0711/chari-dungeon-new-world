@@ -35,7 +35,7 @@ export function mountMazeMechanics(scene:any){
   const opening=phase==='opening'?Math.min(1,(now-boss.at)/1600):phase==='returning'?1-Math.min(1,(now-boss.at)/1600):['battle','cleared'].includes(phase)?1:0;
   cageClosed.setVisible(arena).setAlpha(1-opening);cageOpen.setVisible(arena).setAlpha(opening);
   emerging.setVisible(arena&&phase==='returning');if(emerging.visible)emerging.setPosition(50.5*T,(5+Math.max(0,Math.min(1,phase==='opening'?(now-boss.at-900)/1700:1-(now-boss.at)/1800))*5)*T);
-  if(['opening','battle','returning'].includes(phase)){bars.fillStyle(0x342934).fillRect(49*T,23*T,2*T,T);bars.lineStyle(4,0xd3b57d);for(let x=49*T+6;x<51*T;x+=12)bars.lineBetween(x,23*T,x,24*T);}
+  if(['opening','battle','returning'].includes(phase)){const rear=C.boss.rear;bars.fillStyle(0x342934).fillRect(rear.x*T,rear.y*T,rear.w*T,T);bars.lineStyle(4,0xd3b57d);for(let x=rear.x*T+6;x<(rear.x+rear.w)*T;x+=12)bars.lineBetween(x,rear.y*T,x,(rear.y+1)*T);bars.fillStyle(0x342934).fillRect(49*T,23*T,2*T,T);bars.lineStyle(4,0xd3b57d);for(let x=49*T+6;x<51*T;x+=12)bars.lineBetween(x,23*T,x,24*T);}
   buff.setVisible(false);
   const inBoss=scene.player.x>=41&&scene.player.x<=58&&scene.player.y>=3&&scene.player.y<=24,nearBridge=scene.player.x>=89&&scene.player.x<=104&&scene.player.y>=32&&scene.player.y<=41;
   notice.setVisible(inBoss||nearBridge).setText(inBoss?(phase==='waiting'?'全員が別々の光る床に乗ると開始':phase==='opening'?'封印の檻が開く…':phase==='battle'?'ボス戦中：出口は封鎖されています':phase==='returning'?'全滅：守護者が檻へ戻る…':'討伐成功：出口を開放しました'):(bridge.phase==='down'?'別の仲間に右のパネルを踏んでもらおう':bridge.phase==='rising'?'道がせり上がっています…':'道・宝物室に仲間がいる間は道を保持します'));
