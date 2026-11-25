@@ -1,0 +1,13 @@
+// Development-only measurement of the actual scenes; no production data or network writes.
+const params=new URLSearchParams(location.search),output=document.querySelector('#lag-results')!;
+if(!params.has('mute'))throw Error('Render investigation requires mute=1');
+const area=params.get('area')??'dungeon';
+void import(area==='town'?'./hudCheck':'./mazeCheck');
+const timer=setInterval(()=>{const scene=(window as any).__game?.scene.keys.OnlineTownScene;if(!scene?.sys.isActive()||!scene.adventureView&&area!=='town')return;clearInterval(timer);const samples:Record<string,number[]>={},frames:number[]=[];let started=performance.now(),last=started;
+function wrap(object:any,key:string,name=key){const original=object?.[key];if(typeof original!=='function')return;object[key]=function(...args:any[]){const t=performance.now();try{return original.apply(this,args);}finally{(samples[name]??=[]).push(performance.now()-t);}};}
+wrap(scene.sys,'sceneUpdate','sceneUpdate');wrap(scene,'drawPlayers');wrap(scene,'syncPlayer');wrap(scene.adventureView,'update','adventureUpdate');wrap(scene.adventureView,'sync','adventureSync');const hud=(window as any).__game.scene.keys.OnlineUIScene;wrap(hud?.sys,'sceneUpdate','hudUpdate');
+if(params.has('walk')){const base=area==='town'?{x:12,y:14}:{x:49,y:77};const walk=setInterval(()=>{if(performance.now()-started>16000){clearInterval(walk);return;}if(!scene.moveSending&&!scene.requestBusy)void scene.queueMove(scene.player.x===base.x?base.x+1:base.x,base.y);},160);const packets=setInterval(()=>{if(performance.now()-started>16000){clearInterval(packets);return;}if(!scene.requestBusy&&!scene.moveSending){scene.packet=structuredClone(scene.packet);void scene.action('poll');}},120);}
+const report=setInterval(()=>{const elapsed=performance.now()-started;const pct=(a:number[],p:number)=>{const s=[...a].sort((a,b)=>a-b);return +(s[Math.min(s.length-1,Math.floor(s.length*p))]??0).toFixed(2);};output.textContent=JSON.stringify({area,seconds:Math.round(elapsed/1000),enemies:scene.packet.adventure?.snapshot.enemies.length??0,objects:scene.children.length,frames:frames.length,frameP50:pct(frames,.5),frameP95:pct(frames,.95),cpu:Object.fromEntries(Object.entries(samples).map(([k,a])=>[k,{calls:a.length,p50:pct(a,.5),p95:pct(a,.95),max:+Math.max(...a).toFixed(2)}]))},null,2);if(elapsed>16000){clearInterval(report);output.setAttribute('data-complete','true');}},1000);
+const frame=()=>{const t=performance.now();if(t-started>2000)frames.push(t-last);last=t;if(t-started<16500)requestAnimationFrame(frame);};requestAnimationFrame(frame);
+},100);
+export {};
