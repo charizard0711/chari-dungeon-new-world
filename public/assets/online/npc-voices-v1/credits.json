@@ -1,0 +1,32 @@
+[
+  {
+    "id": "guide",
+    "text": "やあ。よく来たね。",
+    "credit": "VOICEVOX:玄野武宏",
+    "sha256": "776ae56f6284f855c28d66e97f7f31880584250b2d826780ca15c2162868a4b7"
+  },
+  {
+    "id": "merchant",
+    "text": "いらっしゃいませ！",
+    "credit": "VOICEVOX:春日部つむぎ",
+    "sha256": "1427ae316300f6595fd0e398e03d2ef2e1c7ba523b7016788bde4f3609a428c1"
+  },
+  {
+    "id": "barber",
+    "text": "こんにちは。",
+    "credit": "VOICEVOX:春日部つむぎ",
+    "sha256": "a92ff4da5c0577cd3fa4f770c992f88df4c89f827267a0aec98a9f02ef06f7ec"
+  },
+  {
+    "id": "lottery",
+    "text": "運だめしは、いかが？",
+    "credit": "VOICEVOX:春日部つむぎ",
+    "sha256": "b0c33ac8a434450dcd399d24a0dab4c6227fcf8b70152557505c488a9dcf63b3"
+  },
+  {
+    "id": "housing",
+    "text": "住まいを、お探しかな？",
+    "credit": "VOICEVOX:玄野武宏",
+    "sha256": "48ba0e3846744e6ce9dcf690c5ea92910c32b7ed29a5aa4de81e9bcf7e72c114"
+  }
+]

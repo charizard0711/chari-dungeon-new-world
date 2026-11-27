@@ -1,3 +1,6 @@
-import {BOOTS_DEFS} from '../townEquipment';
+import {BOOTS_DEFS,GLOVES_DEFS} from '../townEquipment';
 export function preloadBoots(scene:any){if(!scene.textures.exists(BOOTS_DEFS[0].key))scene.load.image('boots_source','assets/online/boots-v1/boots.png');}
 export function prepareBoots(scene:any){if(scene.textures.exists(BOOTS_DEFS[0].key))return;const image=scene.textures.get('boots_source').getSourceImage(),w=image.width/5,h=image.height/2;BOOTS_DEFS.forEach((b,i)=>{const c=document.createElement('canvas');c.width=c.height=128;c.getContext('2d')!.drawImage(image,i%5*w,Math.floor(i/5)*h,w,h,0,0,128,128);scene.textures.addCanvas(b.key,c);});scene.textures.remove('boots_source');}
+
+export function preloadGloves(scene:any){if(!scene.textures.exists(GLOVES_DEFS[0].key))scene.load.image("gloves_source","assets/online/gloves-v1/gloves.png");}
+export function prepareGloves(scene:any){if(scene.textures.exists(GLOVES_DEFS[0].key))return;const image=scene.textures.get("gloves_source").getSourceImage(),w=image.width/5,h=image.height/2;GLOVES_DEFS.forEach((b,i)=>{const c=document.createElement("canvas");c.width=c.height=128;c.getContext("2d")!.drawImage(image,i%5*w,Math.floor(i/5)*h,w,h,0,0,128,128);scene.textures.addCanvas(b.key,c);});scene.textures.remove("gloves_source");}

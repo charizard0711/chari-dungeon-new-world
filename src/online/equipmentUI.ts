@@ -14,7 +14,7 @@ import {createAmountControl} from './amountControl';
 import type Phaser from 'phaser';
 import {ITEM_CATALOG,type CatalogEntry} from '../itemCatalog';
 import {WEAPON_DEFS,SHIELD_DEFS,ELEMENT_INFO,gradeColor} from '../data';
-import {BOOTS_DEFS,NECKLACE_DEFS} from '../townEquipment';
+import {BOOTS_DEFS,NECKLACE_DEFS,GLOVES_DEFS,EQUIPMENT_HASTE,NECKLACE_SKILL} from '../townEquipment';
 import {equipmentIconTexture} from '../artRefresh';
 import {GAME_W,GAME_H,IS_MOBILE} from '../layout';
 import {canInteract,TOWN_INTERACTIONS} from './townInteractions';
@@ -29,8 +29,8 @@ import {createGachaPresentation} from './gachaPresentation';
 
 export type Entry={key:string;category:EquipmentSlot|'item';index:number;instance?:EquipmentInstance;count:number;definition:CatalogEntry;equipped:boolean;price?:number};
 type QuickEntry=Omit<Entry,'category'>&{category:EquipmentSlot|'item'|'emote'};
-const slots:EquipmentSlot[]=['weapon','armor','shield','necklace','boots'];
-const label:Record<string,string>={all:'すべて',equip:'装備',item:'消耗品',weapon:'武器',armor:'服',shield:'盾',necklace:'ネックレス',boots:'靴'};
+const slots:EquipmentSlot[]=['weapon','armor','shield','necklace','boots','gloves'];
+const label:Record<string,string>={all:'すべて',equip:'装備',item:'消耗品',weapon:'武器',armor:'服',shield:'盾',necklace:'ネックレス',boots:'靴',gloves:'手袋'};
 const node=<K extends keyof HTMLElementTagNameMap>(tag:K,text='')=>{const e=document.createElement(tag);e.textContent=text;return e;};
 const keyOf=(e:{instance?:EquipmentInstance;category:string;key:string})=>e.instance?.id??`${e.category}:${e.key}`;
 const baseKey=(key:string)=>key.replace(/^star_/,'');
@@ -38,6 +38,7 @@ export function mountTownEquipmentUI(hud:any,gs:any){
  const root=node('section');root.className='town-equipment-ui'+(IS_MOBILE?' mobile':'');root.setAttribute('aria-label','町の装備とショートカット');document.body.append(root);
  const quick=node('div');quick.className='town-quickbar';quick.setAttribute('aria-label',IS_MOBILE?'クイックアイテム 5枠':'クイックアイテム 20枠');
  const neck=node('button');neck.className='town-necklace-slot';neck.title='ネックレスを変更';neck.onclick=()=>open('inventory','necklace');
+ const gloves=node('button');gloves.className='town-necklace-slot town-gloves-slot';gloves.title='手袋を変更';gloves.onclick=()=>open('inventory','gloves');
  const boots=node('button');boots.className='town-necklace-slot town-boots-slot';boots.title='靴を変更';boots.onclick=()=>open('inventory','boots');
  const shine=node('div');shine.className='town-star-overlay';shine.setAttribute('aria-hidden','true');
  const modal=node('section');modal.className='town-window';modal.hidden=true;modal.setAttribute('role','dialog');modal.setAttribute('aria-modal','false');modal.setAttribute('aria-label','所持品');
@@ -51,7 +52,7 @@ export function mountTownEquipmentUI(hud:any,gs:any){
   track.onpointerdown=e=>{if(e.target===track)view.scrollTop+=(e.clientY<thumb.getBoundingClientRect().top?-1:1)*view.clientHeight*.8;};thumb.onkeydown=e=>{if(['ArrowUp','ArrowDown','PageUp','PageDown','Home','End'].includes(e.key)){e.preventDefault();e.stopPropagation();view.scrollTop+=e.key==='Home'?-view.scrollHeight:e.key==='End'?view.scrollHeight:(e.key.includes('Up')?-1:1)*(e.key.startsWith('Page')?view.clientHeight:45);}};scrollSync.push(sync);return wrapper;
  }
  const gridWrapper=scrollWrapper(grid),detailWrapper=scrollWrapper(detail);body.append(gridWrapper,detailWrapper);
- const footer=node('footer','アイテムを選択すると詳細を表示。下の枠へドラッグして登録できます。');footer.setAttribute('role','status');modal.append(header,tabs,body,footer);root.append(neck,boots,shine,quick,modal);
+ const footer=node('footer','アイテムを選択すると詳細を表示。下の枠へドラッグして登録できます。');footer.setAttribute('role','status');modal.append(header,tabs,body,footer);root.append(neck,boots,gloves,shine,quick,modal);
  let mode:'inventory'|'shop'|'gacha'|'guide'|'friends'|'guild'|'party'|'map'|'inspect'='inventory',category='all',shopTab='buy',selected='',signature='',pending=false,active=true,notice='',reward:Entry|undefined;
  let friendName='';const guildDraft:GuildDraft={name:'',description:'',joinName:'',confirm:''};let inspected:PlayerInspection|undefined;
  let inputState:{hud:boolean;town:boolean;hudKeys:boolean;townKeys:boolean}|undefined;
@@ -134,8 +135,8 @@ export function mountTownEquipmentUI(hud:any,gs:any){
  }
  function renderNeck(){
   const c=character(),n=c?.gear.necklace?NECKLACE_DEFS.find(n=>n.key===c.gear.necklace_key):undefined;neck.replaceChildren();
-  if(n){const img=node('img');img.alt=n.name;const url=iconURL(n.key);if(url)img.src=url;neck.append(img);neck.title=`${n.name} [${n.grade}] 防御力 +${n.defBonus}`;}else neck.title='ネックレス 未装備';neck.append(node('span','ネックレス'));
-  const b=c?.gear.boots?BOOTS_DEFS.find(b=>b.key===c.gear.boots_key):undefined;boots.replaceChildren();if(b){const img=node('img');img.alt=b.name;const url=iconURL(b.key);if(url)img.src=url;boots.append(img);}boots.title=b?`${b.name} [${b.grade}] 防御力 +${b.defBonus}`:'靴 未装備';boots.append(node('span','靴'));shine.hidden=!gs.player.weapon?.starred;
+  if(n){const img=node('img');img.alt=n.name;const url=iconURL(n.key);if(url)img.src=url;neck.append(img);neck.title=`${n.name} [${n.grade}] スキル威力 ×${NECKLACE_SKILL[n.grade]}`;}else neck.title='ネックレス 未装備';neck.append(node('span','ネックレス'));
+  const b=c?.gear.boots?BOOTS_DEFS.find(b=>b.key===c.gear.boots_key):undefined;boots.replaceChildren();if(b){const img=node('img');img.alt=b.name;const url=iconURL(b.key);if(url)img.src=url;boots.append(img);}boots.title=b?`${b.name} [${b.grade}] 移動速度 +${Math.round(EQUIPMENT_HASTE[b.grade]*100)}%`:'靴 未装備';boots.append(node('span','靴'));const glove=c?.gear.gloves?GLOVES_DEFS.find(g=>g.key===c.gear.gloves_key):undefined;gloves.replaceChildren();if(glove){const img=node('img');img.alt=glove.name;const url=iconURL(glove.key);if(url)img.src=url;gloves.append(img);}gloves.title=glove?`${glove.name} 攻撃速度 +${Math.round(EQUIPMENT_HASTE[glove.grade]*100)}%`:'手袋 未装備';gloves.append(node('span','手袋'));shine.hidden=!gs.player.weapon?.starred;
  }
  function shopEntries():Entry[]{return (gs.packet.shopCatalog??[]).flatMap((s:{key:string;price:number})=>{const def=ITEM_CATALOG.find(d=>d.key===s.key);return def?[{key:s.key,category:def.category,index:0,count:1,definition:def,equipped:false,price:s.price}]:[];});}
  function visibleEntries(){let list=mode==='shop'&&shopTab==='buy'?shopEntries():entries();if(mode==='shop'&&shopTab==='repair')list=list.filter(e=>e.instance&&e.instance.max>0&&e.instance.dur<e.instance.max);if(mode==='shop'&&shopTab==='sell')list=list.filter(e=>e.category!=='item');return list.filter(e=>category==='all'||category==='equip'&&e.category!=='item'||e.category===category);}

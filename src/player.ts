@@ -25,9 +25,10 @@ export class Player {
   level = 1;
   exp = 0;
   expNext = 20;
+  onlineEquipmentRules=false;
   baseHpMax = 100;
-  get hpMax() { return this.baseHpMax + (this.weapon?.starred ? 50 : 0) + armorTraitValue(this.armor,'hp'); }
-  set hpMax(value: number) { this.baseHpMax = value - (this.weapon?.starred ? 50 : 0) - armorTraitValue(this.armor,'hp'); }
+  get hpMax() { return this.baseHpMax + (this.weapon?.starred ? 50 : 0) + (this.onlineEquipmentRules?(this.armor?.defBonus??0)*5:armorTraitValue(this.armor,'hp')); }
+  set hpMax(value: number) { this.baseHpMax = value - (this.weapon?.starred ? 50 : 0) - (this.onlineEquipmentRules?(this.armor?.defBonus??0)*5:armorTraitValue(this.armor,'hp')); }
   hp = 100;
   baseAtkMin = 5;
   baseAtkMax = 12;
@@ -101,9 +102,9 @@ export class Player {
 
   get def(): number {
     let v = this.baseDef + Math.floor(this.level * 0.4);
-    v+=this.bootsDefBonus;
+    if(!this.onlineEquipmentRules){v+=this.bootsDefBonus;
     if(this.necklace)v+=this.necklace.defBonus;
-    if (this.armor) v += this.armor.defBonus + (this.armor.plus ?? 0) + armorTraitValue(this.armor,'defense');
+    if (this.armor) v += this.armor.defBonus + (this.armor.plus ?? 0) + armorTraitValue(this.armor,'defense');}
     if (this.shield && this.shield.dur > 0) v += this.shield.defBonus + (this.shield.plus ?? 0);
     return Math.floor((v + this.transformationDefBonus) * this.fountainBlessingRate * this.panelDefenceRate);
   }

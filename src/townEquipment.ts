@@ -24,3 +24,7 @@ export const expansionEquipmentKey=(key:string)=>/^(?:w|s)_(?:light|dark)_/.test
 export const expansionArt=(key:string)=>/^w_dark_handgun_[cbs]$/.test(key.replace(/^star_/,''))?`assets/online/dark-gun-v4/${key.startsWith('star_')?'star':'normal'}.png`:`assets/online/equipment-v2/${key.replace(/^star_/,'')}.webp`;
 
 export const BOOTS_DEFS=[{"key": "boots_leather", "name": "旅人の革靴", "grade": "D", "defBonus": 1}, {"key": "boots_chain", "name": "鎖編みのブーツ", "grade": "C", "defBonus": 2}, {"key": "boots_plate", "name": "騎士の鋼靴", "grade": "B", "defBonus": 3}, {"key": "boots_arcane", "name": "秘術のブーツ", "grade": "A", "defBonus": 4}, {"key": "boots_dragon", "name": "竜鱗の重靴", "grade": "S", "defBonus": 6}, {"key": "boots_dawn", "name": "暁白の聖靴", "grade": "SS", "defBonus": 8}, {"key": "boots_aqua", "name": "蒼白の天聖靴", "grade": "SSS", "defBonus": 10}, {"key": "boots_crimson", "name": "紅黒の天聖靴", "grade": "SSS", "defBonus": 10}, {"key": "boots_pumpkin_knight", "name": "かぼちゃ騎士の靴", "grade": "A", "defBonus": 4}, {"key": "boots_pumpkin_witch", "name": "かぼちゃ魔女の靴", "grade": "A", "defBonus": 4}] as const;
+
+export const GLOVES_DEFS=BOOTS_DEFS.map((b,i)=>({...b,key:b.key.replace("boots_","gloves_"),name:["旅人の革手袋","鎖編みの手袋","騎士の鋼手甲","秘術の手袋","竜鱗の手甲","暁白の聖手甲","蒼白の天聖手甲","紅黒の天聖手甲","かぼちゃ騎士の手甲","かぼちゃ魔女の手袋"][i]}));
+export const EQUIPMENT_HASTE:Record<EquipmentGrade,number>={D:.05,C:.08,B:.12,A:.16,S:.20,SS:.25,SSS:.30};
+export const NECKLACE_SKILL:Record<EquipmentGrade,number>={D:1.03,C:1.05,B:1.07,A:1.10,S:1.13,SS:1.16,SSS:1.20};
