@@ -5,7 +5,7 @@ try{
  const users=['11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222'],ids=[];let room;
  for(let i=0;i<2;i++){await db.query('insert into auth.users values($1)',[users[i]]);await login(users[i]);let s=await rpc('create_character',{name:'Cinema'+i,gender:i?'female':'male'});const cid=s.characters[0].id;ids.push(cid);await rpc('join',{character_id:cid});await db.exec("update online_presence set x=3,y=9,moved_at='epoch'");s=await rpc(i?'room_join':'room_create',i?{room_id:room}:{name:'Cinema'});room=s.adventure.id;}
  const place=async(i,x,y)=>{await db.query("update online_adventure_members set x=$2,y=$3,attack_at='epoch'where character_id=$1",[ids[i],x,y]);await db.query("update online_presence set seen_at=clock_timestamp(),moved_at='epoch',location='dungeon'where character_id=$1",[ids[i]]);};
- await place(0,47,15);await place(1,49,15);await login(users[0]);let s=await rpc('poll');assert.equal(s.adventure.snapshot.bossEncounter.phase,'opening');
+ await place(0,47,15);await place(1,51,17);await login(users[0]);let s=await rpc('poll');assert.equal(s.adventure.snapshot.bossEncounter.phase,'opening');
  for(let i=0;i<2;i++){await login(users[i]);for(const a of ['move','attack','skill','use_item','room_return'])await assert.rejects(rpc(a,{x:47,y:14,dir:'up',kind:'potion'}),/演出中/);}
  await db.query("update online_adventure_rooms set snapshot=jsonb_set(snapshot,'{bossEncounter,at}',to_jsonb(online_adventure_now_ms()-3000))where id=$1",[room]);s=await rpc('poll');assert.equal(s.adventure.snapshot.bossEncounter.phase,'opening','full 14 second intro');
  assert.equal(s.adventure.snapshot.brokenFloors?.length??0,0,'opening tile is intact before impact');
