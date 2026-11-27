@@ -1,4 +1,6 @@
 // 図鑑は冒険のセーブとは別に保持し、死亡・最初から開始でも消さない。
+import {armorTextureKey} from './playerAppearance';
+
 export const CODEX_SAVE_KEY = 'chari-dungeon.codex.v1';
 const LEGACY_RUN_KEY = 'chari-dungeon.run.v1';
 
@@ -32,13 +34,13 @@ export const EQUIPMENT_CODEX_SAVE_KEY = 'chari-dungeon.equipment-codex.v1';
 
 export function equipmentKeys(player: { weapons: { key: string; starred?: boolean }[]; shields: { key: string }[]; armors: { key: string }[] }): string[] {
   return [...player.weapons.flatMap(item => item.starred ? [item.key,`star_${item.key}`] : [item.key]), ...player.shields.map(item => item.key),
-    ...player.armors.map(item => `armor_${item.key}`)];
+    ...player.armors.map(item => armorTextureKey(item.key))];
 }
 
 export function readEquipmentCodexSave(): Set<string> {
   const keys = new Set<string>();
   try {
-    for (const key of stringKeys(JSON.parse(localStorage.getItem(EQUIPMENT_CODEX_SAVE_KEY) ?? '[]'))) keys.add(key);
+    for (const key of stringKeys(JSON.parse(localStorage.getItem(EQUIPMENT_CODEX_SAVE_KEY) ?? '[]'))) keys.add(key.startsWith('armor_')?armorTextureKey(key.slice(6)):key);
   } catch { /* 壊れた記録でも起動を続ける。 */ }
   try {
     const player = JSON.parse(localStorage.getItem(LEGACY_RUN_KEY) ?? 'null')?.snapshot?.player;

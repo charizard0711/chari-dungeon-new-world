@@ -233,7 +233,7 @@
     ],
     "arms": "/assets/characters/wardrobe-v5/dawn-arms.png"
   },
-  "pumpkin_male_male": {
+  "pumpkin_male": {
     "path": "/assets/characters/wardrobe-v5/pumpkin_male.png",
     "cols": 8,
     "rows": 4,
@@ -269,8 +269,8 @@
     ],
     "arms": "/assets/characters/wardrobe-v5/dawn-arms.png"
   },
-  "pumpkin_female_female": {
-    "path": "/assets/characters/wardrobe-v5/pumpkin_female.png",
+  "pumpkin_female": {
+    "path": "/assets/characters/wardrobe-v5/pumpkin_male.png",
     "cols": 8,
     "rows": 4,
     "directions": [

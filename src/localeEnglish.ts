@@ -312,6 +312,7 @@ Object.assign(ENGLISH, Object.fromEntries(`
 暁白の聖装|Dawn Holy Raiment
 紅黒の天聖鎧|Crimson Celestial Armor
 蒼白の天聖鎧|Azure Celestial Armor
+かぼちゃの騎士服|Pumpkin Knight Outfit
 かぼちゃの騎士服（男）|Pumpkin Knight Outfit (Male)
 かぼちゃの魔女服（女）|Pumpkin Witch Outfit (Female)
 火口のフェニックス|Crater Phoenix

@@ -126,8 +126,7 @@ const UI_ART = {
   armor_plate: 'assets/ui/generated/armor-plate.png',
   armor_arcane: 'assets/ui/generated/armor-arcane.png',
   armor_dragon: 'assets/ui/generated/armor-dragon.png',
-  armor_pumpkin_male: 'assets/characters/halloween-v1/armor_pumpkin_male.png',
-  armor_pumpkin_female: 'assets/characters/halloween-v1/armor_pumpkin_female.png'
+  armor_pumpkin: 'assets/characters/pumpkin-outfit-v2/armor_pumpkin.webp'
 } as const;
 
 const ORIGINAL_ITEM_ART = {

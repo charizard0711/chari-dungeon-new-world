@@ -15,7 +15,7 @@ import type Phaser from 'phaser';
 import {ITEM_CATALOG,type CatalogEntry} from '../itemCatalog';
 import {WEAPON_DEFS,SHIELD_DEFS,ELEMENT_INFO,gradeColor} from '../data';
 import {BOOTS_DEFS,NECKLACE_DEFS,GLOVES_DEFS,EQUIPMENT_HASTE,NECKLACE_SKILL} from '../townEquipment';
-import {equipmentCatalogKey,isEquipmentVariant} from '../equipmentVariants';
+import {baseEquipmentKey,equipmentCatalogKey,isEquipmentVariant} from '../equipmentVariants';
 import {equipmentIconTexture} from '../artRefresh';
 import {GAME_W,GAME_H,IS_MOBILE} from '../layout';
 import {canInteract,TOWN_INTERACTIONS} from './townInteractions';
@@ -34,7 +34,7 @@ const slots:EquipmentSlot[]=['weapon','armor','shield','necklace','boots','glove
 const label:Record<string,string>={all:'すべて',equip:'装備',item:'消耗品',weapon:'武器',armor:'服',shield:'盾',necklace:'ネックレス',boots:'靴',gloves:'手袋'};
 const node=<K extends keyof HTMLElementTagNameMap>(tag:K,text='')=>{const e=document.createElement(tag);e.textContent=text;return e;};
 const keyOf=(e:{instance?:EquipmentInstance;category:string;key:string})=>e.instance?.id??`${e.category}:${e.key}`;
-const baseKey=(key:string)=>key.replace(/^star_/,'');
+const baseKey=baseEquipmentKey;
 export function mountTownEquipmentUI(hud:any,gs:any){
  const root=node('section');root.className='town-equipment-ui'+(IS_MOBILE?' mobile':'');root.setAttribute('aria-label','町の装備とショートカット');document.body.append(root);
  const quick=node('div');quick.className='town-quickbar';quick.setAttribute('aria-label',IS_MOBILE?'クイックアイテム 5枠':'クイックアイテム 20枠');

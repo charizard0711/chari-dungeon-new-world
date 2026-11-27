@@ -18,6 +18,6 @@ export function appearanceController(host:HTMLElement,load:(s:string)=>Promise<H
   if(cache.size>24)cache.delete(cache.keys().next().value!);return appearance;
  }
  async function update(){const ticket=++revision;render();status.textContent='衣装を読み込み中…';try{const a=await get(costume,gender,hair);if(ticket!==revision)return;changed(a);const c=COSTUMES.find(c=>c.key===costume)!;status.textContent=`${gender==='female'?'女性':'男性'} · ${HAIR_COLORS.find(c=>c.key===hair)!.name}${'hood'in c&&c.hood?'（衣装の下に隠れます）':''}`;}catch(e){if(ticket===revision)status.textContent=String((e as Error).message);}}
- host.onclick=e=>{const b=(e.target as HTMLElement).closest<HTMLElement>('button');if(!b)return;if(b.dataset.gender){gender=b.dataset.gender as Gender;if(costume.startsWith('pumpkin_'))costume='pumpkin_'+gender;}if(b.dataset.hair)hair=b.dataset.hair;void update();};select.onchange=()=>{costume=select.value;void update();};
+ host.onclick=e=>{const b=(e.target as HTMLElement).closest<HTMLElement>('button');if(!b)return;if(b.dataset.gender){gender=b.dataset.gender as Gender;}if(b.dataset.hair)hair=b.dataset.hair;void update();};select.onchange=()=>{costume=select.value;void update();};
  return {update,getAll:()=>Promise.all(COSTUMES.flatMap(c=>(['male','female'] as Gender[]).filter(g=>!('gender'in c)||c.gender===g).map(g=>c.key+'_'+g)).map(id=>{const g=id.endsWith('_female')?'female':'male';return get(id.slice(0,-g.length-1),g,hair);})),get gender(){return gender;},get hair(){return hair;}};
 }

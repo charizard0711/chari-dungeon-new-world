@@ -7,7 +7,7 @@ import {drawOriginalRig,parseLimbParts,type LimbParts} from '../motionLab/origin
 import {registerVerticalRanged} from '../motionLab/verticalRanged';
 import type {Atlas} from '../motionLab/motion';
 import {playerAction} from '../playerAnimation';
-import {PLAYER_WALK_FRAMES,type PlayerVisualFrame,type PlayerGender} from '../playerAppearance';
+import {canonicalArmorKey,PLAYER_WALK_FRAMES,type PlayerVisualFrame,type PlayerGender} from '../playerAppearance';
 import type {Dir,Weapon,Shield} from '../types';
 import {ensureEquipmentVariantTexture} from '../equipmentVariants';
 import {isTwoHanded} from '../equipmentRules';
@@ -19,7 +19,7 @@ let blankWeapon:HTMLCanvasElement|undefined;
 export function cropPortrait(canvas:HTMLCanvasElement){const out=document.createElement('canvas');out.width=out.height=176;const pixels=canvas.getContext('2d')!.getImageData(0,0,256,256).data;let x0=256,y0=256,x1=0,y1=0;for(let y=0;y<256;y++)for(let x=0;x<256;x++)if(pixels[(y*256+x)*4+3]>20){x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y);}if(x1>=x0){const w=x1-x0+1,h=y1-y0+1,s=Math.min(160/w,160/h);out.getContext('2d')!.drawImage(canvas,x0,y0,w,h,(176-w*s)/2,(176-h*s)/2,w*s,h*s);}return out;}
 export function loadRigImage(path:string){let promise=images.get(path);if(!promise){promise=new Promise<HTMLImageElement>((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>{images.delete(path);reject(Error('Character asset failed: '+path));};i.src=path;});images.set(path,promise);}return promise;}
 export function loadCharacterRig(gender:PlayerGender,armor:string,hair='brown'){
- const selected=armor.startsWith('pumpkin_')?'pumpkin_'+gender:armor,id=selected+'_'+gender,key=id+'_'+hair;
+ const selected=canonicalArmorKey(armor),id=selected+'_'+gender,key=id+'_'+hair;
  let promise=looks.get(key);if(!promise){const asset=catalog[id]??catalog['leather_'+gender];promise=Promise.all([loadRigImage(asset.path),loadRigImage(asset.arms)]).then(([body,arms])=>({body:wardrobeAtlas(body,asset,hair,COSTUMES.some(c=>c.key===selected&&'hood'in c&&c.hood)),arms:parseLimbParts(arms)}));looks.set(key,promise);promise.catch(()=>looks.delete(key));if(looks.size>32)looks.delete(looks.keys().next().value!);}return promise;
 }
 let serial=0,angles:Promise<void>|undefined;

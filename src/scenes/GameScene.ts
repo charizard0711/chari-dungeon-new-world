@@ -59,6 +59,7 @@ import { ARCADIA_GACHA_RATE, ARCADIA_BOSS_DROP_RATE, enhancementChance, EQUIPMEN
 import { getFloorLayoutProfile } from '../floorLayout';
 import {
   armorForGrade,
+  normalizeSavedArmor,
   armorFullName,
   armorTextureKey,
   DEFAULT_PLAYER_ARMOR,
@@ -4989,7 +4990,7 @@ export class GameScene extends Phaser.Scene {
       const grade: EquipmentGrade = this.floor >= 5 ? 'S' : this.floor >= 3 ? 'A' : this.floor >= 2 ? 'B' : 'C';
       this.dropEquipment(origin.x,origin.y,'weapon',rollWeaponByGrade(grade));
       this.dropEquipment(origin.x,origin.y,'shield',rollShieldByGrade(grade));
-      if (costumeWon) this.dropEquipment(origin.x,origin.y,'armor',makePlayerArmor(this.playerGender === 'male' ? 'pumpkin_male' : 'pumpkin_female'));
+      if (costumeWon) this.dropEquipment(origin.x,origin.y,'armor',makePlayerArmor('pumpkin'));
       if (bossName === GOLDEN_KING.name) {
         if (goldenDrops?.weapon) this.dropEquipment(origin.x, origin.y, 'weapon', makeWeapon('w_hw_emedral', []));
         if (goldenDrops?.shield) this.dropEquipment(origin.x, origin.y, 'shield', makeShield(GOLDEN_SHIELD.key));
@@ -8871,6 +8872,7 @@ export class GameScene extends Phaser.Scene {
     if (this.pendingEquipment) refreshLegendaryEquipment(this.pendingEquipment.item);
     this.player.weapon = this.player.weapons[snapshot.equipped.weapon] ?? null;
     this.player.shield = isTwoHanded(this.player.weapon) ? null : this.player.shields[snapshot.equipped.shield] ?? null;
+    this.player.armors.forEach(normalizeSavedArmor);
     this.player.armor = this.player.armors[snapshot.equipped.armor] ?? null;
     this.recordOwnedEquipment();
     this.discovered = new Set([...this.discovered, ...snapshot.discovered]);
@@ -8950,6 +8952,7 @@ export class GameScene extends Phaser.Scene {
     }
     for (const item of snapshot.ground) {
       if (isRemovedItem(item.kind)) continue;
+      if(item.armor)normalizeSavedArmor(item.armor);
       const equipment = item.weapon ?? item.shield ?? item.armor;
       if (equipment) refreshLegendaryEquipment(equipment);
       const texture = item.kind === 'armor' ? armorTextureKey(item.armor!.key)

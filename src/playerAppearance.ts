@@ -6,7 +6,7 @@ export { PLAYER_WALK_FRAMES } from './playerWalkFrames';
 export const PLAYER_GENDERS = ['male', 'female'] as const;
 export type PlayerGender = typeof PLAYER_GENDERS[number];
 
-export const PLAYER_ARMORS = ['leather', 'chain', 'plate', 'arcane', 'dragon', 'dawn', 'aqua', 'crimson', 'pumpkin_male', 'pumpkin_female'] as const;
+export const PLAYER_ARMORS = ['leather', 'chain', 'plate', 'arcane', 'dragon', 'dawn', 'aqua', 'crimson', 'pumpkin'] as const;
 export type PlayerArmor = typeof PLAYER_ARMORS[number];
 
 export const PLAYER_VISUAL_FRAMES = [
@@ -38,8 +38,7 @@ export const PLAYER_ARMOR_DEFS: Record<PlayerArmor, PlayerArmorDef> = {
   chain: { key: 'chain', name: '鎖帷子', grade: 'C', defBonus: 3, minFloor: 5 },
   plate: { key: 'plate', name: '騎士の板金鎧', grade: 'B', defBonus: 5, minFloor: 10 },
   arcane: { key: 'arcane', name: '秘術装甲', grade: 'A', defBonus: 8, minFloor: 17 },
-  pumpkin_male: { key: 'pumpkin_male', name: 'かぼちゃの騎士服（男）', grade: 'A', defBonus: 8, minFloor: 1, exclusiveLoot: true, gender: 'male' },
-  pumpkin_female: { key: 'pumpkin_female', name: 'かぼちゃの魔女服（女）', grade: 'A', defBonus: 8, minFloor: 1, exclusiveLoot: true, gender: 'female' },
+  pumpkin: { key: 'pumpkin', name: 'かぼちゃの騎士服', grade: 'A', defBonus: 8, minFloor: 1, exclusiveLoot: true },
   dragon: { key: 'dragon', name: '竜鱗神鎧', grade: 'S', defBonus: 12, minFloor: 24 }
 };
 
@@ -69,8 +68,17 @@ export function armorForGrade(grade: EquipmentGrade): PlayerArmorDef {
     ?? PLAYER_ARMOR_DEFS[DEFAULT_PLAYER_ARMOR];
 }
 
+export function canonicalArmorKey(key:string){
+  return key==='pumpkin_male'||key==='pumpkin_female'?'pumpkin':key;
+}
+
+export function normalizeSavedArmor(armor:Armor){
+  const key=canonicalArmorKey(armor.key);
+  if(key!==armor.key){armor.key=key;armor.name=PLAYER_ARMOR_DEFS.pumpkin.name;}
+}
+
 export function armorTextureKey(armor: PlayerArmor | string): string {
-  return `armor_${armor}`;
+  return `armor_${canonicalArmorKey(armor)}`;
 }
 
 export function makePlayerArmor(key: PlayerArmor): Armor {
@@ -108,7 +116,7 @@ export function setSelectedGender(gender: PlayerGender) {
 }
 
 export function playerSheetKey(gender: PlayerGender, armor: PlayerArmor = DEFAULT_PLAYER_ARMOR): string {
-  const selected = armor.startsWith('pumpkin_') ? `pumpkin_${gender}` : armor;
+  const selected = canonicalArmorKey(armor);
   return `player_${gender}_${selected}`;
 }
 
@@ -117,7 +125,8 @@ export function playerFrameIndex(dir: Dir, frame: PlayerVisualFrame): number {
 }
 
 export function playerSheetPath(gender:PlayerGender,armor:PlayerArmor='leather'):string {
-  const selected=armor.startsWith('pumpkin_')?`pumpkin_${gender}`:armor;
+  const selected=canonicalArmorKey(armor);
+  if(selected==='pumpkin')return 'assets/characters/smooth-walk-v1/male-pumpkin_male.webp';
   const folder=selected==='crimson'||selected==='aqua'?'celestial-armor-v8':'smooth-walk-v1';
   return `assets/characters/${folder}/${gender}-${selected}.webp`;
 }

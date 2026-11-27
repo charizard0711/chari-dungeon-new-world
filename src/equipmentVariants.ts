@@ -1,6 +1,6 @@
 import type Phaser from 'phaser';
 
-export const baseEquipmentKey=(key?:string|null)=>key?.replace(/^star_/,'')??'';
+export const baseEquipmentKey=(key?:string|null)=>key?.replace(/^star_/,'').replace(/^((?:armor_)?pumpkin)_(?:male|female)$/,'$1')??'';
 export const isEquipmentVariant=(key?:string|null)=>!!key?.startsWith('star_');
 const newSlots=['armor','shield','gloves','boots','necklace'] as const;
 type VariantSlot=typeof newSlots[number];
