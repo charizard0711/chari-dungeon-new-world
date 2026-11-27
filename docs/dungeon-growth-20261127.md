@@ -31,3 +31,8 @@
 ## Production observations
 
 At inspection:16 saved rooms, maximum58 enemies, maximum JSON35558 bytes, events capped30. Database tables were small (rooms about5MB) with autovacuum operating. Cumulative RPC statistics include multi-second worst cases; these aggregate past releases and cannot establish current latency or identify this particular freeze. Do not claim a server upgrade is necessary from this evidence.
+## Actual browser replacement soak result
+
+Two simultaneous muted Phaser tabs ran the same synthetic enemy replacement/movement/attack workload for137 seconds after warm-up. Fixed presentation:893→896 display-list objects,1328→1331 textures (viewport/active-enemy fluctuation), frame P95 stayed5.5ms. Pre-fix presentation:908→1173 objects,1343→1608 textures, frame P95 increased5.5→6.4ms. The visual-resource leak is reproducible in a real browser as well as lifecycle mocks. This is a replacement stress workload, not137 seconds of actual online multiplayer. JS heap was GC-dependent and does not support a claim of a measured heap reduction.
+
+Production code/source release:8f3aed9. Database migration008 verified applied. Temporary browser test tabs were closed after measurement so they do not consume the player's resources.
