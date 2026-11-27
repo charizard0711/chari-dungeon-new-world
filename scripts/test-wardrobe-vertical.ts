@@ -13,7 +13,7 @@ for(const costume of COSTUMES)for(const gender of ['male','female']){
  if(costume.key==='crimson'||costume.key==='aqua'){
   assert.equal(a.cols,8);assert.equal(a.rows,8);
   assert.deepEqual(a.attackDirections,[4,5,6,7]);
-  assert.ok(a.path.includes('/celestial-armor-v7/'));
+  assert.ok(a.path.includes('/celestial-armor-v8/'));
   assert.ok(existsSync(new URL('../public'+costume.icon,import.meta.url)));
  }
  if(a.rowBounds){assert.equal(a.rowBounds.length,a.rows+1);assert.ok(a.rowBounds.every((v:number,i:number)=>i===0||v>a.rowBounds[i-1]));}

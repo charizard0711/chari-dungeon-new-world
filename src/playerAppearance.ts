@@ -118,7 +118,7 @@ export function playerFrameIndex(dir: Dir, frame: PlayerVisualFrame): number {
 
 export function playerSheetPath(gender:PlayerGender,armor:PlayerArmor='leather'):string {
   const selected=armor.startsWith('pumpkin_')?`pumpkin_${gender}`:armor;
-  const folder=selected==='crimson'||selected==='aqua'?'celestial-armor-v7':'smooth-walk-v1';
+  const folder=selected==='crimson'||selected==='aqua'?'celestial-armor-v8':'smooth-walk-v1';
   return `assets/characters/${folder}/${gender}-${selected}.webp`;
 }
 export function versionedPlayerAssetPath(path:string):string {
