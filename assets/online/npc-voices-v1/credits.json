@@ -1,23 +1,5 @@
 [
   {
-    "id": "barber",
-    "text": "こんにちは。",
-    "credit": "VOICEVOX:春日部つむぎ",
-    "sha256": "a92ff4da5c0577cd3fa4f770c992f88df4c89f827267a0aec98a9f02ef06f7ec"
-  },
-  {
-    "id": "lottery",
-    "text": "運だめしは、いかが？",
-    "credit": "VOICEVOX:春日部つむぎ",
-    "sha256": "b0c33ac8a434450dcd399d24a0dab4c6227fcf8b70152557505c488a9dcf63b3"
-  },
-  {
-    "id": "housing",
-    "text": "住まいを、お探しかな？",
-    "credit": "VOICEVOX:玄野武宏",
-    "sha256": "48ba0e3846744e6ce9dcf690c5ea92910c32b7ed29a5aa4de81e9bcf7e72c114"
-  },
-  {
     "id": "guide",
     "file": "guide-v2.wav",
     "text": "やぁ。",
@@ -32,5 +14,29 @@
     "style": 8,
     "credit": "VOICEVOX:春日部つむぎ",
     "sha256": "de20332619b39d18aeae291f80d3680f44009327352597260bc3438e700a87e3"
+  },
+  {
+    "id": "barber",
+    "file": "barber-v2.wav",
+    "text": "こんにちは。",
+    "style": 10,
+    "credit": "VOICEVOX:雨晴はう",
+    "sha256": "320b77fdf944de603e2a8431e3ba3b09dcd3c1fa37938339709ad6fc1fa3b5fb"
+  },
+  {
+    "id": "lottery",
+    "file": "lottery-v2.wav",
+    "text": "いらっしゃい！",
+    "style": 11,
+    "credit": "VOICEVOX:玄野武宏",
+    "sha256": "61664700ea13f624746762f112e78ecc29924a08eea90d8619098d8dd4134777"
+  },
+  {
+    "id": "housing",
+    "file": "housing-v2.wav",
+    "text": "いらっしゃい。",
+    "style": 53,
+    "credit": "VOICEVOX:麒ヶ島宗麟",
+    "sha256": "51496db1b93c5a5409533eaaabbe6d9a6cd3cf19dc87a5b6c83935c1673124dd"
   }
 ]
