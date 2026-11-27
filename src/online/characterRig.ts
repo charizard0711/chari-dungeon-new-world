@@ -30,7 +30,7 @@ export class CharacterRig {
  private texture:Phaser.Textures.CanvasTexture;
  private args?:Args;private bound?:Phaser.GameObjects.Image;
  private look?:{body:Atlas;arms:LimbParts};private visual?:WeaponVisual;private art?:HTMLImageElement;private sheet?:typeof weapons[number];private lookKey='';private artKey='';private signature='';private nextDraw=0;private disposed=false;
- constructor(private scene:Phaser.Scene,private onReady:()=>void=()=>{}){
+ constructor(private scene:Phaser.Scene,private onReady:(weaponComposed:boolean,shieldComposed:boolean)=>void=()=>{}){
   const key='character-rig-v6-'+(++serial);this.texture=scene.textures.createCanvas(key,256,256)!;this.image=scene.add.image(0,0,key).setVisible(false);
   scene.events.on('postupdate',this.refresh,this);scene.events.once('shutdown',this.destroy,this);
   angles??=Promise.all([['handgun','gun'],['bow','bow']].map(async([type,file])=>registerVerticalRanged(type,await loadRigImage('/assets/characters/wardrobe-v5/'+file+'-vertical.png')))).then(()=>{}).catch(()=>{angles=undefined;});
@@ -47,21 +47,26 @@ export class CharacterRig {
   if(artKey!==this.artKey){this.artKey=artKey;this.art=undefined;this.visual=undefined;this.sheet=sheet;if(artKey&&sheet)loadWeaponVisual(sheet,!!weapon?.starred,loadRigImage).then(visual=>{if(!this.disposed&&this.artKey===artKey){this.visual=visual;this.art=visual.image;this.signature='';}}).catch(()=>{});}
   const gloves=body.getData('wornGloves'),boots=body.getData('wornBoots');
   const externalWeapon=!!weapon&&!this.art;
-  if(!this.look||externalWeapon&&!gloves&&!boots){body.setCrop();this.image.setVisible(false);return false;}
+  let shieldArt:HTMLImageElement|undefined;
+  if(shield&&!isTwoHanded(weapon)&&this.scene.textures.exists(shield.key)){
+   const source=this.scene.textures.get(shield.key).getSourceImage();
+   if(source instanceof HTMLImageElement&&!source.src.startsWith('data:'))shieldArt=source;
+  }
+  // Compose the north-facing shield even while the weapon uses its older layer.
+  const integratedShield=externalWeapon&&dir!=='up'?undefined:shieldArt;
+  if(!this.look||externalWeapon&&!gloves&&!boots&&!integratedShield){body.setCrop();this.image.setVisible(false);return false;}
   const action=playerAction(frame),attack=action==='attack'||action==='windup',walk=action==='walk',heavy=weapon?.weaponType==='greatsword',windup=heavy?200:58,duration=heavy?460:268;
   const attackRate=Number(body.getData('attackRate')??1);elapsed/=attackRate;const t=attack?Math.min(1,(elapsed+(action==='attack'?windup:0))/duration):walk?Number(body.getData('walkPhase')??Math.max(0,PLAYER_WALK_FRAMES.indexOf(frame as typeof PLAYER_WALK_FRAMES[number]))/PLAYER_WALK_FRAMES.length):0;
   const phase=attack?Math.round(t*24):walk?Math.floor(t*8):0;
-  const signature=[gloves,boots,externalWeapon,lookKey,artKey,shield?.key,dir,action,phase].join('|');
+  const signature=[gloves,boots,externalWeapon,lookKey,artKey,integratedShield&&shield?.key,dir,action,phase].join('|');
   if(signature!==this.signature&&(this.scene.time.now>=this.nextDraw||!this.signature)){
    this.nextDraw=this.scene.time.now+1000/30;this.signature=signature;
    const g=this.texture.context;g.clearRect(0,0,256,256);g.save();g.translate(128,176);
    const type=weapon?.weaponType??'dagger',blank=document.createElement('canvas');blank.width=blank.height=1;
-   let shieldArt:HTMLImageElement|undefined;
-   if(shield&&!isTwoHanded(weapon)&&this.scene.textures.exists(shield.key)){const source=this.scene.textures.get(shield.key).getSourceImage() as HTMLImageElement;if(source?.tagName==='IMG')shieldArt=source;}
-   drawOriginalRig(g,this.look.body,this.look.arms,this.art??blank as unknown as HTMLImageElement,type,this.visual?.directional??false,dir,t,attack,walk,2,false,{...this.visual?.options,shield:externalWeapon?undefined:shieldArt,gloves,boots,externalWeapon});
+   drawOriginalRig(g,this.look.body,this.look.arms,this.art??blank as unknown as HTMLImageElement,type,this.visual?.directional??false,dir,t,attack,walk,2,false,{...this.visual?.options,shield:integratedShield,gloves,boots,externalWeapon});
    g.restore();this.texture.refresh();
   }
-  body.setCrop(0,0,0,0);if(!externalWeapon)this.onReady();
+  body.setCrop(0,0,0,0);this.onReady(!externalWeapon,!!integratedShield);
   const scale=body.displayWidth/43.52/2;
   const offset=body.displayHeight*.41;
   this.image.setPosition(body.x-Math.sin(body.rotation)*offset,body.y+Math.cos(body.rotation)*offset).setOrigin(.5,176/256).setScale(scale).setRotation(body.rotation).setDepth(body.depth+.01).setAlpha(body.alpha).setVisible(enabled&&body.visible&&frame!=='down');

@@ -26,7 +26,13 @@ export class EquipmentRenderer {
   private scabbardAura: LegendaryAura;
   private fittingAura: LegendaryAura;
   constructor(private scene: Phaser.Scene) {
-    this.characterRig=new CharacterRig(scene,()=>{this.weapon.setVisible(false);this.offhand.setVisible(false);this.scabbard.setVisible(false);this.waistFitting.setVisible(false);this.swordAura.enabled=this.shieldAura.enabled=this.scabbardAura.enabled=this.fittingAura.enabled=false;});
+    this.characterRig=new CharacterRig(scene,(weaponComposed,shieldComposed)=>{
+      if(weaponComposed){
+        this.weapon.setVisible(false);this.scabbard.setVisible(false);this.waistFitting.setVisible(false);
+        this.swordAura.enabled=this.scabbardAura.enabled=this.fittingAura.enabled=false;
+      }
+      if(weaponComposed||shieldComposed){this.offhand.setVisible(false);this.shieldAura.enabled=false;}
+    });
     this.weapon = scene.add.image(0,0,'w_soldier_blade').setVisible(false);
     this.waistFitting = scene.add.image(0, 0, 'katana_waist_fitting_v3').setVisible(false);
     this.scabbard = scene.add.image(0, 0, 'katana_scabbard_v2').setVisible(false);
@@ -89,6 +95,7 @@ export class EquipmentRenderer {
     for (const [sprite,item,offhand] of [[this.weapon,weapon,false],[this.offhand,second,true]] as const) {
       if (!show || !item || (offhand && weapon?.starred && weapon.dual && !expansionEquipmentKey(weapon.key)) || ('weaponType' in item && !HELD_EQUIPMENT_KEYS.has(item.key) && !item.key.startsWith('w_hw_'))) { sprite.setVisible(false); continue; }
       const type = 'weaponType' in item ? item.weaponType : 'shield';
+      if(type==='shield'&&dir==='up')requestEquipmentArt(item.key);
       if (type === 'katana' && action !== 'attack') { sprite.setVisible(false); continue; }
       const key = `held_${'starred' in item&&item.starred&&expansionEquipmentKey(item.key)?'star_':''}${item.key}`;
       // Keep old saves readable if an asset fails to load.
@@ -159,9 +166,6 @@ export class EquipmentRenderer {
         .setDisplaySize(size,size).setRotation(body.rotation + pose.angle).setFlipX(paintedWeapon && type === 'handgun' ? dir === 'left' : !!weapon?.dual && offhand && (dir === 'down' || dir === 'up'))
         .setDepth(body.depth + pose.depth).setAlpha(body.alpha).clearTint();
     }
-    if(this.characterRig.update(body,weapon,shield,dir,frame,gender,elapsed,enabled)){
-      this.weapon.setVisible(false);this.offhand.setVisible(false);this.scabbard.setVisible(false);this.waistFitting.setVisible(false);
-      this.swordAura.enabled=this.shieldAura.enabled=this.scabbardAura.enabled=this.fittingAura.enabled=false;
-    }
+    this.characterRig.update(body,weapon,shield,dir,frame,gender,elapsed,enabled);
   }
 }

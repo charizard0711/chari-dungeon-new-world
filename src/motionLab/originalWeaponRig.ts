@@ -1,6 +1,7 @@
 import {coloredBootFrame,wornGearColor} from './wornGear';
 import {verticalAttack} from './verticalAttack';
 import {rangedPose,drawVerticalRanged} from './verticalRanged';
+import {shieldBack} from './shieldBack';
 import {ROW,type Atlas,type Facing,type Point} from './motion';
 export const ORIGINAL_GRIPS:Record<string,{grip:Point;basis:number;height:number;second?:number}>={
  greatsword:{grip:[.5,.825],basis:-Math.PI/2,height:46,second:-3.6},
@@ -80,6 +81,7 @@ export function drawOriginalRig(g:CanvasRenderingContext2D,body:Atlas,parts:Limb
  const angle=vertical?.angle??(profile?(dir==='left'?Math.PI-pose.angle:pose.angle):(dir==='up'?-Math.PI/2:Math.PI/2)+pose.angle*.35);
  const config={...ORIGINAL_GRIPS[type],...(options.grip?{grip:options.grip}:{}),...(options.basis!==undefined?{basis:options.basis}:{}),...(options.height!==undefined?{height:options.height}:{})};
  if(config.second!==undefined){const separation=config.second*(profile?1:.8);off=[hand[0]+Math.cos(angle)*separation,hand[1]+Math.sin(angle)*separation];}
+ if(options.shield&&dir==='up')off=[-9.5,-22+(walk?Math.sin(t*Math.PI*2)*.7:0)];
  const drawWeapon=(at:Point,a:number)=>{const sw=directional?weapon.width/2:weapon.width,sh=directional?weapon.height/2:weapon.height,s=config.height/sh,sourceY=directional&&type==='handgun'?sh:0;
   if(!profile&&options.verticalFrames){const view=options.verticalFrames[dir==='up'?1:0],scale=type==='bow'?36/view.width:20/view.height,gy=type==='bow'?(dir==='up'?.34:.56):(dir==='up'?.77:.24);g.drawImage(view,at[0]-view.width*scale/2,at[1]-view.height*scale*gy,view.width*scale,view.height*scale);return;}
   if(!profile&&options.verticalArt!==false&&drawVerticalRanged(g,type,dir==='up',at))return;
@@ -110,10 +112,15 @@ export function drawOriginalRig(g:CanvasRenderingContext2D,body:Atlas,parts:Limb
  const heldGear=()=>{
   if(!options.externalWeapon)drawWeapon(hand,angle);
   if(!options.externalWeapon&&type==='dual_sword')drawWeapon(off,vertical?Math.PI-angle:angle+.8);
-  if(options.shield){const s=options.shield,size=22;g.drawImage(s,off[0]-size/2,off[1]-size*.45,size,size);}
+  if(options.shield&&dir!=='up'){const size=22;g.drawImage(options.shield,off[0]-size/2,off[1]-size*.45,size,size);}
   glove(hand);glove(off);
  };
  g.save();g.scale(magnify,magnify);
+ if(dir==='up'&&options.shield){
+  // North-facing: the shield stays ahead of the character and partly behind
+  // the torso in screen space, with its strap facing the holder.
+  g.drawImage(shieldBack(options.shield),off[0]-11.5,off[1]-12.5,20,23);
+ }
  if(dir!=='down'){arm(farShoulder,off,true);glove(off);}
  if(dir==='up'){arm(shoulder,hand,false);heldGear();}
  g.save();g.translate(0,-12);g.rotate(profile?pose.lean*side:0);g.translate(0,12);if(walk&&!profile){
