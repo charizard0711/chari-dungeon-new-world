@@ -67,7 +67,8 @@ export const SE_DEFS = {
   elementThunder: { key: 'se_element_thunder', path: 'assets/audio/se_element_thunder.mp3', volume: 0.62 }, // 雷属性攻撃
   elementIce:     { key: 'se_element_ice',     path: 'assets/audio/se_element_ice.mp3',     volume: 0.58 }, // 氷属性攻撃
   hit:     { key: 'se_hit',     path: 'assets/audio/se_hit.mp3',     volume: 0.6 },  // 命中
-  hurt:    { key: 'se_hurt',    path: 'assets/audio/se_hurt.mp3',    volume: 0.6 },  // 被ダメージ
+  hurt:    { key: 'se_hurt',    path: 'assets/audio/soundeffect-lab/blow2.mp3', volume: 0.5 },  // 被ダメージ
+  hurtHeavy: { key: 'se_hurt_heavy', path: 'assets/audio/soundeffect-lab/blow6.mp3', volume: 0.46 },
   kill:    { key: 'se_kill',    path: 'assets/audio/se_kill.mp3',    volume: 0.6 },  // 敵撃破
   coin:    { key: 'se_coin',    path: 'assets/audio/se_coin.mp3',    volume: 0.5 },  // コイン・宝石
   pickup:  { key: 'se_pickup',  path: 'assets/audio/se_pickup.mp3',  volume: 0.5 },  // アイテム取得
@@ -88,7 +89,7 @@ export const SE_DEFS = {
 export type SeName = keyof typeof SE_DEFS;
 // Only packaged sounds are requested; the remaining effects use their synth definitions.
 export const FILE_SE_NAMES: readonly SeName[] = [
-  'clockTick', 'weaponBreak', 'shieldBreak', 'dynamite', 'attack', 'weaponDagger', 'weaponLongsword', 'weaponLance', 'weaponBow',
+  'hurt', 'hurtHeavy', 'clockTick', 'weaponBreak', 'shieldBreak', 'dynamite', 'attack', 'weaponDagger', 'weaponLongsword', 'weaponLance', 'weaponBow',
   'weaponHandgun', 'weaponGreatsword', 'weaponDual', 'skillDagger', 'skillLongsword',
   'skillLance', 'skillBow', 'skillHandgun', 'skillGreatsword', 'skillDual'
 ];

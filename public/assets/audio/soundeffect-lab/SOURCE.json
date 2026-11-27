@@ -1,0 +1,17 @@
+{
+  "provider": "効果音ラボ",
+  "page": "https://soundeffect-lab.info/sound/battle/",
+  "terms": "https://soundeffect-lab.info/agreement/",
+  "retrieved": "2026-11-27",
+  "usage": "Game damage sound effects, not a sound sampler. Original MP3 files bundled locally; no hotlinking.",
+  "files": {
+    "blow2.mp3": {
+      "title": "打撃2",
+      "sha256": "08346d543d05489dd7cd1eee974c8761cfbfd2d8451f6961e3ed317fc0be288e"
+    },
+    "blow6.mp3": {
+      "title": "打撃6",
+      "sha256": "918f69ce1827636908a9adf7aeb5a5bebb65256ebaed5ecd0ded46922fa786cd"
+    }
+  }
+}
