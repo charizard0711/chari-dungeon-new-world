@@ -1,17 +1,5 @@
 [
   {
-    "id": "guide",
-    "text": "やあ。よく来たね。",
-    "credit": "VOICEVOX:玄野武宏",
-    "sha256": "776ae56f6284f855c28d66e97f7f31880584250b2d826780ca15c2162868a4b7"
-  },
-  {
-    "id": "merchant",
-    "text": "いらっしゃいませ！",
-    "credit": "VOICEVOX:春日部つむぎ",
-    "sha256": "1427ae316300f6595fd0e398e03d2ef2e1c7ba523b7016788bde4f3609a428c1"
-  },
-  {
     "id": "barber",
     "text": "こんにちは。",
     "credit": "VOICEVOX:春日部つむぎ",
@@ -28,5 +16,21 @@
     "text": "住まいを、お探しかな？",
     "credit": "VOICEVOX:玄野武宏",
     "sha256": "48ba0e3846744e6ce9dcf690c5ea92910c32b7ed29a5aa4de81e9bcf7e72c114"
+  },
+  {
+    "id": "guide",
+    "file": "guide-v2.wav",
+    "text": "やぁ。",
+    "style": 53,
+    "credit": "VOICEVOX:麒ヶ島宗麟",
+    "sha256": "957823d5b5652a1439ace2704edebfc5e626515513af34ed4f70729f5b6ffe7c"
+  },
+  {
+    "id": "merchant",
+    "file": "merchant-v2.wav",
+    "text": "いらっしゃいませ。",
+    "style": 8,
+    "credit": "VOICEVOX:春日部つむぎ",
+    "sha256": "de20332619b39d18aeae291f80d3680f44009327352597260bc3438e700a87e3"
   }
 ]
