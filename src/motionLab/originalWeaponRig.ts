@@ -1,3 +1,4 @@
+import {coloredBootFrame,wornGearColor} from './wornGear';
 import {verticalAttack} from './verticalAttack';
 import {rangedPose,drawVerticalRanged} from './verticalRanged';
 import {ROW,type Atlas,type Facing,type Point} from './motion';
@@ -69,7 +70,7 @@ export function parseLimbParts(image:HTMLImageElement):LimbParts{
   const out=document.createElement('canvas');out.width=x1-x0+1;out.height=y1-y0+1;out.getContext('2d')!.drawImage(c,sx+x0,sy+y0,out.width,out.height,0,0,out.width,out.height);parts.push(out);
  }return parts;
 }
-export function drawOriginalRig(g:CanvasRenderingContext2D,body:Atlas,parts:LimbParts,weapon:HTMLImageElement,type:string,directional:boolean,dir:Facing,t:number,attack:boolean,walk:boolean,magnify:number,debug:boolean,options:{grip?:Point;basis?:number;height?:number;verticalArt?:boolean;verticalFrames?:HTMLCanvasElement[];shield?:HTMLImageElement}={}){
+export function drawOriginalRig(g:CanvasRenderingContext2D,body:Atlas,parts:LimbParts,weapon:HTMLImageElement,type:string,directional:boolean,dir:Facing,t:number,attack:boolean,walk:boolean,magnify:number,debug:boolean,options:{grip?:Point;basis?:number;height?:number;verticalArt?:boolean;verticalFrames?:HTMLCanvasElement[];shield?:HTMLImageElement;gloves?:string;boots?:string;externalWeapon?:boolean}={}){
  const row=ROW[dir],frame=walk?Math.floor(t*8)%8:attack?[0,0,2,2,4,4,2,0][Math.min(7,Math.floor(t*8))]:0,f=body.frames[row*8+frame],scale=body.scale;
  const pose=rigPose(type,t,attack,walk),side=dir==='left'?-1:1,profile=dir==='left'||dir==='right';
  const map=(p:Point):Point=>profile?[p[0]*side,p[1]]:[p[0]*.55-2,p[1]+(dir==='up'?-3:3)];
@@ -86,10 +87,29 @@ export function drawOriginalRig(g:CanvasRenderingContext2D,body:Atlas,parts:Limb
   g.drawImage(weapon,0,sourceY,sw,sh,-config.grip[0]*sw*s,-config.grip[1]*sh*s,sw*s,sh*s);g.restore();};
  const segment=(a:Point,b:Point,img:HTMLCanvasElement,width:number)=>{g.save();g.translate(...a);g.rotate(Math.atan2(b[1]-a[1],b[0]-a[0])-Math.PI/2);g.drawImage(img,-width/2,-1,width,Math.hypot(b[0]-a[0],b[1]-a[1])+2);g.restore();};
  const arm=(s:Point,h:Point,far:boolean)=>{const elbow=solveElbow(s,h,Math.sign(h[0]-s[0])||side);g.save();segment(s,elbow,parts[row],3.8);segment(elbow,h,parts[4+row],3.2);g.restore();if(debug){g.strokeStyle=far?'#ffb87b':'#78e8d5';g.lineWidth=.5;g.beginPath();g.moveTo(...s);g.lineTo(...elbow);g.lineTo(...h);g.stroke();}};
- const glove=(h:Point)=>{g.save();g.translate(...h);g.rotate(angle+Math.PI/2);g.drawImage(parts[8+row],-1.6,-1.6,3.2,3.2);g.restore();};
+ const handMaterial=wornGearColor(options.gloves),bootMaterial=wornGearColor(options.boots);
+ const fittedGlove=(h:Point,shoulder:Point)=>{
+  const elbow=solveElbow(shoulder,h,Math.sign(h[0]-shoulder[0])||side);
+  const [r,green,b]=handMaterial!;
+  g.save();g.translate(...h);g.rotate(Math.atan2(h[1]-elbow[1],h[0]-elbow[0])-Math.PI/2);
+  g.fillStyle='#262027';g.fillRect(-2.2,-2.8,4.4,3.9);
+  g.fillStyle=`rgb(${r},${green},${b})`;g.fillRect(-1.8,-2.45,3.6,3.75);
+  g.fillStyle='rgba(255,245,218,.55)';g.fillRect(-1.8,-2.4,3.6,.65);
+  g.fillStyle='rgba(24,15,25,.42)';g.fillRect(.8,-1.65,1,2.5);
+  g.restore();
+ };
+ const drawBody=(v:typeof f)=>{
+  const x=-v.root[0]*scale,y=-v.root[1]*scale;
+  g.drawImage(body.image,v.sx,v.sy,v.cw,v.ch,x,y,v.cw*scale,v.ch*scale);
+  if(bootMaterial){
+   const boots=coloredBootFrame(body,v,bootMaterial);
+   g.drawImage(boots,x,y+(v.ch-boots.height)*scale,boots.width*scale,boots.height*scale);
+  }
+ };
+ const glove=(h:Point)=>{if(handMaterial){fittedGlove(h,h===hand?shoulder:farShoulder);return;}g.save();g.translate(...h);g.rotate(angle+Math.PI/2);g.drawImage(parts[8+row],-1.6,-1.6,3.2,3.2);g.restore();};
  const heldGear=()=>{
-  drawWeapon(hand,angle);
-  if(type==='dual_sword')drawWeapon(off,vertical?Math.PI-angle:angle+.8);
+  if(!options.externalWeapon)drawWeapon(hand,angle);
+  if(!options.externalWeapon&&type==='dual_sword')drawWeapon(off,vertical?Math.PI-angle:angle+.8);
   if(options.shield){const s=options.shield,size=22;g.drawImage(s,off[0]-size/2,off[1]-size*.45,size,size);}
   glove(hand);glove(off);
  };
@@ -99,10 +119,10 @@ export function drawOriginalRig(g:CanvasRenderingContext2D,body:Atlas,parts:Limb
  g.save();g.translate(0,-12);g.rotate(profile?pose.lean*side:0);g.translate(0,12);if(walk&&!profile){
   // Front/back source gait repeats the same leading foot. Alternate only the legs;
   // the face, cape, belt and hand anchors keep their authored orientation.
-  const leg=body.frames[row*8+(Math.floor(t*8)%4)],draw=(v:typeof f)=>g.drawImage(body.image,v.sx,v.sy,v.cw,v.ch,-v.root[0]*scale,-v.root[1]*scale,v.cw*scale,v.ch*scale);
-  g.save();g.beginPath();g.rect(-100,-100,200,86);g.clip();draw(f);g.restore();
-  g.save();g.beginPath();g.rect(-100,-14,200,114);g.clip();if(t%1>=.5)g.scale(-1,1);draw(leg);g.restore();
- }else g.drawImage(body.image,f.sx,f.sy,f.cw,f.ch,-f.root[0]*scale,-f.root[1]*scale,f.cw*scale,f.ch*scale);g.restore();
+  const leg=body.frames[row*8+(Math.floor(t*8)%4)];
+  g.save();g.beginPath();g.rect(-100,-100,200,86);g.clip();drawBody(f);g.restore();
+  g.save();g.beginPath();g.rect(-100,-14,200,114);g.clip();if(t%1>=.5)g.scale(-1,1);drawBody(leg);g.restore();
+ }else drawBody(f);g.restore();
  // Front-facing limbs and gear are opaque foreground layers, never behind the torso.
  if(dir==='down')arm(farShoulder,off,true);
  if(dir!=='up'){arm(shoulder,hand,false);heldGear();}

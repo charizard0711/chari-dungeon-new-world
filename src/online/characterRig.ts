@@ -45,25 +45,27 @@ export class CharacterRig {
   if(lookKey!==this.lookKey){this.lookKey=lookKey;this.look=undefined;loadCharacterRig(gender,armor,hair).then(look=>{if(!this.disposed&&this.lookKey===lookKey){this.look=look;this.signature='';}}).catch(()=>{});}
   const sheet=weapons.find(w=>w.key===weapon?.key),artKey=weapon?(weapon.starred?sheet?.star:sheet?.held)??'':'';
   if(artKey!==this.artKey){this.artKey=artKey;this.art=undefined;this.visual=undefined;this.sheet=sheet;if(artKey&&sheet)loadWeaponVisual(sheet,!!weapon?.starred,loadRigImage).then(visual=>{if(!this.disposed&&this.artKey===artKey){this.visual=visual;this.art=visual.image;this.signature='';}}).catch(()=>{});}
-  if(!this.look||(weapon&&!this.art)||weapon&&!sheet){body.setCrop();this.image.setVisible(false);return false;}
+  const gloves=body.getData('wornGloves'),boots=body.getData('wornBoots');
+  const externalWeapon=!!weapon&&!this.art;
+  if(!this.look||externalWeapon&&!gloves&&!boots){body.setCrop();this.image.setVisible(false);return false;}
   const action=playerAction(frame),attack=action==='attack'||action==='windup',walk=action==='walk',heavy=weapon?.weaponType==='greatsword',windup=heavy?200:58,duration=heavy?460:268;
   const attackRate=Number(body.getData('attackRate')??1);elapsed/=attackRate;const t=attack?Math.min(1,(elapsed+(action==='attack'?windup:0))/duration):walk?Number(body.getData('walkPhase')??Math.max(0,PLAYER_WALK_FRAMES.indexOf(frame as typeof PLAYER_WALK_FRAMES[number]))/PLAYER_WALK_FRAMES.length):0;
   const phase=attack?Math.round(t*24):walk?Math.floor(t*8):0;
-  const signature=[lookKey,artKey,shield?.key,dir,action,phase].join('|');
+  const signature=[gloves,boots,externalWeapon,lookKey,artKey,shield?.key,dir,action,phase].join('|');
   if(signature!==this.signature&&(this.scene.time.now>=this.nextDraw||!this.signature)){
    this.nextDraw=this.scene.time.now+1000/30;this.signature=signature;
    const g=this.texture.context;g.clearRect(0,0,256,256);g.save();g.translate(128,176);
    const type=weapon?.weaponType??'dagger',blank=document.createElement('canvas');blank.width=blank.height=1;
    let shieldArt:HTMLImageElement|undefined;
    if(shield&&!isTwoHanded(weapon)&&this.scene.textures.exists(shield.key)){const source=this.scene.textures.get(shield.key).getSourceImage() as HTMLImageElement;if(source?.tagName==='IMG')shieldArt=source;}
-   drawOriginalRig(g,this.look.body,this.look.arms,this.art??blank as unknown as HTMLImageElement,type,this.visual?.directional??false,dir,t,attack,walk,2,false,{...this.visual?.options,shield:shieldArt});
+   drawOriginalRig(g,this.look.body,this.look.arms,this.art??blank as unknown as HTMLImageElement,type,this.visual?.directional??false,dir,t,attack,walk,2,false,{...this.visual?.options,shield:externalWeapon?undefined:shieldArt,gloves,boots,externalWeapon});
    g.restore();this.texture.refresh();
   }
-  body.setCrop(0,0,0,0);this.onReady();
+  body.setCrop(0,0,0,0);if(!externalWeapon)this.onReady();
   const scale=body.displayWidth/43.52/2;
   const offset=body.displayHeight*.41;
   this.image.setPosition(body.x-Math.sin(body.rotation)*offset,body.y+Math.cos(body.rotation)*offset).setOrigin(.5,176/256).setScale(scale).setRotation(body.rotation).setDepth(body.depth+.01).setAlpha(body.alpha).setVisible(enabled&&body.visible&&frame!=='down');
-  return true;
+  return !externalWeapon;
  }
  destroy(){if(this.disposed)return;this.disposed=true;this.scene.events.off('postupdate',this.refresh,this);this.scene.events.off('shutdown',this.destroy,this);this.bound?.off('destroy',this.destroy,this);this.image.destroy();this.scene.textures.remove(this.texture.key);}
 }

@@ -20,7 +20,7 @@ export function drawMazeGround(scene:any){
 }
 export function mountMazeMechanics(scene:any){
  const cinematic=mountBossCinematic(scene),panels=mountEffectPanels(scene);
- const g=scene.add.graphics().setDepth(-1),bars=scene.add.graphics().setDepth(27),emerging=scene.add.image(50.5*T,5*T,'adventure_vesper_v2',0).setDisplaySize(114,114).setDepth(26).setVisible(false);
+ const g=scene.add.graphics().setDepth(-1),bars=scene.add.graphics().setDepth(27),emerging=scene.add.image(50.5*T,5*T,'vesper_greatsword',0).setOrigin(.5,.9).setDisplaySize(138,151).setDepth(26).setVisible(false);
  const cageOpen=scene.add.image(50.5*T,6*T,'maze_cage_open').setOrigin(.5,1).setDisplaySize(3.4*T,3.4*T).setDepth(25),cageClosed=scene.add.image(50.5*T,6*T,'maze_cage_closed').setOrigin(.5,1).setDisplaySize(3.4*T,3.4*T).setDepth(27);
  const buff=scene.add.text(12,75,'',{fontFamily:'Meiryo',fontSize:'14px',color:'#ceffe1',backgroundColor:'#16382ee8',padding:{x:8,y:7}}).setScrollFactor(0).setDepth(2101),notice=scene.add.text(12,125,'',{fontFamily:'Meiryo',fontSize:'13px',color:'#ffe8ad',backgroundColor:'#15202ce0',padding:{x:8,y:7}}).setScrollFactor(0).setDepth(2101);
  let lastBridge='',lastBoss='',initial=true;

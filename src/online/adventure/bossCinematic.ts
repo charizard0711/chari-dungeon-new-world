@@ -26,7 +26,7 @@ export function mountBossCinematic(scene:any){
   const tiles=a?.snapshot.brokenFloors??[];const needed=new Set<string>();
   for(const p of tiles){const id=p.x+','+p.y;needed.add(id);if(!rubble.has(id))rubble.set(id,scene.add.image((p.x+.5)*T,(p.y+.5)*T,fracturedFloorTexture(scene,terrainFrame(undefined,p.x,p.y))).setDisplaySize(T,T).setDepth(-3.8));}
   // The introductory stab scars one real floor tile cosmetically; phase attacks make their three tiles solid.
-  if(b?.phase==='battle'||b?.phase==='opening'&&now()-b.at>=9670){const id='intro';needed.add(id);if(!rubble.has(id))rubble.set(id,scene.add.image(50.5*T,11.5*T,fracturedFloorTexture(scene,terrainFrame(undefined,50,11),1)).setDisplaySize(T,T).setDepth(-3.8));}
+  if(bossStage(a)&&(b?.phase==='battle'||b?.phase==='cleared'||b?.phase==='opening'&&now()-b.at>=9670)){const id='intro';needed.add(id);if(!rubble.has(id))rubble.set(id,scene.add.image(50.5*T,11.5*T,'vesper_stab_floor').setDisplaySize(T,T).setDepth(-3.8));}
   for(const [id,o]of rubble)if(!needed.has(id)){o.destroy();rubble.delete(id);}
   if(!active){if(following){following=false;const actor=scene.actors.get(scene.packet.active?.id);if(actor)scene.cameraFollow?.follow(actor.anchor);}return;}
   if(scene.hud?.overlayMode==='inbox')scene.hud.inboxUI?.close();

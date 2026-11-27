@@ -34,8 +34,8 @@ const affinity = (element?: Element) => element ? `${ELEMENT_INFO[element].name}
 
 // 所持状況や到達階で絞らず、ゲーム本体の定義から全種類を作る。
 export const ITEM_CATALOG: readonly CatalogEntry[] = [
-  ...GLOVES_DEFS.map(g=>({key:g.key,category:"gloves" as const,name:g.name,textureKey:g.key,grade:g.grade,summary:`${g.grade} / 手袋`,description:`攻撃速度 +${Math.round(EQUIPMENT_HASTE[g.grade]*100)}%\nキャラクターの見た目は変わりません。`})),
-  ...BOOTS_DEFS.map(b=>({key:b.key,category:'boots' as const,name:b.name,textureKey:b.key,grade:b.grade,summary:`${b.grade} / 靴`,description:`移動速度 +${Math.round(EQUIPMENT_HASTE[b.grade]*100)}%\nキャラクターの見た目は変わりません。`})),
+  ...GLOVES_DEFS.map(g=>({key:g.key,category:"gloves" as const,name:g.name,textureKey:g.key,grade:g.grade,summary:`${g.grade} / 手袋`,description:`攻撃速度 +${Math.round(EQUIPMENT_HASTE[g.grade]*100)}%\n装備するとキャラクターの見た目に反映されます。`})),
+  ...BOOTS_DEFS.map(b=>({key:b.key,category:'boots' as const,name:b.name,textureKey:b.key,grade:b.grade,summary:`${b.grade} / 靴`,description:`移動速度 +${Math.round(EQUIPMENT_HASTE[b.grade]*100)}%\n装備するとキャラクターの見た目に反映されます。`})),
   ...NECKLACE_DEFS.map(n=>({key:n.key,category:'necklace' as const,name:n.name,textureKey:n.key,grade:n.grade,summary:`${n.grade} / ネックレス`,description:`スキル威力 ×${NECKLACE_SKILL[n.grade]}`})),
   ...WEAPON_DEFS.map((weapon): CatalogEntry => ({
     key: weapon.key, category: 'weapon', name: weapon.name, textureKey: weapon.key,
