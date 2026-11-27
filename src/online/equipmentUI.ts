@@ -125,7 +125,7 @@ export function mountTownEquipmentUI(hud:any,gs:any){
  async function use(e:QuickEntry,equipOnly=false){
   if(e.category==='emote'){const emote=emoteById(e.key);if(emote)await run(()=>gs.action('chat',{message:`【エモート】${emote.label}`}));return;}
   if(e.category==='item'){
-   if(!['potion','repair','skill_drink'].includes(e.key)){say('この道具は町では使えません。');return;}
+   if(!['potion','repair','skill_drink',...(gs.inDungeon?['warp']:[])].includes(e.key)){say('この道具は町では使えません。');return;}
    let target:{}={};if(e.key==='repair'){const broken=entries().find(a=>(a.category==='weapon'||a.category==='shield')&&a.instance&&a.instance.dur<a.instance.max);if(!broken){say('修復が必要な装備はありません。');return;}target={slot:broken.category,index:broken.index,instanceId:broken.instance?.id};}
    await run(()=>gs.action('use_item',{kind:e.key,...target}));
   }else await run(async()=>{const before=JSON.stringify(character()?.gear);await gs.action('equip',{slot:e.category,key:e.key,index:e.index,instanceId:e.instance?.id,equipped:equipOnly||!e.equipped});if(before!==JSON.stringify(character()?.gear))playTownSound(gs,e.category==='necklace'?'jingle':'equip');});
@@ -162,7 +162,7 @@ export function mountTownEquipmentUI(hud:any,gs:any){
   else if(mode==='shop'&&shopTab==='repair'){const cost=Math.max(1,Math.ceil(((e.instance?.max??0)-(e.instance?.dur??0))/10));button(`修理 ${cost}G`,()=>void run(async()=>{await gs.action('repair_equipment',{slot:e.category,index:e.index,instanceId:e.instance?.id});say('修理しました。装備し直せます。');}));}
   else if(mode==='shop'&&shopTab==='sell'){const sale=({D:10,C:25,B:50,A:100,S:200,SS:400,SSS:800} as Record<string,number>)[e.definition.grade??'D'];button(`売却 ${sale}G`,()=>void run(async()=>{await gs.action('sell_equipment',{slot:e.category,index:e.index,instanceId:e.instance?.id});say('売却しました。');}));}
   else {
-   const broken=!!(e.instance?.max&&e.instance.dur===0);button(e.category==='item'?'使用':e.equipped?'外す':broken?'修理が必要':'装備する',()=>void use(e),broken||e.category==='item'&&!['potion','repair','skill_drink'].includes(e.key));
+   const broken=!!(e.instance?.max&&e.instance.dur===0);button(e.category==='item'?'使用':e.equipped?'外す':broken?'修理が必要':'装備する',()=>void use(e),broken||e.category==='item'&&!['potion','repair','skill_drink',...(gs.inDungeon?['warp']:[])].includes(e.key));
    button('落とす',()=>void run(async()=>{const before=new Set<string>((gs.packet.drops??[]).map((d:{id:string})=>d.id));if(e.category==='item')await gs.action('drop_item',{kind:e.key});else await gs.action('drop_equipment',{slot:e.category,index:e.index,key:e.key,instanceId:e.instance?.id});gs.ignoreOwnDrops(before);say(`${e.definition.name}を落としました。`);})).classList.add('danger');
   }
   detail.append(actions);requestAnimationFrame(()=>scrollSync.forEach(fn=>fn()));

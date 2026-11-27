@@ -4,11 +4,12 @@ import {terrainFrame} from './scenery';
 import {playBossStab}from '../actionAudio';
 export const BOSS_INTRO_MS=14000,SMASH_MS=3800,SMASH_IMPACT_MS=1800;
 export function bossCinematicLocked(a:any,now:number){const b=a?.snapshot?.bossEncounter;return bossStage(a)&&!!b&&(b.phase==='opening'||b.phase==='battle'&&b.smash&&now<b.smash.at+b.smash.duration);}
-export function preloadBossCinematic(scene:any){scene.load.audio('boss_sword_stab','assets/online/action-audio-v1/boss-sword-stab.wav');for(const key of ['walk','attack'])scene.load.image('boss_intro_'+key,`assets/online/boss-intro-demo-v2/${key}.png`);}
+export function preloadBossCinematic(scene:any){if(!scene.textures.exists('crystal_pit'))scene.load.image('crystal_pit_source','assets/online/combat-fx-v2/crystal-pit.png');scene.load.audio('boss_sword_stab','assets/online/action-audio-v1/boss-sword-stab.wav');for(const key of ['walk','attack'])scene.load.image('boss_intro_'+key,`assets/online/boss-intro-demo-v2/${key}.png`);}
 const clamp=(n:number)=>Math.max(0,Math.min(1,n)),ease=(n:number)=>{n=clamp(n);return n*n*(3-2*n);};
 const poses=[...frames.walk,...frames.attack];
 /** Fracture the existing map texture at its original size; no decorative slab is added. */
 export function fracturedFloorTexture(scene:any,frame:number,stage=3){
+ if(stage===3){if(!scene.textures.exists('crystal_pit')){const source=scene.textures.get('crystal_pit_source').getSourceImage(),canvas=document.createElement('canvas');canvas.width=canvas.height=128;canvas.getContext('2d')!.drawImage(source,0,0,128,128);scene.textures.addCanvas('crystal_pit',canvas);scene.textures.remove('crystal_pit_source');}return 'crystal_pit';}
  const key=`boss_floor_${frame}_${stage}`;if(scene.textures.exists(key))return key;
  const texture=scene.textures.get('maze_floor'),f=texture.get(frame),img=texture.getSourceImage(),c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d')!;
  g.fillStyle='#170e18';g.fillRect(0,0,128,128);const edge=[[0,0],[64,0],[128,0],[128,64],[128,128],[64,128],[0,128],[0,64],[0,0]];
@@ -25,7 +26,7 @@ export function mountBossCinematic(scene:any){
   const tiles=a?.snapshot.brokenFloors??[];const needed=new Set<string>();
   for(const p of tiles){const id=p.x+','+p.y;needed.add(id);if(!rubble.has(id))rubble.set(id,scene.add.image((p.x+.5)*T,(p.y+.5)*T,fracturedFloorTexture(scene,terrainFrame(undefined,p.x,p.y))).setDisplaySize(T,T).setDepth(-3.8));}
   // The introductory stab scars one real floor tile cosmetically; phase attacks make their three tiles solid.
-  if(b?.phase==='battle'||b?.phase==='opening'&&now()-b.at>=9670){const id='intro';needed.add(id);if(!rubble.has(id))rubble.set(id,scene.add.image(50.5*T,11.5*T,fracturedFloorTexture(scene,terrainFrame(undefined,50,11))).setDisplaySize(T,T).setDepth(-3.8));}
+  if(b?.phase==='battle'||b?.phase==='opening'&&now()-b.at>=9670){const id='intro';needed.add(id);if(!rubble.has(id))rubble.set(id,scene.add.image(50.5*T,11.5*T,fracturedFloorTexture(scene,terrainFrame(undefined,50,11),1)).setDisplaySize(T,T).setDepth(-3.8));}
   for(const [id,o]of rubble)if(!needed.has(id)){o.destroy();rubble.delete(id);}
   if(!active){if(following){following=false;const actor=scene.actors.get(scene.packet.active?.id);if(actor)scene.cameraFollow?.follow(actor.anchor);}return;}
   if(scene.hud?.overlayMode==='inbox')scene.hud.inboxUI?.close();
