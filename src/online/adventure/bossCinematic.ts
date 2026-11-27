@@ -1,10 +1,10 @@
 import frames from '../../bossIntroFrames.json';
 import {bossStage} from './stage';
 import {terrainFrame} from './scenery';
-import {playBossStab}from '../actionAudio';
+import {BOSS_STAB_PATH,playBossStab}from '../actionAudio';
 export const BOSS_INTRO_MS=14000,SMASH_MS=3800,SMASH_IMPACT_MS=1800;
 export function bossCinematicLocked(a:any,now:number){const b=a?.snapshot?.bossEncounter;return bossStage(a)&&!!b&&(b.phase==='opening'||b.phase==='battle'&&b.smash&&now<b.smash.at+b.smash.duration);}
-export function preloadBossCinematic(scene:any){if(!scene.textures.exists('crystal_pit'))scene.load.image('crystal_pit_source','assets/online/combat-fx-v2/crystal-pit.png');scene.load.audio('boss_sword_stab','assets/online/action-audio-v1/boss-sword-stab.wav');for(const key of ['walk','attack'])if(!scene.textures.exists('boss_intro_'+key))scene.load.image('boss_intro_'+key,`assets/online/boss-intro-demo-v2/${key}.png`);}
+export function preloadBossCinematic(scene:any){if(!scene.textures.exists('crystal_pit'))scene.load.image('crystal_pit_source','assets/online/combat-fx-v2/crystal-pit.png');scene.load.audio('boss_sword_stab',BOSS_STAB_PATH);for(const key of ['walk','attack'])if(!scene.textures.exists('boss_intro_'+key))scene.load.image('boss_intro_'+key,`assets/online/boss-intro-demo-v2/${key}.png`);}
 const clamp=(n:number)=>Math.max(0,Math.min(1,n)),ease=(n:number)=>{n=clamp(n);return n*n*(3-2*n);};
 const poses=[...frames.walk,...frames.attack];
 /** Fracture the existing map texture at its original size; no decorative slab is added. */

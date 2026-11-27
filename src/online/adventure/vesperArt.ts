@@ -3,19 +3,62 @@ import type Phaser from 'phaser';
 export const VESPER_ART='vesper_greatsword';
 export const VESPER_SWING_MS=570;
 export const VESPER_STRIKE_MS=170;
+const WALK='vesper_walk_v2',SWING='vesper_swing_v2';
+type Sheet={key:string;columns:number[];rows:number[];hipX:number[];soleY:number[]};
+const swing:Sheet={
+ key:SWING,columns:[0,276,602,897,1199],rows:[0,313,665,977,1312],
+ hipX:[165,453,741,1030],soleY:[293,634,932,1257],
+};
+const walk:Sheet={
+ key:WALK,columns:[0,297,600,896,1199],rows:[0,328,656,984,1312],
+ hipX:[166,457,736,1032],soleY:[296,625,955,1283],
+};
+const artScale=138/299;
 
-export function preloadVesper(scene:Phaser.Scene){
+export function preloadVesper(scene:Phaser.Scene,animated=false){
  if(!scene.textures.exists(VESPER_ART)){
   scene.load.spritesheet(VESPER_ART,'assets/online/vesper-greatsword-v1/poses.png',{frameWidth:299,frameHeight:328});
  }
  if(!scene.textures.exists('vesper_stab_floor')){
   scene.load.image('vesper_stab_floor','assets/online/vesper-greatsword-v1/stab-floor.png');
  }
+ if(animated){
+  if(!scene.textures.exists(WALK))scene.load.image(WALK,'assets/online/vesper-greatsword-v2/walk.png');
+  if(!scene.textures.exists(SWING))scene.load.image(SWING,'assets/online/vesper-greatsword-v2/swing.png');
+ }
 }
 
-export function vesperFrame(direction:number, moving:boolean, time:number, swingAge:number){
- if(swingAge>=0&&swingAge<VESPER_SWING_MS)return direction+(swingAge<VESPER_STRIKE_MS?8:12);
- return direction+(moving&&Math.floor(time/135)%2===1?4:0);
+export function prepareVesperMotion(scene:Phaser.Scene){
+ for(const sheet of [walk,swing]){
+  if(!scene.textures.exists(sheet.key))continue;
+  const texture=scene.textures.get(sheet.key);
+  if(texture.has('0'))continue;
+  for(let row=0;row<4;row++)for(let direction=0;direction<4;direction++){
+   const x=sheet.columns[direction],y=sheet.rows[row];
+   const width=sheet.columns[direction+1]-x,height=sheet.rows[row+1]-y;
+   texture.add(String(row*4+direction),0,x,y,width,height);
+  }
+ }
+}
+
+export function applyVesperMotion(body:Phaser.GameObjects.Image,direction:number,stride:number|undefined,swingAge:number){
+ const attacking=swingAge>=0&&swingAge<VESPER_SWING_MS;
+ const sheet=attacking?swing:stride!==undefined?walk:undefined;
+ if(sheet&&body.scene.textures.exists(sheet.key)){
+  const phase=Math.min(3,Math.floor((stride??0)*4));
+  const row=attacking?(swingAge<76?0:swingAge<VESPER_STRIKE_MS?1:swingAge<260?2:3)
+   :direction===0||direction===3?[0,2,3,1][phase]:phase;
+  const frame=String(row*4+direction);
+  if(body.texture.key===sheet.key&&body.frame.name===frame)return;
+  body.setTexture(sheet.key,frame).setScale(artScale).setOrigin(
+   (sheet.hipX[direction]-sheet.columns[direction])/body.frame.width,
+   (sheet.soleY[row]+8-sheet.rows[row])/body.frame.height,
+  );
+ }else{
+  const frame=direction+(attacking?(swingAge<VESPER_STRIKE_MS?8:12):stride!==undefined&&stride>=.5?4:0);
+  if(body.texture.key===VESPER_ART&&String(body.frame.name)===String(frame))return;
+  body.setTexture(VESPER_ART,frame).setOrigin(.5,.91).setDisplaySize(138,151);
+ }
 }
 
 export function drawVesperSlash(graphics:Phaser.GameObjects.Graphics,x:number,y:number,direction:number,progress:number){

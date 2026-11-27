@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import frames from './bossIntroFrames.json';
+import {BOSS_STAB_PATH} from './online/actionAudio';
 
 // Local preview only: no account, multiplayer connection or production scene changes.
 const W=1280,H=720,T=64,BX=640,END=430,IMPACT=9670;
@@ -67,7 +68,7 @@ class Intro extends Phaser.Scene{
   if(t>=7500&&t<7970){const p=clamp((t-7500)/220),fade=1-clamp((t-7720)/250);for(let i=0;i<7;i++){const end=.05+p*Math.PI,start=Math.max(.05,end-(.35+p*1.7));this.fx.lineStyle(11-i*1.4,i<2?0xffedff:0xa35bff,fade*(.6-i*.07));this.fx.beginPath();for(let n=0;n<=40;n++){const a=start+(end-start)*n/40,px=BX+Math.cos(a)*(153+i*2),py=END-112+Math.sin(a)*(40+i*2);if(n===0)this.fx.moveTo(px,py);else this.fx.lineTo(px,py);}this.fx.strokePath();}}
   if(t>=2100&&t<6300){const step=(t-2100)/1050,contact=step%1;if(contact<.22){const p=contact/.22,side=Math.floor(step)%2?1:-1;this.fx.lineStyle(1,0xc6a0a0,(1-p)*.24).strokeEllipse(BX+side*17,y+3,20+p*34,5+p*9);for(let i=0;i<6;i++)this.fx.fillStyle(0xa98a83,(1-p)*.35).fillCircle(BX+side*17+Math.cos(i)*p*22,y+Math.sin(i)*p*5-p*6,2);}}
   if(t<lastSoundTime)stopStabAudio();
-  if(!paused&&stabAudioEnabled&&!strictMute&&!document.hidden&&lastSoundTime<IMPACT&&t>=IMPACT&&t<IMPACT+250){stabAudio??=new Audio('assets/online/action-audio-v1/boss-sword-stab.wav');stabAudio.volume=.45;stabAudio.currentTime=0;void stabAudio.play().catch(()=>{});}lastSoundTime=t;
+  if(!paused&&stabAudioEnabled&&!strictMute&&!document.hidden&&lastSoundTime<IMPACT&&t>=IMPACT&&t<IMPACT+250){stabAudio??=new Audio(BOSS_STAB_PATH);stabAudio.volume=.45;stabAudio.currentTime=0;void stabAudio.play().catch(()=>{});}lastSoundTime=t;
   const hit=t-IMPACT;if(hit<0)this.ground.setTexture('floor',13);else this.ground.setTexture('fractured-floor-'+(hit<85?1:hit<440?2:3));
   if(hit>=0&&hit<1200){const p=hit/1200;for(let i=0;i<2;i++)this.fx.lineStyle(5-i*2,0xcb9aff,(1-p)*(.7-i*.2)).strokeEllipse(BX,448,45+p*470+i*18,15+p*120+i*7);for(let i=0;i<28;i++){const a=i*2.39996,dist=(40+i%7*10)*Math.min(1,hit/450),dy=-Math.sin(Math.min(1,hit/800)*Math.PI)*(22+i%5*8);this.fx.fillStyle(i%3?0x8d697e:0xdbbaff,(1-p)*.9).fillTriangle(BX+Math.cos(a)*dist,448+Math.sin(a)*dist*.35+dy,BX+Math.cos(a)*dist+6,450+Math.sin(a)*dist*.35+dy,BX+Math.cos(a)*dist+2,442+Math.sin(a)*dist*.35+dy);}}
   const shake=hit>=0&&hit<450?(1-hit/450)*5:0;this.cameras.main.setScroll(Math.sin(hit*.1)*shake,Math.cos(hit*.13)*shake);
