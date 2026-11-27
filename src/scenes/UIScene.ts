@@ -693,7 +693,7 @@ export class UIScene extends Phaser.Scene {
     return Math.hypot(x - this.skillButton.x, y - this.skillButton.y) <= (IS_MOBILE ? 38 : 48);
   }
 
-  private refreshSkillButton() {
+  protected refreshSkillButton() {
     if (!this.skillButton) return;
     const type = this.gs.player?.weapon?.weaponType;
     const skill = weaponSkill(type);

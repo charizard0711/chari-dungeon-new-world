@@ -15,7 +15,7 @@
 
 .game-amount{display:flex;gap:6px;width:100%;box-sizing:border-box;align-items:stretch}.game-amount input{flex:1;min-width:0!important;width:0!important;appearance:textfield}.game-amount-buttons{display:flex;flex-direction:column;gap:3px;flex:none;width:40px}.game-amount-buttons button{padding:2px!important;flex:1;min-height:22px;background:#243d40;color:#ffe2a1;border:1px solid #9c8c61;border-radius:4px;line-height:1}.town-icon-grid>.town-icon{content-visibility:auto;contain-intrinsic-size:80px 80px}
 
-.town-equipment-ui.mobile .town-quickbar{grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;top:588px}.town-equipment-ui.mobile .town-quick-slot{height:60px;padding:8px!important}.town-equipment-ui.mobile .town-quick-label{font-size:11px;left:3px}.town-equipment-ui.mobile .town-quick-slot .town-count{font-size:13px}
+.town-equipment-ui.mobile .town-quickbar{grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;top:622px}.town-equipment-ui.mobile .town-quick-slot{height:60px;padding:8px!important}.town-equipment-ui.mobile .town-quick-label{font-size:11px;left:3px}.town-equipment-ui.mobile .town-quick-slot .town-count{font-size:13px}
 .town-aux-body{padding:22px;overflow:auto;min-height:0;flex:1;display:flex;flex-direction:column;gap:16px}.town-party-map{display:block;width:100%;height:auto;max-height:360px;object-fit:contain;image-rendering:pixelated;background:#071019;border:1px solid #8c825e}.town-map-legend{display:flex;gap:8px 20px;flex-wrap:wrap;color:#bce0d6;font-size:13px}.town-map-legend p{margin:0}.town-inspect-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}.town-inspect-card{border:1px solid #627877;border-radius:7px;background:#07151b;padding:16px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;color:#d9d8bf}.town-inspect-card h3,.town-inspect-card p{margin:0}.town-inspect-card .town-icon{width:90px;height:90px;opacity:1}.town-inspect-card p{white-space:pre-line;font-size:12px}.town-equipment-ui.mobile .town-aux-body{padding:10px}.town-equipment-ui.mobile .town-inspect-grid{grid-template-columns:repeat(2,1fr);gap:8px}.town-equipment-ui.mobile .town-inspect-card{padding:9px;font-size:11px}.town-equipment-ui.mobile .town-inspect-card .town-icon{width:62px;height:62px}.town-equipment-ui.mobile .town-map-legend{font-size:11px}
 
 .town-inspect-card .town-icon{filter:none!important;opacity:1!important}
@@ -37,3 +37,20 @@
 .town-map-viewport{flex:0 0 310px;height:310px}@media(max-width:700px){.town-map-viewport{flex-basis:230px;height:230px}}
 
 .town-equipment-ui .town-slot-variant{border-color:#ffd682;box-shadow:inset 0 0 12px #ffd68238,0 0 6px #ffc76355}
+.town-skill-dock{position:absolute;left:476px;top:594px;width:263px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;pointer-events:auto}
+.town-skill-dock[hidden]{display:none}
+.town-skill-socket{height:74px;min-width:0;padding:3px 1px;display:grid;grid-template-rows:14px 32px 18px;place-items:center;border:1px solid #6994ad;border-radius:7px;background:linear-gradient(#183044,#0b1826);color:#e3f3ff;cursor:pointer}
+.town-skill-socket small{font-size:9px;color:#a6c5d7}
+.town-skill-socket strong{font-size:9px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.town-skill-socket:disabled{opacity:.56;cursor:default}
+.town-skill-socket[data-armed=true]{border-color:#9de8ff;box-shadow:inset 0 0 10px #3cbde770}
+.town-skill-glyph{font-size:23px;line-height:1;color:#9bdfba;text-shadow:0 0 7px #82cfc184}
+.town-skill-glyph img{width:32px;height:32px;object-fit:contain}
+.town-equipment-ui.mobile .town-skill-dock{left:12px;top:576px;width:366px}
+.town-equipment-ui.mobile .town-skill-socket{height:42px;grid-template-rows:11px 16px 11px}
+.town-equipment-ui.mobile .town-skill-glyph{font-size:15px}
+.town-equipment-ui.mobile .town-skill-glyph img{width:18px;height:18px}
+.town-skill-settings{display:flex;flex-direction:column;gap:12px;overflow:auto}
+.town-skill-option{padding:12px;border:1px solid #48667a;border-radius:9px;background:#101b2b}
+.town-skill-option h3,.town-skill-option p{margin:0 0 8px;color:#d8ecf5}
+.town-skill-option button{padding:6px 12px;margin-right:8px}

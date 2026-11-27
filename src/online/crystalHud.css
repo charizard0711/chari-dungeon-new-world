@@ -1,4 +1,4 @@
-.town-equipment-ui:not(.mobile) .town-quickbar{left:476px;top:594px;width:786px;gap:6px}
+.town-equipment-ui:not(.mobile) .town-quickbar{left:756px;top:594px;width:506px;gap:6px;grid-template-columns:repeat(6,minmax(0,1fr))}
 .town-equipment-ui:not(.mobile) .town-quick-slot{height:69px}
 .town-equipment-ui:not(.mobile) .town-necklace-slot{left:1054px;top:279px;width:100px;height:60px;padding:5px 48px 5px 3px!important}
 .town-equipment-ui:not(.mobile) .town-necklace-slot span{left:49px;right:2px;bottom:23px;font-size:8px}

@@ -21,7 +21,7 @@ function resourceBar(g:any,x:number,y:number,w:number,h:number,ratio:number,heal
  g.lineStyle(1,health?0x9c4a54:0x9e865c).strokeRoundedRect(x,y,w,h,h/2);
 }
 export function crystalMenu(h:any){
- const items=[['ui_nav_inventory','持ち物',()=>h.openInventory()],['ui_nav_codex','冒険図鑑',()=>h.setOverlay('codex')],['ui_nav_friends','フレンド',()=>h.townUI?.open('friends')],['ui_nav_guild','ギルド',()=>h.townUI?.open('guild')],['ui_nav_friends','パーティ',()=>h.townUI?.open('party')],['ui_nav_friends','エモート',()=>h.inboxUI?.emotes()]] as const;
+ const items=[['ui_nav_inventory','持ち物',()=>h.openInventory()],['ui_nav_codex','冒険図鑑',()=>h.setOverlay('codex')],['ui_nav_friends','フレンド',()=>h.townUI?.open('friends')],['ui_nav_guild','ギルド',()=>h.townUI?.open('guild')],['ui_nav_guild','スキル',()=>h.townUI?.open('skills')],['ui_nav_friends','エモート',()=>h.inboxUI?.emotes()]] as const;
  items.forEach(([icon,label,fn],i)=>{const x=1044+i%2*112,y=420+Math.floor(i/2)*47;const g=crystalPanel(h,x,y,108,41);h.add.image(x+20,y+20,icon).setDisplaySize(23,23);h.add.text(x+38,y+20,label,{fontFamily:'Meiryo',fontSize:'11px',color:'#e6f6ff'}).setOrigin(0,.5);h.add.zone(x,y,108,41).setOrigin(0).setInteractive({useHandCursor:true}).on('pointerover',()=>g.setAlpha(.75)).on('pointerout',()=>g.setAlpha(1)).on('pointerdown',()=>{Audio.playSe('click');fn();});});
 }
 export function crystalStatus(h:any){
