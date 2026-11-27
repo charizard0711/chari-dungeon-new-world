@@ -14,6 +14,8 @@ import {isTwoHanded} from '../equipmentRules';
 
 const images=new Map<string,Promise<HTMLImageElement>>(),looks=new Map<string,Promise<{body:Atlas;arms:LimbParts}>>();
 const catalog=assets as Record<string,CostumeAsset>;
+const weaponByKey=new Map(weapons.map(weapon=>[weapon.key,weapon]));
+let blankWeapon:HTMLCanvasElement|undefined;
 export function cropPortrait(canvas:HTMLCanvasElement){const out=document.createElement('canvas');out.width=out.height=176;const pixels=canvas.getContext('2d')!.getImageData(0,0,256,256).data;let x0=256,y0=256,x1=0,y1=0;for(let y=0;y<256;y++)for(let x=0;x<256;x++)if(pixels[(y*256+x)*4+3]>20){x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y);}if(x1>=x0){const w=x1-x0+1,h=y1-y0+1,s=Math.min(160/w,160/h);out.getContext('2d')!.drawImage(canvas,x0,y0,w,h,(176-w*s)/2,(176-h*s)/2,w*s,h*s);}return out;}
 export function loadRigImage(path:string){let promise=images.get(path);if(!promise){promise=new Promise<HTMLImageElement>((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>{images.delete(path);reject(Error('Character asset failed: '+path));};i.src=path;});images.set(path,promise);}return promise;}
 export function loadCharacterRig(gender:PlayerGender,armor:string,hair='brown'){
@@ -33,7 +35,7 @@ export class CharacterRig {
  private look?:{body:Atlas;arms:LimbParts};private visual?:WeaponVisual;private art?:HTMLImageElement;private sheet?:typeof weapons[number];private lookKey='';private artKey='';private signature='';private nextDraw=0;private disposed=false;
  constructor(private scene:Phaser.Scene,private onReady:(weaponComposed:boolean,shieldComposed:boolean)=>void=()=>{}){
   const key='character-rig-v6-'+(++serial);this.texture=scene.textures.createCanvas(key,256,256)!;this.image=scene.add.image(0,0,key).setVisible(false);
-  scene.events.on('postupdate',this.refresh,this);scene.events.once('shutdown',this.destroy,this);
+  scene.events.on('postupdate',this.syncAlpha,this);scene.events.once('shutdown',this.destroy,this);
   angles??=Promise.all([['handgun','gun'],['bow','bow']].map(async([type,file])=>registerVerticalRanged(type,await loadRigImage('/assets/characters/wardrobe-v5/'+file+'-vertical.png')))).then(()=>{}).catch(()=>{angles=undefined;});
  }
  update(...args:Args){this.args=args;if(this.bound!==args[0]){this.bound=args[0];this.bound.once('destroy',this.destroy,this);}return this.refresh();}
@@ -44,7 +46,7 @@ export class CharacterRig {
   const armor=body.texture.key.replace(/^player_(male|female)_/,'');
   const hair=String(body.getData('hairColor')??'brown'),lookKey=gender+':'+armor+':'+hair;
   if(lookKey!==this.lookKey){this.lookKey=lookKey;this.look=undefined;loadCharacterRig(gender,armor,hair).then(look=>{if(!this.disposed&&this.lookKey===lookKey){this.look=look;this.signature='';}}).catch(()=>{});}
-  const sheet=weapons.find(w=>w.key===weapon?.key),artKey=weapon?(weapon.starred?sheet?.star:sheet?.held)??'':'';
+  const sheet=weapon?weaponByKey.get(weapon.key):undefined,artKey=weapon?(weapon.starred?sheet?.star:sheet?.held)??'':'';
   if(artKey!==this.artKey){this.artKey=artKey;this.art=undefined;this.visual=undefined;this.sheet=sheet;if(artKey&&sheet)loadWeaponVisual(sheet,!!weapon?.starred,loadRigImage).then(visual=>{if(!this.disposed&&this.artKey===artKey){this.visual=visual;this.art=visual.image;this.signature='';}}).catch(()=>{});}
   const gloves=body.getData('wornGloves'),boots=body.getData('wornBoots'),seated=!!body.getData('seated');
   const externalWeapon=!!weapon&&!this.art;
@@ -69,15 +71,18 @@ export class CharacterRig {
   if(signature!==this.signature&&(this.scene.time.now>=this.nextDraw||!this.signature)){
    this.nextDraw=this.scene.time.now+1000/30;this.signature=signature;
    const g=this.texture.context;g.clearRect(0,0,256,256);g.save();g.translate(128,176);
-   const type=weapon?.weaponType??'dagger',blank=document.createElement('canvas');blank.width=blank.height=1;
-   drawOriginalRig(g,this.look.body,this.look.arms,this.art??blank as unknown as HTMLImageElement,type,this.visual?.directional??false,dir,t,attack,walk,2,false,{...this.visual?.options,shield:integratedShield,seated,gloves,boots,variantArmor,variantNecklace,externalWeapon});
+   const type=weapon?.weaponType??'dagger';
+   if(!blankWeapon){blankWeapon=document.createElement('canvas');blankWeapon.width=blankWeapon.height=1;}
+   drawOriginalRig(g,this.look.body,this.look.arms,this.art??blankWeapon as unknown as HTMLImageElement,type,this.visual?.directional??false,dir,t,attack,walk,2,false,{...this.visual?.options,shield:integratedShield,seated,gloves,boots,variantArmor,variantNecklace,externalWeapon});
    g.restore();this.texture.refresh();
   }
   body.setCrop(0,0,0,0);this.onReady(!externalWeapon,!!integratedShield);
   const scale=body.displayWidth/43.52/2;
   const offset=body.displayHeight*.41;
-  this.image.setPosition(body.x-Math.sin(body.rotation)*offset,body.y+Math.cos(body.rotation)*offset).setOrigin(.5,176/256).setScale(scale).setRotation(body.rotation).setDepth(body.depth+.01).setAlpha(body.alpha).setVisible(enabled&&body.visible&&frame!=='down');
+  this.image.setPosition(body.x-Math.sin(body.rotation)*offset,body.y+Math.cos(body.rotation)*offset).setOrigin(.5,176/256).setScale(scale).setRotation(body.rotation).setAlpha(body.alpha).setVisible(enabled&&body.visible&&frame!=='down');
+  if(this.image.depth!==body.depth+.01)this.image.setDepth(body.depth+.01);
   return !externalWeapon;
  }
- destroy(){if(this.disposed)return;this.disposed=true;this.scene.events.off('postupdate',this.refresh,this);this.scene.events.off('shutdown',this.destroy,this);this.bound?.off('destroy',this.destroy,this);this.image.destroy();this.scene.textures.remove(this.texture.key);}
+ private syncAlpha(){if(this.bound&&this.image.visible)this.image.setAlpha(this.bound.alpha);}
+ destroy(){if(this.disposed)return;this.disposed=true;this.scene.events.off('postupdate',this.syncAlpha,this);this.scene.events.off('shutdown',this.destroy,this);this.bound?.off('destroy',this.destroy,this);this.image.destroy();this.scene.textures.remove(this.texture.key);}
 }

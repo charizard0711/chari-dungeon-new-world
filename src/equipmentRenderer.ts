@@ -44,6 +44,7 @@ export class EquipmentRenderer {
     this.scabbardAura = new LegendaryAura(scene, this.scabbard, 'scabbard');
     this.fittingAura = new LegendaryAura(scene, this.waistFitting, 'scabbard');
   }
+  private nextGlintsAt=0;
   update(body: Phaser.GameObjects.Image, weapon: Weapon | null, shield: Shield | null, dir: Dir, frame: PlayerVisualFrame, gender: PlayerGender, elapsed = 0, enabled = true) {
     this.scabbardAura.enabled = this.fittingAura.enabled = enabled && weapon?.key === 'w_katana_divine';
     this.scabbardAura.alternate = this.fittingAura.alternate = !!weapon?.starred;
@@ -63,8 +64,16 @@ export class EquipmentRenderer {
     }
     const show = enabled && body.visible && body.active && frame !== 'down';
     const variant=!!(weapon?.starred||shield?.starred||body.getData('variantArmor')||body.getData('variantNecklace')||[body.getData('wornGloves'),body.getData('wornBoots')].some(key=>typeof key==='string'&&key.startsWith('star_')));
-    this.sparkles.clear().setVisible(show&&variant).setDepth(body.depth+.4);
-    if(show&&variant){const unit=Math.abs(body.displayWidth)/64;drawSmallGlints(this.sparkles,body.x,body.y-9*unit,this.scene.time.now,0,9,18*unit,.8*unit);}
+    const sparklesVisible=show&&variant;
+    if(sparklesVisible){
+      const unit=Math.abs(body.displayWidth)/64,now=this.scene.time.now;
+      this.sparkles.setPosition(body.x,body.y-9*unit);
+      if(this.sparkles.depth!==body.depth+.4)this.sparkles.setDepth(body.depth+.4);
+      if(!this.sparkles.visible||now>=this.nextGlintsAt){
+        this.sparkles.clear();drawSmallGlints(this.sparkles,0,0,now,0,9,18*unit,.8*unit);this.nextGlintsAt=now+1000/24;
+      }
+    }
+    this.sparkles.setVisible(sparklesVisible);
     const katana = show && weapon?.weaponType === 'katana';
     const action = playerAction(frame);
     const unit = Math.abs(body.scaleY) * (body.frame.realWidth || PLAYER_FRAME_SIZE) / 40;
@@ -167,7 +176,8 @@ export class EquipmentRenderer {
       const size = heldArtSize(type) * (item.key === 's_hw_emerald' ? 1.2 : item.key === 'w_hero_sword' ? 1.35 : 1) * Math.abs(body.scaleY) * artScale / .85;
       sprite.setVisible(true).setOrigin(ox,oy).setPosition(body.x + dx*cosine - dy*sine,body.y + dx*sine + dy*cosine)
         .setDisplaySize(size,size).setRotation(body.rotation + pose.angle).setFlipX(paintedWeapon && type === 'handgun' ? dir === 'left' : !!weapon?.dual && offhand && (dir === 'down' || dir === 'up'))
-        .setDepth(body.depth + pose.depth).setAlpha(body.alpha).clearTint();
+        .setAlpha(body.alpha).clearTint();
+      if(sprite.depth!==body.depth+pose.depth)sprite.setDepth(body.depth+pose.depth);
     }
     this.characterRig.update(body,weapon,shield,dir,frame,gender,elapsed,enabled);
   }
