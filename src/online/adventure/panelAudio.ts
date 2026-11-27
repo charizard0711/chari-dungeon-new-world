@@ -16,6 +16,7 @@ export function panelSoundsForChange(before:WorldState|undefined,after:WorldStat
  const old=a.snapshot,next=b.snapshot,result:PanelSound[]=[];if(Object.entries(next.springUsed??{}).some(([id,users])=>users.includes(cid)&&!old.springUsed?.[id]?.includes(cid)))result.push('heal');
  const used=new Set(old.panelHealUsed?.[cid]??[]);
  if((next.panelHealUsed?.[cid]??[]).some(id=>!used.has(id)))result.push('heal');
+ if(next.speedPanelUntil?.[cid]&&!old.speedPanelUntil?.[cid])result.push('attack_up');
  const moved=a.x!==b.x||a.y!==b.y;
  const landing=moved?next.effectPanels?.find(p=>!p.destroyed&&p.x===b.x&&p.y===b.y):undefined;
  for(const kind of ['attack_up','defense_up','attack_down','defense_down'] as const){

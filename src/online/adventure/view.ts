@@ -1,4 +1,5 @@
 import {VESPER_ART,VESPER_STRIKE_MS,VESPER_SWING_MS,prepareVesperMotion,applyVesperMotion,drawVesperSlash} from './vesperArt';
+import {enemyAttackElement} from './elementEffects';
 import {Audio}from '../../audio/manager';
 import {actionSoundVolume}from '../actionAudio';
 import {mountEnemyEffects}from './enemyEffects';
@@ -20,7 +21,7 @@ const MOB_FRAMES:Record<string,{sheet:string;row:number}>={m_jelly:{sheet:'a',ro
 const ATLAS:Record<string,string>={arch:'adventure_arch_v2',detail:'adventure_detail_v2',old:'adventure_props',npc:'online_npcs_v1'};
 const DIRECTION={down:0,left:1,right:2,up:3};
 export function mountAdventureView(scene:any){
- const enemyEffects=mountEnemyEffects(scene);const swordArc=scene.add.graphics().setDepth(105);const areaPending=new Map<string,{warn:any;deadline:number}>(),areaPlayed=new Set<string>();const areaKey=(w:any)=>String(w.id??[w.source,w.castAt,w.resolvesAt,w.name,JSON.stringify(w.tiles)].join(':'));const playArea=(key:string,w:any)=>{if(areaPlayed.has(key))return;areaPlayed.add(key);if(areaPlayed.size>64)areaPlayed.delete(areaPlayed.values().next().value!);enemyEffects.area(w.tiles,/剣|震|衝|踏/.test(w.name??'')?2:3);};
+ const enemyEffects=mountEnemyEffects(scene);const swordArc=scene.add.graphics().setDepth(105);const areaPending=new Map<string,{warn:any;deadline:number}>(),areaPlayed=new Set<string>();const areaKey=(w:any)=>String(w.id??[w.source,w.castAt,w.resolvesAt,w.name,JSON.stringify(w.tiles)].join(':'));const playArea=(key:string,w:any)=>{if(areaPlayed.has(key))return;areaPlayed.add(key);if(areaPlayed.size>64)areaPlayed.delete(areaPlayed.values().next().value!);enemyEffects.area(w.tiles,/剣|震|衝|踏/.test(w.name??'')?2:3);const source=scene.packet.adventure.snapshot.enemies.find((e:any)=>e.id===w.source),element=enemyAttackElement(source);if(element){const nearby=w.tiles.filter((t:any)=>Math.abs(t.x-scene.player.x)+Math.abs(t.y-scene.player.y)<=9);for(const [index,t]of nearby.slice(0,18).entries())scene.elementImpacts?.hit(element,(t.x+.5)*48,(t.y+.5)*48,source?.dir,25,index===0);}};
  const arena=bossStage(scene.packet.adventure),belongs=(x:number,y:number)=>scene.packet.adventure.floor!==1||inStage(arena,x,y);
  if(arena)prepareVesperMotion(scene);
  const T=48,floor=scene.packet.adventure.floor,w=floor===2?13:C.width,h=floor===2?11:C.height;
@@ -94,7 +95,7 @@ export function mountAdventureView(scene:any){
       n.swingAt=scene.time.now;n.swingDir=e.dir??n.dir;
       return;
      }
-     enemyEffects.attack(e,n.root,target);if(n.hitUntil<scene.time.now){scene.tweens.killTweensOf(n.body);scene.tweens.add({targets:n.body,angle:n.dir==='left'?-12:12,duration:75,yoyo:true,onComplete:()=>n.body.active&&n.body.setAngle(0)});}};respond();}
+     enemyEffects.attack(e,n.root,target,(x:number,y:number)=>scene.elementImpacts?.hit(enemyAttackElement(e),x,y,n.dir,25,true));if(n.hitUntil<scene.time.now){scene.tweens.killTweensOf(n.body);scene.tweens.add({targets:n.body,angle:n.dir==='left'?-12:12,duration:75,yoyo:true,onComplete:()=>n.body.active&&n.body.setAngle(0)});}};respond();}
     if(n.barHp!==e.hp||n.barMax!==e.max){n.barHp=e.hp;n.barMax=e.max;const bw=e.boss?100:e.elite?64:38,ratio=Math.max(0,Math.min(1,e.hp/Math.max(1,e.max)));n.bar.clear().fillStyle(0x21121e,.95).fillRect(-bw/2,-n.size,bw,5).fillStyle(e.boss?0xe775ce:0xb5d26e).fillRect(-bw/2,-n.size,bw*ratio,5);}
    }
   }
