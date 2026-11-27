@@ -6,4 +6,4 @@ export const BRIDGES:(SolidRect&{vertical?:boolean})[]=MAP_A.bridges;
 export const WATER=SCENERY_SOLIDS.filter(r=>r.w===7&&r.h===4||r.w===5&&r.h===3);
 export function insideRect(x:number,y:number,r:SolidRect){return x>=r.x&&x<r.x+r.w&&y>=r.y&&y<r.y+r.h;}
 const materials=new Map(MAP_A.materials.map(m=>[m.x+','+m.y,m.frame]));
-export function terrainFrame(_area:string|undefined,x:number,y:number){const f=materials.get(x+','+y)??0;return f===0&&(x*17+y*7)%13===0?1:f;}
+export function terrainFrame(_area:string|undefined,x:number,y:number){const a=MAP_A.boss.approach;const f=x>=a.x&&x<a.x+a.w&&y>=a.y&&y<a.y+a.h?11:materials.get(x+','+y)??0;return f===0&&(x*17+y*7)%13===0?1:f;}

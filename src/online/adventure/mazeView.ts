@@ -16,7 +16,7 @@ export function drawMazeGround(scene:any){
  if(x>=94&&x<=97&&y>=36&&y<=37)continue;
  if(ground(x,y)){floor.setFrame(terrainFrame(undefined,x,y));rt.batchDraw(floor,(x-cx)*T,(y-cy)*T);}}
  rt.endDraw();return rt;});
- scene.events.once('shutdown',()=>floor.destroy());drawContinuousWalls(scene);
+ scene.events.once('shutdown',()=>floor.destroy());drawContinuousWalls(scene);const a=C.boss.approach,g=scene.add.graphics().setDepth(-4.8);g.lineStyle(2,0xd8b56d,.9).lineBetween(a.x*T+5,a.y*T+2,a.x*T+5,(a.y+a.h)*T-2).lineBetween((a.x+a.w)*T-5,a.y*T+2,(a.x+a.w)*T-5,(a.y+a.h)*T-2);for(let y=a.y;y<a.y+a.h;y++)g.lineStyle(1,0xf2d38f,.7).strokeRect(a.x*T+11,y*T+10,a.w*T-22,T-20);
 }
 export function mountMazeMechanics(scene:any){
  const cinematic=mountBossCinematic(scene),panels=mountEffectPanels(scene);

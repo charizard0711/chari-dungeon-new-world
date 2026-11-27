@@ -2,7 +2,7 @@ import {GAME_W,GAME_H,MAP_X,MAP_Y}from '../../layout';
 import './effectPanels.css';
 const kinds=['heal','paralysis','attack_up','defense_down','attack_down','defense_up'];
 const names:Record<string,string>={paralysis:'麻痺：次の移動・攻撃・スキル・道具使用を1回休みます。',attack_up:'攻撃アップ：攻撃力×1.2。泉とは別に乗算。元のパネルが壊れるかフロアクリアで終了。',defense_up:'防御アップ：防御力×1.2。泉とは別に乗算。元のパネルが壊れるかフロアクリアで終了。',attack_down:'攻撃ダウン：攻撃力×0.8。元のパネルが壊れるかフロアクリアで終了。',defense_down:'防御ダウン：防御力×0.8。元のパネルが壊れるかフロアクリアで終了。'};
-export function preloadEffectPanels(scene:any){scene.load.image('effect_panels_v1','assets/online/effect-panels-v1/panels.png');}
+export function preloadEffectPanels(scene:any){if(!scene.textures.exists('effect_panels_v1'))scene.load.image('effect_panels_v1','assets/online/effect-panels-v1/panels.png');}
 export function mountEffectPanels(scene:any){
  const texture=scene.textures.get('effect_panels_v1'),source=texture.getSourceImage()as HTMLImageElement;
  // Crop away the presentation gutter: only the original square floor asset is rendered.

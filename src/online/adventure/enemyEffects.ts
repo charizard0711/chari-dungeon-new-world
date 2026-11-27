@@ -16,5 +16,5 @@ export function mountEnemyEffects(scene:any){
   const size=e.boss?88:kind===2?72:60;
   if(e.rangedAttack){const bolt=effect(3,origin.x,origin.y-20,34);scene.tweens.killTweensOf(bolt);scene.tweens.add({targets:bolt,x,y,duration:170,onComplete:()=>{if(bolt.active)bolt.setActive(false).setVisible(false);effect(kind,x,y,size);}});}
   else effect(kind,x,y,size);
- },destroy(){for(const sprite of pool){scene.tweens.killTweensOf(sprite);sprite.destroy();}pool.length=0;}};
+ },area(tiles:readonly {x:number;y:number}[],kind=3){const v=scene.cameras.main.worldView;let shown=0;for(const t of tiles){const x=(t.x+.5)*48,y=(t.y+.5)*48;if(v&&(x<v.x-48||x>v.right+48||y<v.y-48||y>v.bottom+48))continue;effect(kind,x,y,62);if(++shown>=24)break;}},destroy(){for(const sprite of pool){scene.tweens.killTweensOf(sprite);sprite.destroy();}pool.length=0;}};
 }

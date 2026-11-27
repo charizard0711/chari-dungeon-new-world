@@ -51,6 +51,7 @@ export class Player {
   weapon: Weapon | null = null;
   shield: Shield | null = null;
   armor: Armor | null = null;
+  bootsDefBonus=0;
   necklace: Necklace | null = null;
   inventory: Item[] = [];
   weapons: Weapon[] = [];   // 所持武器
@@ -100,6 +101,7 @@ export class Player {
 
   get def(): number {
     let v = this.baseDef + Math.floor(this.level * 0.4);
+    v+=this.bootsDefBonus;
     if(this.necklace)v+=this.necklace.defBonus;
     if (this.armor) v += this.armor.defBonus + (this.armor.plus ?? 0) + armorTraitValue(this.armor,'defense');
     if (this.shield && this.shield.dur > 0) v += this.shield.defBonus + (this.shield.plus ?? 0);

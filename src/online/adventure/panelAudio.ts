@@ -13,7 +13,7 @@ export function panelSoundsForChange(before:WorldState|undefined,after:WorldStat
  if(before?.active?.id&&before.active.id===after.active?.id&&after.active?.location==='town'&&(after.townHeal??0)>(before.townHeal??0))return ['heal'];
  const a=before?.adventure,b=after.adventure,cid=after.active?.id;
  if(!a?.inside||!b?.inside||!cid||cid!==before?.active?.id||a.id!==b.id||a.floor!==b.floor)return [];
- const old=a.snapshot,next=b.snapshot,result:PanelSound[]=[];
+ const old=a.snapshot,next=b.snapshot,result:PanelSound[]=[];if(Object.entries(next.springUsed??{}).some(([id,users])=>users.includes(cid)&&!old.springUsed?.[id]?.includes(cid)))result.push('heal');
  const used=new Set(old.panelHealUsed?.[cid]??[]);
  if((next.panelHealUsed?.[cid]??[]).some(id=>!used.has(id)))result.push('heal');
  const moved=a.x!==b.x||a.y!==b.y;

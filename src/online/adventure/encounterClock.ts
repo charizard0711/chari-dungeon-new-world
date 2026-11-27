@@ -11,7 +11,7 @@ export class EncounterClock {
  now(clientTime:number){return this.server+Math.max(0,clientTime-this.received);}
 }
 export function telegraphLabel(resolvesAt:number,serverNow:number){
- return `${(Math.ceil(Math.max(0,resolvesAt-serverNow)/100)/10).toFixed(1)}s`;
+ return `${Math.ceil(Math.max(0,resolvesAt-serverNow)/1000)}`;
 }
 export function enemyMoveDuration(interval=600,queuedCells=1){
  return Math.max(110,Math.min(400,interval));

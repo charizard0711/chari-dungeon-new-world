@@ -31,3 +31,7 @@
 .town-quick-slot:has(.town-emote-caption) .zero-emote-art{height:100%;margin:0;border-radius:4px}
 .town-emote-caption{bottom:3px;left:3px;right:3px;min-height:15px;padding:1px 2px;border:1px solid #50b6d3;border-radius:5px;background:linear-gradient(#153d50ed,#051722f5);font-weight:bold;font-size:9px;display:grid;place-items:center}
 .town-quick-slot.drag-source{opacity:.4}.town-quickbar.quick-dragging .town-quick-slot{outline-offset:1px}.town-quickbar.quick-dragging .town-quick-slot.drag-over{outline:2px solid #e5ecf1!important;box-shadow:inset 0 0 14px #e5ecf133!important}
+
+.town-map-viewport{min-width:0;min-height:0;width:100%;height:100%;overflow:auto;overscroll-behavior:contain;touch-action:pan-x pan-y;background:#15191c;border:1px solid #53616b;scrollbar-color:#8d9da7 #171d22;scrollbar-width:thin}.town-map-viewport .town-party-map{display:block;max-width:none!important;max-height:none!important;object-fit:fill!important;flex:none;image-rendering:pixelated}.town-map-legend button{min-width:42px}
+
+.town-map-viewport{flex:0 0 310px;height:310px}@media(max-width:700px){.town-map-viewport{flex-basis:230px;height:230px}}
