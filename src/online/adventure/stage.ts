@@ -1,6 +1,12 @@
 import {stationAt,STATIONS} from './stations';
 /** Shared server coordinates retain encounter progress; clients mount only their current area. */
 export const BOSS_ROOM={x:41,y:3,right:58,bottom:22};
+export const BOSS_ASCENT_MS=2450;
+export const BOSS_LANTERNS=[{x:44,y:4},{x:55,y:4}];
+export function bossStairsVisible(snapshot:{stairs:boolean;bossEncounter?:{phase:string;at?:number}}|undefined,now:number){
+ const encounter=snapshot?.bossEncounter;
+ return !!snapshot?.stairs&&(encounter?.phase!=='cleared'||now-(encounter.at??0)>=BOSS_ASCENT_MS);
+}
 export function inBossRoom(x:number,y:number){return x>=41&&x<=58&&y>=3&&y<=22;}
 export function bossStage(adventure?:{inside:boolean;floor:number;x:number;y:number}|null){return !!adventure?.inside&&adventure.floor===1&&inBossRoom(adventure.x,adventure.y);}
 export function inStage(boss:boolean,x:number,y:number){return inBossRoom(x,y)===boss;}

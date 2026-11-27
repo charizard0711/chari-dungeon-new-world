@@ -71,7 +71,7 @@ export function parseLimbParts(image:HTMLImageElement):LimbParts{
   const out=document.createElement('canvas');out.width=x1-x0+1;out.height=y1-y0+1;out.getContext('2d')!.drawImage(c,sx+x0,sy+y0,out.width,out.height,0,0,out.width,out.height);parts.push(out);
  }return parts;
 }
-export function drawOriginalRig(g:CanvasRenderingContext2D,body:Atlas,parts:LimbParts,weapon:HTMLImageElement,type:string,directional:boolean,dir:Facing,t:number,attack:boolean,walk:boolean,magnify:number,debug:boolean,options:{grip?:Point;basis?:number;height?:number;verticalArt?:boolean;verticalFrames?:HTMLCanvasElement[];shield?:HTMLImageElement;gloves?:string;boots?:string;externalWeapon?:boolean}={}){
+export function drawOriginalRig(g:CanvasRenderingContext2D,body:Atlas,parts:LimbParts,weapon:HTMLImageElement,type:string,directional:boolean,dir:Facing,t:number,attack:boolean,walk:boolean,magnify:number,debug:boolean,options:{grip?:Point;basis?:number;height?:number;verticalArt?:boolean;verticalFrames?:HTMLCanvasElement[];shield?:HTMLImageElement;seated?:boolean;gloves?:string;boots?:string;externalWeapon?:boolean}={}){
  const row=ROW[dir],frame=walk?Math.floor(t*8)%8:attack?[0,0,2,2,4,4,2,0][Math.min(7,Math.floor(t*8))]:0,f=body.frames[row*8+frame],scale=body.scale;
  const pose=rigPose(type,t,attack,walk),side=dir==='left'?-1:1,profile=dir==='left'||dir==='right';
  const map=(p:Point):Point=>profile?[p[0]*side,p[1]]:[p[0]*.55-2,p[1]+(dir==='up'?-3:3)];
@@ -123,7 +123,11 @@ export function drawOriginalRig(g:CanvasRenderingContext2D,body:Atlas,parts:Limb
  }
  if(dir!=='down'){arm(farShoulder,off,true);glove(off);}
  if(dir==='up'){arm(shoulder,hand,false);heldGear();}
- g.save();g.translate(0,-12);g.rotate(profile?pose.lean*side:0);g.translate(0,12);if(walk&&!profile){
+ g.save();g.translate(0,-12);g.rotate(profile?pose.lean*side:0);g.translate(0,12);if(options.seated){
+  g.save();g.beginPath();g.rect(-100,-100,200,81);g.clip();drawBody(f);g.restore();
+  g.save();g.translate(0,-19);g.scale(1.22,.53);g.translate(0,19);
+  g.beginPath();g.rect(-100,-19,200,119);g.clip();drawBody(f);g.restore();
+ }else if(walk&&!profile){
   // Front/back source gait repeats the same leading foot. Alternate only the legs;
   // the face, cape, belt and hand anchors keep their authored orientation.
   const leg=body.frames[row*8+(Math.floor(t*8)%4)];

@@ -33,7 +33,7 @@ export function mountMazeMechanics(scene:any){
   g.fillStyle(bridge.phase==='down'?0x354759:0x5ddcca).fillRect(92*T+5,39*T+5,T-10,T-10).lineStyle(3,0xf1d48b).strokeRect(92*T+5,39*T+5,T-10,T-10);
   }const arena=bossStage(a);const phase=boss.phase;cinematic.update();panels.update();const n=boss.padCount??0;for(let i=0;arena&&i<n;i++){const x=(47+i*2)*T,y=15*T;g.fillStyle(0x5ddedb,.25+Math.sin(scene.time.now*.005)*.12).fillRect(x+3,y+3,T-6,T-6).lineStyle(2,0xa1fff1).strokeRect(x+3,y+3,T-6,T-6);}
   const opening=phase==='opening'?Math.min(1,(now-boss.at)/1600):phase==='returning'?1-Math.min(1,(now-boss.at)/1600):['battle','cleared'].includes(phase)?1:0;
-  cageClosed.setVisible(arena).setAlpha(1-opening);cageOpen.setVisible(arena).setAlpha(opening);
+  cageClosed.setVisible(arena&&phase!=='cleared').setAlpha(1-opening);cageOpen.setVisible(arena&&phase!=='cleared').setAlpha(opening);
   emerging.setVisible(arena&&phase==='returning');if(emerging.visible)emerging.setPosition(50.5*T,(5+Math.max(0,Math.min(1,phase==='opening'?(now-boss.at-900)/1700:1-(now-boss.at)/1800))*5)*T);
   if(['opening','battle','returning'].includes(phase)){const rear=C.boss.rear;bars.fillStyle(0x342934).fillRect(rear.x*T,rear.y*T,rear.w*T,T);bars.lineStyle(4,0xd3b57d);for(let x=rear.x*T+6;x<(rear.x+rear.w)*T;x+=12)bars.lineBetween(x,rear.y*T,x,(rear.y+1)*T);bars.fillStyle(0x342934).fillRect(49*T,23*T,2*T,T);bars.lineStyle(4,0xd3b57d);for(let x=49*T+6;x<51*T;x+=12)bars.lineBetween(x,23*T,x,24*T);}
   buff.setVisible(false);

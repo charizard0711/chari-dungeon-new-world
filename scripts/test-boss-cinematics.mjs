@@ -8,16 +8,22 @@ try{
  await place(0,47,15);await place(1,49,15);await login(users[0]);let s=await rpc('poll');assert.equal(s.adventure.snapshot.bossEncounter.phase,'opening');
  for(let i=0;i<2;i++){await login(users[i]);for(const a of ['move','attack','skill','use_item','room_return'])await assert.rejects(rpc(a,{x:47,y:14,dir:'up',kind:'potion'}),/演出中/);}
  await db.query("update online_adventure_rooms set snapshot=jsonb_set(snapshot,'{bossEncounter,at}',to_jsonb(online_adventure_now_ms()-3000))where id=$1",[room]);s=await rpc('poll');assert.equal(s.adventure.snapshot.bossEncounter.phase,'opening','full 14 second intro');
+ assert.equal(s.adventure.snapshot.brokenFloors?.length??0,0,'opening tile is intact before impact');
+ await db.query("update online_adventure_rooms set snapshot=jsonb_set(snapshot,'{bossEncounter,at}',to_jsonb(online_adventure_now_ms()-10200))where id=$1",[room]);s=await rpc('poll');
+ assert.deepEqual(s.adventure.snapshot.brokenFloors,[{x:50,y:11}],'opening impact becomes authoritative during the film');
+ const blocked=async(x,y)=> (await db.query("select online_adventure_blocked($1,$2,1,$3) normal,online_frame_blocked($1,$2,1,$3,(select data from online_adventure_config where id='floor1')) batch",[x,y,JSON.stringify(s.adventure.snapshot)])).rows[0];
+ for(const [x,y]of [[44,4],[55,4],[50,11]])assert.deepEqual(await blocked(x,y),{normal:true,batch:true});
+ assert.deepEqual(await blocked(43,4),{normal:false,batch:false});
  await db.query("update online_adventure_rooms set snapshot=jsonb_set(snapshot,'{bossEncounter,at}',to_jsonb(online_adventure_now_ms()-15000))where id=$1",[room]);s=await rpc('poll');assert.equal(s.adventure.snapshot.bossEncounter.phase,'battle');
  const hp=async value=>db.query("update online_adventure_rooms set snapshot=jsonb_set(snapshot,'{enemies}',(select jsonb_agg(case when(e->>'boss')::boolean then e||jsonb_build_object('hp',$2::int,'max',480,'x',50,'y',10,'atk',0)else e end)from jsonb_array_elements(snapshot->'enemies')e))where id=$1",[room,value]);
  const stamp=async ms=>db.query("update online_adventure_rooms set snapshot=jsonb_set(snapshot,'{bossEncounter,smash,at}',to_jsonb(online_adventure_now_ms()-$2::bigint))where id=$1",[room,ms]);
  await login(users[0]);
  for(let stage=1;stage<=2;stage++){
-  await place(0,50,11);await place(1,48,13);await hp(stage===1?321:161);s=await rpc('attack',{dir:'up'});await db.query("update online_boss_rounds set deadline=online_adventure_now_ms()-1 where room_id=$1",[room]);s=await rpc('poll');
+  await place(0,49,10);await place(1,48,13);await hp(stage===1?321:161);s=await rpc('attack',{dir:'right'});await db.query("update online_boss_rounds set deadline=online_adventure_now_ms()-1 where room_id=$1",[room]);s=await rpc('poll');
   let b=s.adventure.snapshot.bossEncounter;assert.equal(b.smashCount,stage,'one checkpoint per HP third');assert.equal(s.adventure.snapshot.enemies.find(e=>e.boss).hp,stage===1?320:160,'damage capped at mandatory checkpoint');assert.equal(b.smash.tiles.length,3);assert.equal(b.smash.applied,false);
   const before=(await db.query('select character_id,x,y from online_adventure_members where room_id=$1 order by character_id',[room])).rows;
   for(let i=0;i<2;i++){await login(users[i]);await assert.rejects(rpc('attack',{dir:'up'}),/演出中/);await assert.rejects(rpc('move',{x:50,y:12}),/演出中/);}
-  await stamp(2100);s=await rpc('poll');assert.equal(s.adventure.snapshot.brokenFloors.length,stage*3);assert(s.adventure.snapshot.bossEncounter.smash.applied);
+  await stamp(2100);s=await rpc('poll');assert.equal(s.adventure.snapshot.brokenFloors.length,stage*3+1);assert(s.adventure.snapshot.bossEncounter.smash.applied);
   const after=(await db.query('select character_id,x,y from online_adventure_members where room_id=$1 order by character_id',[room])).rows;
   for(let i=0;i<before.length;i++)assert.equal(Math.abs(before[i].x-after[i].x)+Math.abs(before[i].y-after[i].y),1,'every arena player knocked one cardinal tile');
   assert.notDeepEqual([after[0].x,after[0].y],[after[1].x,after[1].y]);
@@ -27,5 +33,11 @@ try{
  }
  await db.query("update online_presence set location='town'where character_id=any($1::uuid[])",[ids]);await db.query('select online_maze_sync($1)',[room]);await db.query("update online_adventure_rooms set snapshot=jsonb_set(snapshot,'{bossEncounter,at}',to_jsonb(online_adventure_now_ms()-2000))where id=$1",[room]);await db.query('select online_maze_sync($1)',[room]);
  const reset=(await db.query('select snapshot from online_adventure_rooms where id=$1',[room])).rows[0].snapshot;assert.equal(reset.bossEncounter.phase,'waiting');assert(!reset.brokenFloors);assert(!reset.bossEncounter.smashCount);
- console.log('PASS shared 14s opening, both players action lock, HP checkpoints, two 3-tile fractures, safe one-cell knockback once, blocked rubble, synchronized polls and wipe reset');
+ await place(0,50,7);await login(users[0]);
+ await db.query("update online_adventure_rooms set status='cleared',snapshot=snapshot||jsonb_build_object('stairs',true) where id=$1",[room]);
+ await db.query('select online_maze_sync($1)',[room]);
+ const readClear=async()=> (await db.query("select snapshot#>'{bossEncounter,at}' as stamp from online_adventure_rooms where id=$1",[room])).rows[0].stamp;
+ const clear=await readClear();await new Promise(r=>setTimeout(r,12));await db.query('select online_maze_sync($1)',[room]);assert.equal(await readClear(),clear,'ending clock remains stable across polls');
+ s=await rpc('interact',{id:'stairs'});assert.equal(s.adventure.floor,2,'stairs at the former doorway work');
+ console.log('PASS opening fracture, two walking paths and lantern blockers, HP checkpoints and knockback, wipe reset, stable clear clock and working stairs');
 }catch(e){console.error(e.message,e.where??'');process.exitCode=1;}finally{await db.close();}

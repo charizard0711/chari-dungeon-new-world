@@ -31,6 +31,7 @@ import {requestEquipmentArt} from '../lazyEquipmentArt';
 import {Audio} from '../audio/manager';
 import {onlineCameraFollow} from './cameraFollow';
 import {mountDeathTransition} from './deathTransition';
+import {actorFallPose,type ActorFall} from './actorFall';
 import {GUILD_FLAGS} from './guildFlags';
 import {openCommerce} from './commerceUI';
 import {openBarber,drawBarber} from './barber';
@@ -80,7 +81,7 @@ export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)
    const image=this.add.image(GAME_W/2,GAME_H/2,'title_citadel_v1');image.setScale(Math.max(GAME_W/image.width,GAME_H/image.height));lobby(this as Phaser.Scene);}
  }
  class Town extends SceneBase{
-  playerSignature='';adventureBoardPending=false;musicName='';cameraFollow?:ReturnType<typeof onlineCameraFollow>;deathRevision=0;deathPlaying=false;deathReveal=false;
+  playerSignature='';adventureBoardPending=false;musicName='';cameraFollow?:ReturnType<typeof onlineCameraFollow>;deathRevision=0;deathPlaying=false;deathReveal=false;remoteDeaths:Record<string,number>={};deathReady?:()=>void;
   moveQueue:TownTile[]=[];moveSending=false;lastMoveSent=0;confirmedPacket?:WorldState;
   combatPulseTimer?:ReturnType<typeof setInterval>;combatPulseBusy=false;
   get playerAttackMs(){return this.packet.active?.attackCooldownMs??Math.round(attackTiming(this.player.weapon?.weaponType).cooldown*1.15);}
@@ -136,14 +137,14 @@ export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)
   busy=false;gameEnded=false;reviving=false;inBossRoom=false;floorBossDefeated=true;bossRewardClaimed=false;pendingEquipment=null;
   secretDualUnlocked=false;transformation=null;timeStopTurns=0;lanceSkillTurns=0;skillStepsRemaining=0;skillChargeRequired=100;skillArmed=false;skillPreview:any;
   holdBoostTier=0;holdStartedAt=0;heldDir=null;touchDir:string|null=null;shopRemaining={};weaponWonThisFloor=false;
-  actors=new Map<string,{guildFlag?:any;body:any;anchor:any;shadow:any;leftFoot:any;rightFoot:any;label:any;x:number;y:number;dir:WorldPlayer['dir'];movingUntil:number;animation:PlayerAnimation;lastSnapshotAt:number;distance:number;weight:number;lastPoseTime:number;previousX:number;previousY:number;attackUntil:number;attackStarted:number;attackWindup:number;projectileLaunched:boolean;attackPoint?:{x:number;y:number};renderer:EquipmentRenderer;weapon:Weapon|null;shield:Shield|null;stepMs?:number;queue:TownTile[];stepTarget?:TownTile;stepping:boolean;lastFacing:WorldPlayer['dir']}>();
+  actors=new Map<string,{guildFlag?:any;body:any;anchor:any;shadow:any;leftFoot:any;rightFoot:any;label:any;x:number;y:number;dir:WorldPlayer['dir'];movingUntil:number;animation:PlayerAnimation;lastSnapshotAt:number;distance:number;weight:number;lastPoseTime:number;previousX:number;previousY:number;attackUntil:number;attackStarted:number;attackWindup:number;projectileLaunched:boolean;attackPoint?:{x:number;y:number};renderer:EquipmentRenderer;weapon:Weapon|null;shield:Shield|null;stepMs?:number;queue:TownTile[];stepTarget?:TownTile;stepping:boolean;lastFacing:WorldPlayer['dir'];fall?:ActorFall;knockbackAt?:number}>();
   combatImpactUntil=0;attackVisualUntil=0;bubbles=new Map<string,{root:any;until:number}>();lastBubbleId:number|undefined;lastHitId:number|undefined;trainingBarrel:any;attackTarget=false;lastAttackAttempt=-1000;spaceKey:any;
   cursorTile:any;groundSprites:any[]=[];groundMotions:{sprite:any;glow:any;glints:any;starred:boolean;x:number;y:number;phase:number}[]=[];autoPickupIgnored=new Set<string>();groundSignature='';pickupTarget?:string;dropArtPending=new Set<string>();
   entryLoading?:TownLoading;chatAfterId=0;
   chat?:ReturnType<typeof mountTownChat>;pollTimer?:ReturnType<typeof setInterval>;requestBusy=false;pollBusy=false;requestRevision=0;generation=0;lastMove=0;destination?:{x:number;y:number};hud:any;cursors:any;movementKeys?:ReturnType<typeof installMovementKeys>;
   get playerArmor(){return this.player.armor?.key??'leather';}
   constructor(){super('OnlineTownScene');}
-  init(data:{state:WorldState;preview?:boolean;entryLoading?:TownLoading}){if(this.entryLoading&&this.entryLoading!==data.entryLoading)this.entryLoading.destroy();this.entryLoading=data.entryLoading??mountTownLoading(this as Phaser.Scene,data.state.adventure?.inside?`${data.state.adventure.name}へ`:undefined);this.chatAfterId=entryMessageId(data.state.messages);this.preview=!!data.preview&&(import.meta as any).env.DEV&&location.hostname==='localhost';this.packet=data.state;this.deathPlaying=false;this.deathReveal=false;this.deathRevision=data.state.adventure?.snapshot.deaths?.[data.state.active?.id??'']??0;this.entryLoading?.setDestination(this.inHouse?`${this.packet.house!.ownerName}の家へ`:this.inDungeon?(bossStage(this.packet.adventure)?'結晶門の守護者 · ボスエリアへ':`${this.packet.adventure?.name} · 第${this.packet.adventure?.floor}層へ`):'はじまりの町へ',this.inDungeon);this.tapTarget=undefined;this.moveQueue=[];this.moveSending=false;this.lastMotionReplyAt=0;this.motionPause=false;this.attackPending=false;this.lastMoveSent=0;this.confirmedPacket=data.state;this.playerSignature='';this.adventureBoardPending=false;this.sceneWorld=this.worldKind;this.housingModal=false;this.hoverHousing=undefined;this.housePending=undefined;this.sceneFloor=this.packet.adventure?.floor??1;this.transitioning=false;this.adventureView=undefined;this.adventureHover=undefined;this.generation++;this.gameEnded=false;this.requestBusy=false;this.pollBusy=false;this.actors=new Map();this.destination=undefined;this.lastMove=0;this.logHistory=[];this.adventureHistory=[];this.lastBubbleId=undefined;this.lastHitId=undefined;this.bubbles.clear();this.autoPickupIgnored=new Set();this.attackTarget=false;this.lastAttackAttempt=-1000;this.attackVisualUntil=0;this.combatImpactUntil=0;this.skillArmed=false;this.player=new Player();this.player.onlineEquipmentRules=true;this.player.weapons=[makeWeapon('w_iron_dagger',[])];this.player.armors[0].trait=undefined;this.syncPlayer();}
+  init(data:{state:WorldState;preview?:boolean;entryLoading?:TownLoading;deathReady?:()=>void}){if(this.entryLoading&&this.entryLoading!==data.entryLoading)this.entryLoading.destroy();this.deathReady=data.deathReady;this.entryLoading=data.deathReady?undefined:data.entryLoading??mountTownLoading(this as Phaser.Scene,data.state.adventure?.inside?`${data.state.adventure.name}へ`:undefined);this.chatAfterId=entryMessageId(data.state.messages);this.preview=!!data.preview&&(import.meta as any).env.DEV&&location.hostname==='localhost';this.packet=data.state;this.deathPlaying=!!data.deathReady;this.deathReveal=!!data.deathReady;this.remoteDeaths={...data.state.adventure?.snapshot.deaths};this.deathRevision=data.state.adventure?.snapshot.deaths?.[data.state.active?.id??'']??0;this.entryLoading?.setDestination(this.inHouse?`${this.packet.house!.ownerName}の家へ`:this.inDungeon?(bossStage(this.packet.adventure)?'結晶門の守護者 · ボスエリアへ':`${this.packet.adventure?.name} · 第${this.packet.adventure?.floor}層へ`):'はじまりの町へ',this.inDungeon);this.tapTarget=undefined;this.moveQueue=[];this.moveSending=false;this.lastMotionReplyAt=0;this.motionPause=false;this.attackPending=false;this.lastMoveSent=0;this.confirmedPacket=data.state;this.playerSignature='';this.adventureBoardPending=false;this.sceneWorld=this.worldKind;this.housingModal=false;this.hoverHousing=undefined;this.housePending=undefined;this.sceneFloor=this.packet.adventure?.floor??1;this.transitioning=false;this.adventureView=undefined;this.adventureHover=undefined;this.generation++;this.gameEnded=false;this.requestBusy=false;this.pollBusy=false;this.actors=new Map();this.destination=undefined;this.lastMove=0;this.logHistory=[];this.adventureHistory=[];this.lastBubbleId=undefined;this.lastHitId=undefined;this.bubbles.clear();this.autoPickupIgnored=new Set();this.attackTarget=false;this.lastAttackAttempt=-1000;this.attackVisualUntil=0;this.combatImpactUntil=0;this.skillArmed=false;this.player=new Player();this.player.onlineEquipmentRules=true;this.player.weapons=[makeWeapon('w_iron_dagger',[])];this.player.armors[0].trait=undefined;this.syncPlayer();}
   rigReady:Promise<unknown>=Promise.resolve();
   preload(){
    this.load.image('online_emotes_v1',EMOTE_ART);preloadEmoteVoices(this);
@@ -207,7 +208,7 @@ export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)
    this.log(this.inHouse?`${this.packet.house!.ownerName}の家に入りました。水晶で入室設定、扉から町へ戻れます。`:this.inDungeon?'冒険を再開しました。右クリックで攻撃・設備利用。Qでスキル。':'はじまりの町に入場しました。落ちたアイテムはそのマスに乗ると拾えます。');
    const groundArtReady=(key:string)=>{if(this.packet.drops?.some(item=>this.groundItemInfo(item).texture===key)){this.groundSignature='';this.drawDrops();}};this.textures.on('addtexture',groundArtReady);this.events.once('shutdown',()=>this.textures.off('addtexture',groundArtReady));
    this.drawPlayers();
-   const entryLoading=this.entryLoading;this.events.once('shutdown',()=>entryLoading?.destroy());void this.rigReady.then(()=>{if(!this.scene.isActive()||this.entryLoading!==entryLoading)return;this.game.events.once('postrender',()=>{if(!this.scene.isActive())return;entryLoading?.finish(()=>{this.busy=false;});if(!entryLoading)this.busy=false;});});
+   const entryLoading=this.entryLoading;this.events.once('shutdown',()=>entryLoading?.destroy());void this.rigReady.then(()=>{if(!this.scene.isActive()||this.entryLoading!==entryLoading)return;this.game.events.once('postrender',()=>{if(!this.scene.isActive())return;entryLoading?.finish(()=>{this.busy=false;});if(this.deathReady){const ready=this.deathReady;this.deathReady=undefined;this.deathReveal=false;ready();}else if(!entryLoading)this.busy=false;});});
    const generation=this.generation;
    this.pollTimer=setInterval(()=>{if(this.deathPlaying||this.preview||this.moveSending||this.requestBusy||this.pollBusy||this.inDungeon&&this.combatPulseBusy||!this.scene.isActive()||document.hidden)return;if(Date.now()-(this as any).lastTownPoll<(this.inDungeon?2000:500))return;(this as any).lastTownPoll=Date.now();this.pollBusy=true;const revision=this.requestRevision;void world('poll').then(state=>{if(generation===this.generation&&revision===this.requestRevision&&!this.requestBusy){state=reconcileWorldMetadata(state,this.confirmedPacket);playPanelChanges(this as Phaser.Scene,this.confirmedPacket,state);this.sharedTurnFeedback(this.confirmedPacket,state);this.confirmedPacket=state;this.packet=predictedWorld(state,this.moveQueue);this.syncPlayer();this.drawPlayers();}}).catch(e=>{if((e as Error).name!=='DeferredPoll')this.log((e as Error).message);}).finally(()=>{this.pollBusy=false;});},100);
    this.combatPulseTimer=setInterval(()=>{if(!this.inDungeon||this.preview||this.deathPlaying||this.requestBusy||this.moveSending||this.moveQueue.length>0||this.pollBusy||this.combatPulseBusy||performance.now()-this.lastMotionReplyAt<140||document.hidden||!this.scene.isActive())return;const gen=this.generation,revision=this.requestRevision;this.combatPulseBusy=true;void combatPulse().then(pulse=>{if(gen!==this.generation||revision!==this.requestRevision||this.requestBusy)return;const merged=mergeCombatPulse(this.confirmedPacket??this.packet,pulse);if(!merged)return;playPanelChanges(this as Phaser.Scene,this.confirmedPacket,merged);this.confirmedPacket=merged;if(bossCinematicLocked(merged.adventure,railNow(this))||(merged.adventure?.snapshot.deaths?.[merged.active!.id]??0)>this.deathRevision)this.moveQueue=[];this.packet=predictedWorld(merged,this.moveQueue);this.syncPlayer();this.drawPlayers();}).catch(()=>{}).finally(()=>{this.combatPulseBusy=false;});},160);
@@ -229,13 +230,30 @@ export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)
    this.discoveredEquipment=new Set([...equipment.weapon.map(k=>k.replace(/^star_/,'')),...equipment.armor.map(k=>'armor_'+k),...equipment.shield]);
    this.player.inventory=[];for(const [kind,count]of Object.entries(c.inventory))if(ITEM_CATALOG.some(e=>e.category==='item'&&e.key===kind))for(let i=0;i<count;i++)this.player.inventory.push(makeItem(kind as ItemKind));this.events.emit('refresh');
   }
+  renderActorFall(a:typeof this.actors extends Map<string,infer T>?T:never,id:string,time:number){
+   if(!a.fall)return;
+   const pose=actorFallPose(a.fall,time);
+   a.body.setData('seated',pose.seated).setPosition(a.anchor.x+pose.x,a.anchor.y+pose.y).setAngle(pose.angle).setFrame(playerFrameIndex(a.dir,'idle'));
+   a.shadow.setPosition(a.anchor.x,a.anchor.y+27).setScale(a.fall.kind==='death'?1+Math.abs(pose.angle)/95:1);
+   a.leftFoot.setVisible(false);a.rightFoot.setVisible(false);
+   const gender=this.packet.players.find(p=>p.character_id===id)?.gender??(this.playerGender==='female'?'female':'male');
+   a.renderer.update(a.body,a.weapon,a.shield,a.dir,'idle',gender,0,true);
+  }
   playDeathReturn(){
    if(actionSoundVolume(this as Phaser.Scene)>0)void Audio.playSe('hurt');
    this.deathPlaying=true;this.busy=true;this.stopClickPath();this.clearMoveInput();this.moveQueue=[];this.skillArmed=false;
+   const id=this.packet.active?.id??'',fallen=this.actors.get(id);
+   if(fallen)fallen.fall={kind:'death',at:this.time.now,side:fallen.dir==='left'?-1:1};
    this.cameraFollow?.stop();for(const actor of this.actors.values()){this.tweens.killTweensOf(actor.anchor);actor.queue=[];actor.stepping=false;actor.stepTarget=undefined;}
-   mountDeathTransition(this as Phaser.Scene,()=>{
-    this.deathReveal=true;const self=this.packet.players.find(p=>p.character_id===this.packet.active?.id),actor=self&&this.actors.get(self.character_id);
-    if(self&&actor){const x=(self.x+.5)*TILE,y=(self.y+.45)*TILE;actor.anchor.setPosition(x,y);actor.x=self.x;actor.y=self.y;actor.previousX=x;actor.previousY=y;actor.weight=0;actor.attackUntil=0;actor.animation.play('idle',this.time.now);}
+   const curtain=mountDeathTransition(this as Phaser.Scene,()=>{
+    if(this.worldKind!==this.sceneWorld){
+     return new Promise<void>(resolve=>{
+      curtain.holdAcrossRestart();this.transitioning=true;
+      this.scene.restart({state:this.packet,preview:this.preview,deathReady:()=>{curtain.bindShutdown();resolve();}});
+     });
+    }
+    this.deathReveal=true;const self=this.packet.players.find(p=>p.character_id===id),actor=self&&this.actors.get(id);
+    if(self&&actor){const x=(self.x+.5)*TILE,y=(self.y+.45)*TILE;actor.fall=undefined;actor.anchor.setPosition(x,y);actor.x=self.x;actor.y=self.y;actor.previousX=x;actor.previousY=y;actor.weight=0;actor.attackUntil=0;actor.animation.play('idle',this.time.now);}
     this.drawPlayers();this.update(this.time.now);this.cameras.main.preRender();this.deathReveal=false;
    },()=>{this.deathPlaying=false;this.busy=false;this.log('ダンジョンの入口で目を覚ましました。');this.drawPlayers();});
   }
@@ -244,10 +262,28 @@ export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)
    if(this.worldKind!==this.sceneWorld||(this.inDungeon&&(this.packet.adventure?.floor??1)!==this.sceneFloor)){this.transitioning=true;this.scene.restart({state:this.packet,preview:this.preview});return;}
 
    this.hud?.townUI?.refresh();if(!this.packet.players.some(p=>p.character_id===this.packet.active?.id))this.cameraFollow?.stop();
-   const visiblePlayers=this.packet.players.filter(p=>p.character_id===this.packet.active?.id||!this.inDungeon||this.packet.adventure?.floor!==1||inStage(bossStage(this.packet.adventure),p.x,p.y));const living=new Set(visiblePlayers.map(p=>p.character_id));for(const[id,a]of this.actors)if(!living.has(id)){a.renderer.weapon.destroy();a.renderer.offhand.destroy();a.renderer.scabbard.destroy();a.renderer.waistFitting.destroy();a.renderer.sparkles.destroy();this.bubbles.get(id)?.root.destroy();this.bubbles.delete(id);a.body.destroy();a.anchor.destroy();a.shadow.destroy();a.leftFoot.destroy();a.rightFoot.destroy();a.label.destroy();a.guildFlag?.destroy();this.actors.delete(id);}
-   for(const p of visiblePlayers){let a=this.actors.get(p.character_id);const x=(p.x+.5)*TILE,y=(p.y+.45)*TILE;
+   for(const [id,revision]of Object.entries(this.packet.adventure?.snapshot.deaths??{})){
+    if(revision<=(this.remoteDeaths[id]??0)||id===this.packet.active?.id)continue;
+    this.remoteDeaths[id]=revision;
+    const actor=this.actors.get(id);if(!actor)continue;
+    this.tweens.killTweensOf(actor.anchor);actor.queue=[];actor.stepping=false;actor.stepTarget=undefined;
+    actor.fall={kind:'death',at:this.time.now,side:actor.dir==='left'?-1:1};
+    this.time.delayedCall(870,()=>this.drawPlayers());
+   }
+   const smash=this.packet.adventure?.snapshot.bossEncounter?.smash;
+   const visiblePlayers=this.packet.players.filter(p=>p.character_id===this.packet.active?.id||!this.inDungeon||this.packet.adventure?.floor!==1||inStage(bossStage(this.packet.adventure),p.x,p.y));const living=new Set(visiblePlayers.map(p=>p.character_id));for(const[id,a]of this.actors)if(!living.has(id)&&!(a.fall?.kind==='death'&&this.time.now-a.fall.at<850)){a.renderer.weapon.destroy();a.renderer.offhand.destroy();a.renderer.scabbard.destroy();a.renderer.waistFitting.destroy();a.renderer.sparkles.destroy();this.bubbles.get(id)?.root.destroy();this.bubbles.delete(id);a.body.destroy();a.anchor.destroy();a.shadow.destroy();a.leftFoot.destroy();a.rightFoot.destroy();a.label.destroy();a.guildFlag?.destroy();this.actors.delete(id);}
+   for(const p of visiblePlayers){let a=this.actors.get(p.character_id);if(a?.fall?.kind==='death'&&this.time.now-a.fall.at<850)continue;const x=(p.x+.5)*TILE,y=(p.y+.45)*TILE;
     if(!a){const renderer=new EquipmentRenderer(this as Phaser.Scene);const anchor=this.add.zone(x,y,1,1);const shadow=this.add.ellipse(x,y+27,25,7,0x000000,.22);const leftFoot=this.add.ellipse(x-7,y+28,12,4,0x000000,.17);const rightFoot=this.add.ellipse(x+7,y+28,12,4,0x000000,.17);const body=this.add.image(x,y,playerSheetKey(p.gender,isPlayerArmor(p.armor)?p.armor:'leather'),playerFrameIndex(p.dir,'idle')).setDisplaySize(64,64).setInteractive();body.on('pointerdown',(pointer:any,_x:any,_y:any,event:any)=>{if(!(pointer.rightButtonDown()||isPrimaryAction(pointer))||p.character_id===this.packet.active?.id||this.busy||this.hud?.overlayMode!=='none')return;event?.stopPropagation();this.stopClickPath();if(isPrimaryAction(pointer))startTapAction(this,{x:this.packet.players.find(v=>v.character_id===p.character_id)?.x??p.x,y:this.packet.players.find(v=>v.character_id===p.character_id)?.y??p.y,reach:3,run:()=>void this.hud?.townUI?.inspectPlayer(p.character_id)});else void this.hud?.townUI?.inspectPlayer(p.character_id);});const label=this.add.text(x,y+30,p.name,{fontFamily:'Meiryo',fontSize:'12px',color:'#fff0c6',stroke:'#07130b',strokeThickness:3}).setOrigin(.5).setDepth(95);a={guildFlag:this.add.image(x,y,'guild_flag_1').setDisplaySize(14,16).setDepth(95).setVisible(false),renderer,body,anchor,shadow,leftFoot,rightFoot,label,x:p.x,y:p.y,dir:p.dir,movingUntil:0,animation:new PlayerAnimation(),lastSnapshotAt:this.time.now,distance:0,weight:0,lastPoseTime:this.time.now,previousX:x,previousY:y,attackUntil:0,attackStarted:0,attackWindup:58,projectileLaunched:false,weapon:null,shield:null,queue:[],stepping:false,lastFacing:p.dir};this.actors.set(p.character_id,a);}
-    a.stepMs=movementStepMs(p.moveStepMs);if(!p.railTrip&&(a.x!==p.x||a.y!==p.y))this.moveActor(a,p,TOWN_STEP_MS);a.weapon=p.character_id===this.packet.active?.id?this.player.weapon:this.visualWeapon(p.weapon===undefined?'w_iron_dagger':p.weapon);a.shield=p.character_id===this.packet.active?.id?this.player.shield:p.shield?makeShield(p.shield):null;
+    a.stepMs=movementStepMs(p.moveStepMs);
+    if(!p.railTrip&&(a.x!==p.x||a.y!==p.y)){
+     const impact=smash?.applied&&a.knockbackAt!==smash.at&&smash.knockbacks?.some(k=>k.id===p.character_id&&k.x===p.x&&k.y===p.y)&&railNow(this)<smash.at+smash.duration+450;
+     if(impact&&smash){
+      a.knockbackAt=smash.at;a.fall={kind:'knockback',at:this.time.now,side:p.x<a.x?-1:1};
+      a.attackUntil=0;a.queue=[];a.stepping=false;a.stepTarget=undefined;this.tweens.killTweensOf(a.anchor);
+      this.tweens.add({targets:a.anchor,x,y,duration:195,ease:'Quad.easeOut'});
+     }else this.moveActor(a,p,TOWN_STEP_MS);
+    }
+    a.weapon=p.character_id===this.packet.active?.id?this.player.weapon:this.visualWeapon(p.weapon===undefined?'w_iron_dagger':p.weapon);a.shield=p.character_id===this.packet.active?.id?this.player.shield:p.shield?makeShield(p.shield):null;
     const armor=p.character_id===this.packet.active?.id?this.playerArmor:p.armor;const texture=playerSheetKey(p.gender,isPlayerArmor(armor)?armor:'leather');requestEquipmentArt(texture);if(a.body.texture.key!==texture)a.body.setTexture(texture,playerFrameIndex(p.dir,a.animation.sample(this.time.now))).setDisplaySize(64,64);a.body.setDepth(p.y+.8);if(!a.stepping)a.dir=p.dir;a.lastFacing=p.dir;a.x=p.x;a.y=p.y;a.lastSnapshotAt=this.time.now;
     if(p.character_id===this.packet.active?.id){this.player.x=p.x;this.player.y=p.y;this.player.dir=p.dir;this.cameraFollow?.follow(a.anchor);}
    }
@@ -327,7 +363,11 @@ export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)
   tapAdventure(id:string){const p=(this.packet.adventure?.floor===2?[{id:'entry_crystal',x:5,y:6}]:ADVENTURE_PROPS).find(p=>p.id===id);if(p)startTapAction(this,{x:p.x,y:p.y,reach:1,run:()=>this.interactAdventure(id)});}
   tapNpc(n:TownInteraction){startTapAction(this,{x:n.x,y:n.y,reach:2,run:()=>void this.tryInteract(n)});}
   tapEnemy(x:number,y:number){const type=this.player.weapon?.weaponType,reach=type==='bow'||type==='handgun'?3:type==='lance'?2:1;startTapAction(this,{x,y,reach,aligned:true,valid:()=>!!this.enemyAt(x,y),run:()=>{const dx=x-this.player.x,dy=y-this.player.y;void this.performAttack(Math.abs(dx)>Math.abs(dy)?dx>0?'right':'left':dy>0?'down':'up');}});}
-  update(time:number){if(this.preview&&this.packet.adventure?.railTrip){const a=this.packet.adventure,t=a.railTrip!,me=this.packet.players.find(p=>p.character_id===this.packet.active?.id)!;const pose=railPose(t,Date.now());me.x=a.x=Math.round(pose.x);me.y=a.y=Math.round(pose.y);if(pose.progress>=1){const end=BOARDING_PANELS.find(p=>p.id===(t.reverse?'entry':'boss'))!;me.x=a.x=end.x;me.y=a.y=end.y;me.railTrip=undefined;a.railTrip=null;this.drawPlayers();}}if(this.housingModal||this.deathPlaying&&!this.deathReveal)return;
+  update(time:number){if(this.preview&&this.packet.adventure?.railTrip){const a=this.packet.adventure,t=a.railTrip!,me=this.packet.players.find(p=>p.character_id===this.packet.active?.id)!;const pose=railPose(t,Date.now());me.x=a.x=Math.round(pose.x);me.y=a.y=Math.round(pose.y);if(pose.progress>=1){const end=BOARDING_PANELS.find(p=>p.id===(t.reverse?'entry':'boss'))!;me.x=a.x=end.x;me.y=a.y=end.y;me.railTrip=undefined;a.railTrip=null;this.drawPlayers();}}if(this.housingModal)return;if(this.deathPlaying&&!this.deathReveal){
+   const id=this.packet.active?.id??'',a=this.actors.get(id);
+   if(a?.fall)this.renderActorFall(a,id,time);
+   return;
+  }
    advanceTapAction(this);
    if(this.housePending&&!this.requestBusy&&!this.busy)this.approachHouse(this.housePending);
    if(this.adventureBoardPending&&!this.inDungeon&&!this.requestBusy&&Math.abs(this.player.x-3)+Math.abs(this.player.y-9)<=3){this.adventureBoardPending=false;this.approachAdventureBoard();}
@@ -338,6 +378,12 @@ export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)
    if(this.hud?.topText)this.hud.topText.setText(this.inHouse?`${this.packet.house!.ownerName}の家 · ${this.packet.house!.name}`:this.inDungeon?`${this.packet.adventure?.name} · ${this.packet.adventure?.floor}層`:'はじまりの町 · サーバー1');this.adventureView?.update();
    this.showSkillRangePreview(this.skillArmed||!!this.hud?.skillHovered);
    for(const [actorId,a]of this.actors){
+    if(a.fall){
+     const duration=a.fall.kind==='death'?850:760;
+     if(time-a.fall.at<duration){this.renderActorFall(a,actorId,time);continue;}
+     a.fall=undefined;
+    }
+    a.body.setData('seated',false);a.shadow.setScale(1);a.leftFoot.setVisible(true);a.rightFoot.setVisible(true);
     if(renderRailActor(this,a,this.packet.players.find(p=>p.character_id===actorId)))continue;
     const dx=a.anchor.x-a.previousX,dy=a.anchor.y-a.previousY,moved=Math.hypot(dx,dy),dt=Math.max(0,Math.min(100,time-a.lastPoseTime));
     a.previousX=a.anchor.x;a.previousY=a.anchor.y;a.lastPoseTime=time;a.distance+=moved;
@@ -387,7 +433,7 @@ export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)
   useItem(index:number){const item=this.player.inventory[index];if(item)void this.action('use_item',{kind:item.kind}).catch(e=>this.log(e.message));}
   ownsArmor(key:string){return this.player.armors.some(a=>a.key===key);}weaponSellPrice(){return 0;}armorSellPrice(){return 0;}shieldSellPrice(){return 0;}itemSellPrice(){return 0;}
   sellWeapon(index?:number){if(typeof index==='number')this.dropWeapon(index);else this.log('町のお店は準備中です。');}sellArmor(index?:number){if(typeof index==='number')this.dropArmor(index);else this.sellWeapon();}sellShield(index?:number){if(typeof index==='number')this.dropShield(index);else this.sellWeapon();}sellItem(kind:string){if(kind!=='potion'){this.log('この道具のドロップは準備中です。');return;}void this.dropItem(kind).then(()=>this.hud?.setOverlay('inv')).catch(e=>{this.log(e.message);this.hud?.setOverlay('none');});}buyItem(){this.sellWeapon();}repairEquipment(){return false;}
-  async redeemOnlineCode(code:string){await this.action(code==='99999999'?'boss_test_warp':'redeem_code',{code});this.log(code==='99999999'?'ボス部屋へ移動しました。光るパネルを踏むと戦闘開始です。':code===ITEM_CATALOG_CODE?'スーパーアカウント：全アイテム一覧を開きました。':'体力を全回復しました。');}
+  async openSuperItemCatalog(){if(!this.packet.superAccount)throw Error('スーパーアカウント専用です。');if(!this.packet.active?.catalogUnlocked)await this.action('redeem_code',{code:ITEM_CATALOG_CODE});}
   async claimOnlineItem(key:string,starred:boolean){await this.action('claim_item',{key,starred});this.log('アイテム一覧から装備・道具を取得しました。');}
   redeemCode(){return false;}unlockDualWieldSecret(){return false;}claimCatalogItem(){return{status:'rejected',message:'オンラインの通常アカウントでは使えません。'};}
  }
@@ -418,8 +464,8 @@ export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)
   editCode(value:string){this.codeDigits=value.normalize('NFKC').replace(/\D/g,'').slice(0,10);this.codeMessage='';const text=this.overlay?.getByName('settings-code-digits');text?.setText(this.codeDigits||'コードを入力').setColor(this.codeDigits?'#ffffff':'#63787b');this.overlay?.getByName('settings-code-message')?.setText('');}
   rebuildOverlay(){if(this.packetRefreshing)return;super.rebuildOverlay();for(const child of this.overlay?.list??[])if(typeof child.text==='string'&&child.text.includes('絵を押すと1個取得'))child.setText(child.text.replace('絵を押すと1個取得','絵を押して通常・色違いを選択'));for(const icon of [...(this.overlay?.list??[])])if(icon.type==='Image'&&icon.texture?.key?.includes('star_w_'))for(const [dx,dy]of [[-.3,-.3],[.3,.25],[.1,-.4],[-.35,.2],[.4,-.1],[-.1,.35]]){const spark=this.add.text(icon.x+icon.displayWidth*dx,icon.y+icon.displayHeight*dy,'✦',{fontFamily:'serif',fontSize:'7px',color:'#ffe69a'}).setOrigin(.5);this.overlay.add(spark);this.tweens.add({targets:spark,alpha:.15,scale:.5,duration:700,delay:dx<0?0:350,yoyo:true,repeat:-1});spark.once('destroy',()=>this.tweens.killTweensOf(spark));}if(this.overlayMode==='equip')for(const child of this.overlay?.list??[])if(child.text==='装備・売却')child.setText('装備・ドロップ');}
   rowButton(x:number,y:number,w:number,label:string,highlight:boolean,onClick:()=>void,enabled=true,palette?:any){if(label==='特殊個体')label='色違い ★';if(w===112&&label.startsWith('売却 '))label='1個落とす';if((w===94||w===72)&&(/^(売却 \d+G|装備中)$/.test(label))){label='落とす';enabled=!this.gs.requestBusy;}return super.rowButton(x,y,w,label,highlight,onClick,enabled,{fill:0x28414a,dim:0x19252f,hover:0x334b57,accent:highlight?0x83dce0:0x7c93a1,text:'#e8eff4'});}
-  setOverlay(mode:string){if(['settings','codex','equipmentcatalog'].includes(mode)&&this.modernModals){this.townUI?.close();this.hideTooltip();this.modernModals.open(mode as 'settings'|'codex'|'equipmentcatalog');return;}if(this.modernModals?.visible)this.modernModals.close();if(['inv','equip','pick','shop','gacha','repair'].includes(mode)&&this.townUI){this.hideTooltip();this.townUI.open(mode==='shop'||mode==='gacha'?mode:'inventory',mode==='pick'?['weapon','armor','shield'][this.pickSlot]:undefined);return;}if(mode==='quests')return;this.townUI?.close();if(mode==='itemcatalog'&&(!this.gs.packet.superAccount||!this.gs.packet.active?.catalogUnlocked)){this.gs.log('スーパーアカウントでコードを入力してください。');return;}super.setOverlay(mode);this.townUI?.refresh();}
-  buildSettingsOverlay(x:number,y:number,w:number,h:number){super.buildSettingsOverlay(x,y,w,h);if(this.gs.packet.superAccount)this.overlay.add(this.add.text(x+20,y+h-95,'SUPER：19960711 アイテム一覧 ／ 11111111 全回復 ／ 99999999 ボス部屋',{fontFamily:'Meiryo',fontSize:'12px',color:'#ffe09a',wordWrap:{width:w-40}}));const row=this.overlay.getByName('settings-return-title');if(row){const hit=row.getByName('row-hit');hit?.removeAllListeners('pointerdown');hit?.on('pointerdown',()=>{this.gs.scene.stop('OnlineUIScene');this.gs.scene.start('TitleScene');});}}
+  setOverlay(mode:string){if(['settings','codex','equipmentcatalog'].includes(mode)&&this.modernModals){this.townUI?.close();this.hideTooltip();this.modernModals.open(mode as 'settings'|'codex'|'equipmentcatalog');return;}if(this.modernModals?.visible)this.modernModals.close();if(['inv','equip','pick','shop','gacha','repair'].includes(mode)&&this.townUI){this.hideTooltip();this.townUI.open(mode==='shop'||mode==='gacha'?mode:'inventory',mode==='pick'?['weapon','armor','shield'][this.pickSlot]:undefined);return;}if(mode==='quests')return;this.townUI?.close();if(mode==='itemcatalog'&&(!this.gs.packet.superAccount||!this.gs.packet.active?.catalogUnlocked)){this.gs.log('設定の「専用操作」からアイテム取得を開いてください。');return;}super.setOverlay(mode);this.townUI?.refresh();}
+  buildSettingsOverlay(x:number,y:number,w:number,h:number){super.buildSettingsOverlay(x,y,w,h);const row=this.overlay.getByName('settings-return-title');if(row){const hit=row.getByName('row-hit');hit?.removeAllListeners('pointerdown');hit?.on('pointerdown',()=>{this.gs.scene.stop('OnlineUIScene');this.gs.scene.start('TitleScene');});}}
  }
  host.scene.add('OnlineLobbyScene',new Lobby());host.scene.add('OnlineTownScene',new Town());const hud=new TownHud();hud.sys.settings.key='OnlineUIScene';host.scene.add('OnlineUIScene',hud);
 }

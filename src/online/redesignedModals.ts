@@ -11,7 +11,7 @@ import './redesignedModals.css';
 const el=<K extends keyof HTMLElementTagNameMap>(tag:K,text='',className='')=>{const e=document.createElement(tag);e.textContent=text;e.className=className;return e;};
 export function mountRedesignedModals(h:any){
  const host=el('div','','redesigned-host'+(IS_MOBILE?' mobile':''));host.hidden=true;document.body.append(host);
- let mode:'settings'|'codex'|'equipmentcatalog'='settings',panel:HTMLElement|undefined,previousFocus:HTMLElement|null=null;
+ let mode:'settings'|'codex'|'equipmentcatalog'|'super'='settings',panel:HTMLElement|undefined,previousFocus:HTMLElement|null=null;
  let page=0,selected='',filter='all',renderedArt=new Map<string,string>(),pending=false,active=true;
  let inputState:{hud:boolean;town:boolean;hudKeys:boolean;townKeys:boolean}|undefined;
  function pause(){if(inputState)return;inputState={hud:h.input.enabled,town:h.gs.input.enabled,hudKeys:h.input.keyboard?.enabled??false,townKeys:h.gs.input.keyboard?.enabled??false};h.input.enabled=false;h.gs.input.enabled=false;if(h.input.keyboard)h.input.keyboard.enabled=false;if(h.gs.input.keyboard)h.gs.input.keyboard.enabled=false;}
@@ -21,21 +21,23 @@ export function mountRedesignedModals(h:any){
  function close(){resume();host.hidden=true;panel?.remove();panel=undefined;h.overlayMode='none';h.gs.clearMoveInput?.();h.townUI?.refresh();if(previousFocus?.isConnected)previousFocus.focus();else h.game.canvas.focus();}
  function button(label:string,run:()=>void,cls=''){const b=el('button',translate(label),cls);b.type='button';b.onclick=()=>{void Audio.playSe('click');run();};return b;}
  function shell(title:string){panel?.remove();panel=el('section','','zero-window redesigned-window');panel.role='dialog';panel.setAttribute('aria-modal','true');panel.setAttribute('aria-label',title);panel.dataset.mode=mode;const header=el('header'),heading=el('h2',translate(title)),exit=button('×',close,'redesign-close');exit.setAttribute('aria-label','閉じる');header.append(heading,exit);panel.append(header);host.append(panel);return panel;}
- function open(next:typeof mode){if(pending)return;pause();previousFocus=document.activeElement as HTMLElement;h.gs.stopClickPath?.();h.gs.clearMoveInput?.();h.overlay?.setVisible(false);mode=next;page=0;selected='';filter='all';host.hidden=false;h.overlayMode=next==='settings'?'modernSettings':'modernCodex';h.townUI?.refresh();render();panel?.querySelector<HTMLButtonElement>('button')?.focus();}
+ function open(next:typeof mode){if(pending)return;pause();previousFocus=document.activeElement as HTMLElement;h.gs.stopClickPath?.();h.gs.clearMoveInput?.();h.overlay?.setVisible(false);mode=next;page=0;selected='';filter='all';host.hidden=false;h.overlayMode=next==='settings'||next==='super'?'modernSettings':'modernCodex';h.townUI?.refresh();render();panel?.querySelector<HTMLButtonElement>('button')?.focus();}
  function section(title:string){const box=el('section','','redesign-section');box.append(el('h3',translate(title)));return box;}
  function settings(){
-  const box=shell('設定'),body=el('div','','redesign-settings-body'),left=el('div','','redesign-settings-left'),sound=section('音声'),language=section('言語'),code=section('コード入力');
+  const box=shell('設定'),body=el('div','','redesign-settings-body'),left=el('div','','redesign-settings-left'),sound=section('音声'),language=section('言語');
   for(const [kind,label]of [['bgm','音楽'],['se','効果音']]as const){
    const row=el('div','','redesign-volume'),title=el('span',translate(label)),toggle=button('',()=>{}),minus=button('−',()=>{}),plus=button('＋',()=>{}),slider=el('input'),value=el('output');slider.type='range';slider.min='0';slider.max='1';slider.step='.05';slider.setAttribute('aria-label',label+'音量');toggle.setAttribute('aria-label',label+'の切り替え');minus.setAttribute('aria-label',label+'音量を下げる');plus.setAttribute('aria-label',label+'音量を上げる');
    const sync=()=>{const volume=kind==='bgm'?Audio.bgmVolume:Audio.seVolume,on=kind==='bgm'?Audio.bgmOn:Audio.seOn;slider.value=String(volume);value.textContent=Math.round(volume*100)+'%';slider.style.setProperty('--fill',value.textContent);toggle.textContent=on?'入':'切';toggle.setAttribute('aria-pressed',String(on));};
    const set=(v:number)=>{if(kind==='bgm')Audio.setBgmVolume(v);else Audio.setSeVolume(v);sync();};slider.oninput=()=>set(Number(slider.value));minus.onclick=()=>set(Number(slider.value)-.05);plus.onclick=()=>set(Number(slider.value)+.05);toggle.onclick=()=>{kind==='bgm'?Audio.toggleBgm():Audio.toggleSe();sync();};sync();row.append(title,toggle,minus,slider,value,plus);sound.append(row);
   }
   const choices=el('div','','redesign-languages');for(const id of LANGUAGES){const b=button(LANGUAGE_NAMES[id],()=>{setLanguage(id);settings();});b.setAttribute('aria-pressed',String(getLanguage()===id));choices.append(b);}language.append(choices);const credits=el('a','音声クレジット');credits.href='assets/online/npc-voices-v1/credits.html';credits.target='_blank';credits.rel='noopener';sound.append(credits);left.append(sound,language);
-  const form=el('form','','redesign-code'),input=el('input'),status=el('p','','redesign-status');form.noValidate=true;input.type='text';input.inputMode='numeric';input.autocomplete='off';input.maxLength=8;input.placeholder=translate('コードを入力');input.setAttribute('aria-label','コード入力');input.value=h.codeDigits??'';input.oninput=()=>{input.value=input.value.normalize('NFKC').replace(/\D/g,'').slice(0,8);h.codeDigits=input.value;};status.role='status';
-  const grid=el('div','','redesign-keypad');for(const digit of [1,2,3,4,5,6,7,8,9])grid.append(button(String(digit),()=>{input.value=(input.value+digit).slice(0,8);h.codeDigits=input.value;}));
-  const submit=button('入力',()=>void send(),'accent');grid.append(button('消去',()=>{input.value='';h.codeDigits='';}),button('0',()=>{input.value=(input.value+'0').slice(0,8);h.codeDigits=input.value;}),submit);
-  async function send(){if(pending)return;if(!input.value){status.textContent=translate('コードを入力してください。');input.focus();return;}pending=true;submit.disabled=true;status.textContent=translate('確認中…');try{const digits=input.value;await h.gs.redeemOnlineCode(digits);if(!active||host.hidden||panel!==box)return;h.codeDigits='';if(digits==='19960711'){pending=false;close();h.setOverlay('itemcatalog');return;}input.value='';status.textContent=translate(digits==='99999999'?'ボス部屋へ移動しました。光るパネルを踏んでください。':'体力を全回復しました');}catch(e){status.textContent=(e as Error).message;}finally{pending=false;submit.disabled=false;}}
-  form.onsubmit=e=>{e.preventDefault();void send();};form.append(input,grid,status);code.append(form);body.append(left,code);box.append(body);
+  body.append(left);
+  if(h.gs.packet.superAccount){
+   const tools=section('SUPER');
+   tools.append(button('専用操作',()=>{mode='super';superActions();},'accent'));
+   body.append(tools);
+  }
+  box.append(body);
   const footer=el('footer','','redesign-footer'),links=el('div','','redesign-links');for(const [label,url]of [['プライバシー','./privacy.html'],['クレジット','./credits.html']]){const a=el('a',translate(label));a.href=url;a.target='_blank';a.rel='noopener';links.append(a);}footer.append(links,button('操作案内',()=>{close();h.showControlsGuide();}),button('タイトルへ',()=>{close();h.gs.scene.stop('OnlineUIScene');h.gs.scene.start('TitleScene');}));box.append(footer);
  }
  function art(key:string,flip=false){const image=el('img');image.alt='';image.draggable=false;const textureKey=key.startsWith('m_')?key:equipmentIconTexture(key);image.dataset.texture=textureKey;if(flip)image.style.transform='scaleX(-1)';const fill=()=>{if(!h.textures.exists(textureKey))return;let url=renderedArt.get(textureKey);if(!url){const texture=h.textures.get(textureKey),f=texture.get(),canvas=document.createElement('canvas');canvas.width=f.cutWidth;canvas.height=f.cutHeight;canvas.getContext('2d')!.drawImage(texture.source[f.sourceIndex].image,f.cutX,f.cutY,f.cutWidth,f.cutHeight,0,0,f.cutWidth,f.cutHeight);url=canvas.toDataURL();renderedArt.set(textureKey,url);}image.src=url;};fill();if(!image.src)requestEquipmentArt(textureKey);return image;}
@@ -54,7 +56,31 @@ export function mountRedesignedModals(h:any){
   const entry=entries.find(e=>e.key===selected);if(entry&&found(entry.key)){detail.append(el('h3',entry.name),art(equipment?entry.textureKey:entry.key,equipment&&equipmentIconFlipX(entry.textureKey)));if(equipment){detail.append(el('p',entry.summary),el('p',entry.description));const star=h.gs.discoveredEquipment.has('star_'+entry.key);if(star)detail.append(el('p','★ 色違いを発見済み','redesign-star'));}else{const m=difficultyEnemy(entry,h.gs.difficulty),element=monsterElement(m),stats=el('dl');for(const [label,v]of [['出現階層',`${m.minFloor}〜${m.maxFloor}階`],['HP',m.hp],['攻撃',`${m.atkMin}〜${m.atkMax}`],['防御',m.def],['属性',element?ELEMENT_INFO[element].name:'無属性']])stats.append(el('dt',translate(String(label))),el('dd',String(v)));detail.append(stats,el('h4',translate('特性')),el('p',m.gimmickText??translate('固有効果なし')));}}else detail.append(el('div','◇','redesign-locked'),el('h3',translate('未発見')),el('p',translate('発見すると詳しい情報が表示されます。')));
   body.append(grid,detail);box.append(body);const footer=el('footer','','redesign-pagination'),prev=button('‹ 前へ',()=>{page--;selected='';codex();}),next=button('次へ ›',()=>{page++;selected='';codex();});prev.disabled=page===0;next.disabled=page===pages-1;footer.append(prev,el('span',`${page+1} / ${pages}`),next);box.append(footer);
  }
- function render(){mode==='settings'?settings():codex();}
+ function superActions(){
+  if(!h.gs.packet.superAccount){close();return;}
+  const box=shell('専用操作'),body=el('div','','redesign-super-actions'),status=el('p','','redesign-status');
+  status.role='status';
+  const back=button('設定へ戻る',()=>{mode='settings';settings();});
+  const canWarp=()=>h.gs.packet.adventure?.inside&&h.gs.packet.adventure?.floor===1;
+  const warp=button('ボスにテレポート',()=>void run(true));
+  const items=button('アイテム取得',()=>void run(false),'accent');
+  warp.disabled=!canWarp();
+  if(warp.disabled)status.textContent=translate('ボスへのテレポートは第1層のダンジョン内で使用できます。');
+  async function run(teleport:boolean){
+   if(pending||!h.gs.packet.superAccount)return;
+   pending=true;items.disabled=warp.disabled=back.disabled=true;status.textContent=translate('処理中…');
+   try{
+    if(teleport)await h.gs.action('boss_test_warp');
+    else await h.gs.openSuperItemCatalog();
+    if(!active||host.hidden||panel!==box)return;
+    pending=false;close();
+    if(!teleport)h.setOverlay('itemcatalog');
+   }catch(e){if(active&&panel===box)status.textContent=(e as Error).message;}
+   finally{pending=false;items.disabled=back.disabled=false;warp.disabled=!canWarp();}
+  }
+  body.append(items,warp,status,back);box.append(body);items.focus();
+ }
+ function render(){if(mode==='settings')settings();else if(mode==='super')superActions();else codex();}
  const textureAdded=(key:string)=>{if(host.hidden)return;renderedArt.delete(key);for(const image of host.querySelectorAll<HTMLImageElement>('img[data-texture]'))if(image.dataset.texture===key){const fresh=art(key);image.src=fresh.src;}};h.textures.on('addtexture',textureAdded);
  host.addEventListener('pointerdown',e=>{e.stopPropagation();if(e.target===host&&!pending)close();});host.addEventListener('contextmenu',e=>e.preventDefault());
  host.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Escape'&&!pending){e.preventDefault();close();}if(e.key==='Tab'&&panel){const controls=Array.from(panel.querySelectorAll<HTMLElement>('button:not(:disabled),input,a[href]')),first=controls[0],last=controls[controls.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}}});

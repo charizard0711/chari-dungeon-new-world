@@ -45,7 +45,7 @@ export class CharacterRig {
   if(lookKey!==this.lookKey){this.lookKey=lookKey;this.look=undefined;loadCharacterRig(gender,armor,hair).then(look=>{if(!this.disposed&&this.lookKey===lookKey){this.look=look;this.signature='';}}).catch(()=>{});}
   const sheet=weapons.find(w=>w.key===weapon?.key),artKey=weapon?(weapon.starred?sheet?.star:sheet?.held)??'':'';
   if(artKey!==this.artKey){this.artKey=artKey;this.art=undefined;this.visual=undefined;this.sheet=sheet;if(artKey&&sheet)loadWeaponVisual(sheet,!!weapon?.starred,loadRigImage).then(visual=>{if(!this.disposed&&this.artKey===artKey){this.visual=visual;this.art=visual.image;this.signature='';}}).catch(()=>{});}
-  const gloves=body.getData('wornGloves'),boots=body.getData('wornBoots');
+  const gloves=body.getData('wornGloves'),boots=body.getData('wornBoots'),seated=!!body.getData('seated');
   const externalWeapon=!!weapon&&!this.art;
   let shieldArt:HTMLImageElement|undefined;
   if(shield&&!isTwoHanded(weapon)&&this.scene.textures.exists(shield.key)){
@@ -58,12 +58,12 @@ export class CharacterRig {
   const action=playerAction(frame),attack=action==='attack'||action==='windup',walk=action==='walk',heavy=weapon?.weaponType==='greatsword',windup=heavy?200:58,duration=heavy?460:268;
   const attackRate=Number(body.getData('attackRate')??1);elapsed/=attackRate;const t=attack?Math.min(1,(elapsed+(action==='attack'?windup:0))/duration):walk?Number(body.getData('walkPhase')??Math.max(0,PLAYER_WALK_FRAMES.indexOf(frame as typeof PLAYER_WALK_FRAMES[number]))/PLAYER_WALK_FRAMES.length):0;
   const phase=attack?Math.round(t*24):walk?Math.floor(t*8):0;
-  const signature=[gloves,boots,externalWeapon,lookKey,artKey,integratedShield&&shield?.key,dir,action,phase].join('|');
+  const signature=[gloves,boots,seated,externalWeapon,lookKey,artKey,integratedShield&&shield?.key,dir,action,phase].join('|');
   if(signature!==this.signature&&(this.scene.time.now>=this.nextDraw||!this.signature)){
    this.nextDraw=this.scene.time.now+1000/30;this.signature=signature;
    const g=this.texture.context;g.clearRect(0,0,256,256);g.save();g.translate(128,176);
    const type=weapon?.weaponType??'dagger',blank=document.createElement('canvas');blank.width=blank.height=1;
-   drawOriginalRig(g,this.look.body,this.look.arms,this.art??blank as unknown as HTMLImageElement,type,this.visual?.directional??false,dir,t,attack,walk,2,false,{...this.visual?.options,shield:integratedShield,gloves,boots,externalWeapon});
+   drawOriginalRig(g,this.look.body,this.look.arms,this.art??blank as unknown as HTMLImageElement,type,this.visual?.directional??false,dir,t,attack,walk,2,false,{...this.visual?.options,shield:integratedShield,seated,gloves,boots,externalWeapon});
    g.restore();this.texture.refresh();
   }
   body.setCrop(0,0,0,0);this.onReady(!externalWeapon,!!integratedShield);

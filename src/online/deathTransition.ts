@@ -1,7 +1,7 @@
 import type Phaser from 'phaser';
 
 /** Location changes only after the whole game and HUD are black. */
-export function mountDeathTransition(scene:Phaser.Scene,onBlack:()=>void,onDone:()=>void){
+export function mountDeathTransition(scene:Phaser.Scene,onBlack:()=>void|Promise<void>,onDone:()=>void){
  const root=document.createElement('section');root.className='online-death-transition';root.setAttribute('role','status');root.setAttribute('aria-label','ダンジョンの入口で目を覚ましています');
  Object.assign(root.style,{position:'fixed',zIndex:'2147483000',overflow:'hidden',pointerEvents:'auto',background:'transparent'});
  const shade=document.createElement('div');Object.assign(shade.style,{position:'absolute',inset:'0',background:'#000',opacity:'0'});
@@ -14,8 +14,9 @@ export function mountDeathTransition(scene:Phaser.Scene,onBlack:()=>void,onDone:
  const animate=(el:HTMLElement,frames:Keyframe[],duration:number)=>{const a=el.animate(frames,{duration,easing:'ease-in-out',fill:'forwards'});animations.push(a);return a.finished;};
  const finished=(async()=>{
   try{
+   await new Promise<void>(resolve=>{timer=setTimeout(resolve,570);});if(disposed)return;
    await animate(shade,[{opacity:0},{opacity:1}],700);if(disposed)return;
-   root.dataset.phase='black';onBlack();
+   root.dataset.phase='black';await onBlack();if(disposed)return;
    await new Promise<void>(resolve=>{timer=setTimeout(resolve,450);});if(disposed)return;
    root.dataset.phase='opening';lids.forEach(l=>l.style.visibility='visible');shade.style.opacity='0';animations[0].cancel();
    await Promise.all(lids.map((lid,i)=>animate(lid,[{transform:'translateY(0)'},{transform:`translateY(${i===0?'-':''}105%)`}],1800)));
@@ -23,5 +24,5 @@ export function mountDeathTransition(scene:Phaser.Scene,onBlack:()=>void,onDone:
   }catch{if(!disposed){destroy();onDone();}}
  })();
  scene.events.once('shutdown',destroy);
- return {root,destroy,finished};
+ return {root,destroy,finished,holdAcrossRestart(){scene.events.off('shutdown',destroy);},bindShutdown(){scene.events.once('shutdown',destroy);}};
 }

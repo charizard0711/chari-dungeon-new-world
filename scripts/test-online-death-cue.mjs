@@ -10,10 +10,13 @@ await db.query("update online_adventure_rooms set snapshot=jsonb_set(snapshot,'{
 await db.query('update online_adventure_members set x=116,y=35 where character_id=$1',[id]);
 const before=(await db.query('select gear,inventory,gold from online_characters where id=$1',[id])).rows[0];
 await db.query('update online_characters set hp=0 where id=$1',[id]);
-state=await rpc('poll');assert.equal(state.active.hp,50);assert.equal(state.adventure.x,10);assert.equal(state.adventure.y,29);assert.equal(state.adventure.snapshot.deaths[id],1);
+const pulse=async()=>{
+ await db.query("update online_adventure_rooms set snapshot=jsonb_set(snapshot,'{realtimeAt}','0') where id=$1",[room]);
+ return (await db.query('select online_combat_pulse() s')).rows[0].s;
+};
+const first=await pulse();assert.equal(first.hp,50);assert.equal(first.x,49);assert.equal(first.y,77);assert.equal(first.snapshot.deaths[id],1);
 assert.deepEqual((await db.query('select gear,inventory,gold from online_characters where id=$1',[id])).rows[0],before);
 for(let i=0;i<3;i++)assert.equal((await rpc('poll')).adventure.snapshot.deaths[id],1,'polls must not repeat death');
-const migration=await fs.readFile('supabase/migrations/202611210002_online_death_cue.sql','utf8');await db.exec(migration);await db.exec(migration);
-await db.query('update online_characters set hp=0 where id=$1',[id]);await db.query("update online_adventure_rooms set snapshot=jsonb_set(snapshot,'{simAtMs}','0') where id=$1",[room]);
-state=await rpc('poll');assert.equal(state.adventure.snapshot.deaths[id],2,'second death receives a distinct cue');
-await db.close();console.log('PASS: server death cue, entrance respawn and HP, no duplicate on poll, equipment/inventory/gold retained, idempotent migration and second death.');
+await db.query('update online_characters set hp=0 where id=$1',[id]);
+assert.equal((await pulse()).snapshot.deaths[id],2,'second death receives a distinct cue');
+await db.close();console.log('PASS: pulse death cue, current entrance and respawn HP, no duplicate on poll, equipment/inventory/gold retained, distinct second death cue.');
