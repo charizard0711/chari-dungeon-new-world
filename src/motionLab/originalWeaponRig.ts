@@ -72,7 +72,9 @@ export function parseLimbParts(image:HTMLImageElement):LimbParts{
  }return parts;
 }
 export function drawOriginalRig(g:CanvasRenderingContext2D,body:Atlas,parts:LimbParts,weapon:HTMLImageElement,type:string,directional:boolean,dir:Facing,t:number,attack:boolean,walk:boolean,magnify:number,debug:boolean,options:{grip?:Point;basis?:number;height?:number;verticalArt?:boolean;verticalFrames?:HTMLCanvasElement[];shield?:HTMLImageElement|HTMLCanvasElement;variantArmor?:boolean;variantNecklace?:boolean;seated?:boolean;gloves?:string;boots?:string;externalWeapon?:boolean}={}){
- const row=ROW[dir],frame=walk?Math.floor(t*8)%8:attack?[0,0,2,2,4,4,2,0][Math.min(7,Math.floor(t*8))]:0,f=body.frames[row*8+frame],scale=body.scale;
+ const row=ROW[dir],phase=Math.min(7,Math.floor(t*8)),scale=body.scale;
+ const f=attack&&body.attackFrames?body.attackFrames[row*8+phase]:
+  body.frames[row*8+(walk?Math.floor(t*8)%8:attack?[0,0,2,2,4,4,2,0][phase]:0)];
  const pose=rigPose(type,t,attack,walk),side=dir==='left'?-1:1,profile=dir==='left'||dir==='right';
  const map=(p:Point):Point=>profile?[p[0]*side,p[1]]:[p[0]*.55-2,p[1]+(dir==='up'?-3:3)];
  const vertical=!profile&&type!=='lance'?(['bow','handgun'].includes(type)?rangedPose(type,dir==='up',t,attack):verticalAttack(type,dir==='up',t,attack)):undefined;
@@ -136,7 +138,7 @@ export function drawOriginalRig(g:CanvasRenderingContext2D,body:Atlas,parts:Limb
   g.save();g.beginPath();g.rect(-100,-100,200,81);g.clip();drawBody(f);g.restore();
   g.save();g.translate(0,-19);g.scale(1.22,.53);g.translate(0,19);
   g.beginPath();g.rect(-100,-19,200,119);g.clip();drawBody(f);g.restore();
- }else if(walk&&!profile){
+ }else if(walk&&!profile&&!body.attackFrames){
   // Front/back source gait repeats the same leading foot. Alternate only the legs;
   // the face, cape, belt and hand anchors keep their authored orientation.
   const leg=body.frames[row*8+(Math.floor(t*8)%4)];

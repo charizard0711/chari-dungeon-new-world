@@ -19,7 +19,7 @@ const palms:Record<Motion,Point[][]>={
  bow:[[[.71,.6],[.71,.54],[.8,.4],[.82,.38],[.83,.39],[.82,.59],[.75,.55],[.74,.58]],[[.48,.56],[.29,.39],[.23,.29],[.17,.28],[.14,.29],[.23,.31],[.35,.41],[.43,.48]],[[.64,.56],[.7,.41],[.83,.3],[.9,.3],[.92,.29],[.83,.35],[.77,.47],[.67,.53]],[[.38,.63],[.25,.44],[.2,.39],[.17,.36],[.16,.37],[.2,.42],[.32,.54],[.39,.6]]]
 };
 export type Frame={sx:number;sy:number;cw:number;ch:number;root:Point;hand:Point;off:Point;};
-export type Atlas={image:HTMLImageElement|HTMLCanvasElement;frames:Frame[];scale:number};
+export type Atlas={image:HTMLImageElement|HTMLCanvasElement;frames:Frame[];attackFrames?:Frame[];scale:number};
 export function makeAtlas(image:HTMLImageElement,motion:Motion):Atlas{
  const c=document.createElement('canvas');c.width=image.width;c.height=image.height;const g=c.getContext('2d',{willReadFrequently:true})!;g.drawImage(image,0,0);const data=g.getImageData(0,0,c.width,c.height).data,cw=Math.floor(c.width/8),ch=Math.floor(c.height/4);
  if(!Number.isInteger(cw)||!Number.isInteger(ch))throw Error('Invalid atlas grid');

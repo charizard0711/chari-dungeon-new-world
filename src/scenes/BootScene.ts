@@ -110,8 +110,8 @@ const SHIELD_ART = {
 
 const UI_ART = {
   armor_dawn: 'assets/armor-icons-v3/armor_dawn.webp',
-  armor_aqua: 'assets/armor-icons-v3/armor_aqua.webp',
-  armor_crimson: 'assets/armor-icons-v3/armor_crimson.webp',
+  armor_aqua: 'assets/characters/celestial-armor-v7/armor_aqua.webp',
+  armor_crimson: 'assets/characters/celestial-armor-v7/armor_crimson.webp',
   ui_nav_damage_log: 'assets/ui/journal-v1/nav-damage-log.webp',
   ui_damage_journal_panel: 'assets/ui/journal-v1/modal.webp',
   ui_nav_explore: 'assets/ui/generated/nav-explore.png',

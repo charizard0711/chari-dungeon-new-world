@@ -12,32 +12,8 @@
     "arms": "/assets/characters/weapon-rig-v4/arms.png"
   },
   "crimson_male": {
-    "path": "/assets/characters/hood-face-v6/crimson_male.png",
+    "path": "/assets/characters/celestial-armor-v7/crimson_male.png",
     "cols": 8,
-    "rows": 4,
-    "directions": [
-      0,
-      1,
-      2,
-      3
-    ],
-    "arms": "/assets/characters/wardrobe-v5/crimson-arms.png"
-  },
-  "crimson_female": {
-    "path": "/assets/characters/hood-face-v6/crimson_female.png",
-    "cols": 8,
-    "rows": 4,
-    "directions": [
-      0,
-      1,
-      2,
-      3
-    ],
-    "arms": "/assets/characters/wardrobe-v5/crimson-arms.png"
-  },
-  "aqua_male": {
-    "path": "/assets/characters/hood-face-v6/aqua.png",
-    "cols": 7,
     "rows": 8,
     "directions": [
       0,
@@ -45,40 +21,66 @@
       2,
       3
     ],
-    "arms": "/assets/characters/wardrobe-v5/aqua-arms.png",
-    "rowBounds": [
-      0,
-      162,
-      316,
-      471,
-      630,
-      790,
-      944,
-      1099,
-      1254
-    ]
-  },
-  "aqua_female": {
-    "path": "/assets/characters/hood-face-v6/aqua.png",
-    "cols": 7,
-    "rows": 8,
-    "directions": [
+    "arms": "/assets/characters/celestial-armor-v7/crimson-arms.png",
+    "attackDirections": [
       4,
       5,
       6,
       7
-    ],
-    "arms": "/assets/characters/wardrobe-v5/aqua-arms.png",
-    "rowBounds": [
+    ]
+  },
+  "crimson_female": {
+    "path": "/assets/characters/celestial-armor-v7/crimson_female.png",
+    "cols": 8,
+    "rows": 8,
+    "directions": [
       0,
-      162,
-      316,
-      471,
-      630,
-      790,
-      944,
-      1099,
-      1254
+      1,
+      2,
+      3
+    ],
+    "arms": "/assets/characters/celestial-armor-v7/crimson-arms.png",
+    "attackDirections": [
+      4,
+      5,
+      6,
+      7
+    ]
+  },
+  "aqua_male": {
+    "path": "/assets/characters/celestial-armor-v7/aqua_male.png",
+    "cols": 8,
+    "rows": 8,
+    "directions": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "arms": "/assets/characters/celestial-armor-v7/aqua-arms.png",
+    "attackDirections": [
+      4,
+      5,
+      6,
+      7
+    ]
+  },
+  "aqua_female": {
+    "path": "/assets/characters/celestial-armor-v7/aqua_female.png",
+    "cols": 8,
+    "rows": 8,
+    "directions": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "arms": "/assets/characters/celestial-armor-v7/aqua-arms.png",
+    "attackDirections": [
+      4,
+      5,
+      6,
+      7
     ]
   },
   "plate_male": {

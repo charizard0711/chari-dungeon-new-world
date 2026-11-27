@@ -17,4 +17,4 @@ export function equipmentIconTexture(key: string,scene?:Phaser.Scene) {
 
 
 export const STAR_EQUIPMENT_BACKGROUND = 0xb65b1b;
-export function equipmentIconFlipX(key: string) { return ['armor_dawn', 'armor_aqua', 'armor_crimson'].includes(baseEquipmentKey(key)); }
+export function equipmentIconFlipX(key: string) { return baseEquipmentKey(key)==='armor_dawn'; }

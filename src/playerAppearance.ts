@@ -118,7 +118,8 @@ export function playerFrameIndex(dir: Dir, frame: PlayerVisualFrame): number {
 
 export function playerSheetPath(gender:PlayerGender,armor:PlayerArmor='leather'):string {
   const selected=armor.startsWith('pumpkin_')?`pumpkin_${gender}`:armor;
-  return `assets/characters/smooth-walk-v1/${gender}-${selected}.webp`;
+  const folder=selected==='crimson'||selected==='aqua'?'celestial-armor-v7':'smooth-walk-v1';
+  return `assets/characters/${folder}/${gender}-${selected}.webp`;
 }
 export function versionedPlayerAssetPath(path:string):string {
   return path.replace(/^assets\/characters\/(?:player-painted-v1|halloween-v1|hooded-back-v2)\/((?:male|female)-[^/]+)\.png$/,'assets/characters/smooth-walk-v1/$1.webp');

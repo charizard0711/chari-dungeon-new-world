@@ -7,8 +7,8 @@ export const COSTUMES=[
  {key:'arcane',name:'秘術装甲',grade:'A',icon:'/assets/ui/generated/armor-arcane.png'},
  {key:'dragon',name:'竜鱗神鎧',grade:'S',icon:'/assets/ui/generated/armor-dragon.png'},
  {key:'dawn',name:'暁白の聖装',grade:'SS',icon:'/assets/armor-icons-v3/armor_dawn.webp'},
- {key:'aqua',name:'蒼白の天聖鎧',grade:'SSS',icon:'/assets/armor-icons-v3/armor_aqua.webp',hood:true},
- {key:'crimson',name:'紅黒の天聖鎧',grade:'SSS',icon:'/assets/armor-icons-v3/armor_crimson.webp',hood:true},
+ {key:'aqua',name:'蒼白の天聖鎧',grade:'SSS',icon:'/assets/characters/celestial-armor-v7/armor_aqua.webp',hood:true},
+ {key:'crimson',name:'紅黒の天聖鎧',grade:'SSS',icon:'/assets/characters/celestial-armor-v7/armor_crimson.webp',hood:true},
  {key:'pumpkin_male',name:'かぼちゃの騎士服',grade:'A',icon:'/assets/characters/halloween-v1/armor_pumpkin_male.png',gender:'male',hood:true},
  {key:'pumpkin_female',name:'かぼちゃの魔女服',grade:'A',icon:'/assets/characters/halloween-v1/armor_pumpkin_female.png',gender:'female',hood:true},
 ] as const;
@@ -21,7 +21,7 @@ export const HAIR_COLORS=[
  {key:'red',name:'ワインレッド',rgb:[152,42,57]},
  {key:'blue',name:'ミッドナイトブルー',rgb:[47,89,154]},
 ] as const;
-export interface CostumeAsset {path:string;cols:number;rows:number;directions:number[];arms:string;rowBounds?:number[];}
+export interface CostumeAsset {path:string;cols:number;rows:number;directions:number[];arms:string;rowBounds?:number[];attackDirections?:number[];}
 /** Frame metadata is measured from alpha, while cells stay on their authored grid.
  * Palette substitution is an in-game hair-only shader, never a whole-outfit tint. */
 export function wardrobeAtlas(image:HTMLImageElement,asset:CostumeAsset,hair:string,covered:boolean):Atlas{
@@ -29,8 +29,9 @@ export function wardrobeAtlas(image:HTMLImageElement,asset:CostumeAsset,hair:str
  const g=canvas.getContext('2d',{willReadFrequently:true})!;g.drawImage(image,0,0);
  const pixels=g.getImageData(0,0,canvas.width,canvas.height),data=pixels.data,frames:Frame[]=[],heights:number[]=[],tops:number[]=[];
  const color=HAIR_COLORS.find(c=>c.key===hair)??HAIR_COLORS[0];
- for(let row=0;row<4;row++)for(let col=0;col<asset.cols;col++){
-  const sourceRow=asset.directions[row],sx=Math.round(col*image.width/asset.cols),sy=asset.rowBounds?.[sourceRow]??Math.round(sourceRow*image.height/asset.rows),cw=Math.round((col+1)*image.width/asset.cols)-sx,ch=(asset.rowBounds?.[sourceRow+1]??Math.round((sourceRow+1)*image.height/asset.rows))-sy;
+ const rows=[...asset.directions,...asset.attackDirections??[]];
+ for(let row=0;row<rows.length;row++)for(let col=0;col<asset.cols;col++){
+  const sourceRow=rows[row],sx=Math.round(col*image.width/asset.cols),sy=asset.rowBounds?.[sourceRow]??Math.round(sourceRow*image.height/asset.rows),cw=Math.round((col+1)*image.width/asset.cols)-sx,ch=(asset.rowBounds?.[sourceRow+1]??Math.round((sourceRow+1)*image.height/asset.rows))-sy;
   let top=ch,bottom=0,left=cw,right=0;
   for(let y=0;y<ch;y++)for(let x=0;x<cw;x++){const i=((sy+y)*canvas.width+sx+x)*4;if(data[i+3]<128){data[i+3]=0;continue;}top=Math.min(top,y);bottom=Math.max(bottom,y);left=Math.min(left,x);right=Math.max(right,x);}
   const height=bottom-top+1;heights.push(height);tops.push(top);
@@ -46,10 +47,10 @@ export function wardrobeAtlas(image:HTMLImageElement,asset:CostumeAsset,hair:str
   for(let y=top;y<top+height*.23;y++)for(let x=0;x<cw;x++)if(data[((sy+y)*canvas.width+sx+x)*4+3]>=128){headLeft=Math.min(headLeft,x);headRight=Math.max(headRight,x);}
   const root:Point=[headRight>=headLeft?(headLeft+headRight)/2:cw/2,bottom];frames.push({sx,sy,cw,ch,root,hand:[cw*.4,ch*.58],off:[cw*.6,ch*.58]});
  }
- g.putImageData(pixels,0,0);heights.sort((a,b)=>a-b);const height=heights[Math.floor(heights.length/2)];
+ g.putImageData(pixels,0,0);const walkingHeights=heights.slice(0,4*asset.cols).sort((a,b)=>a-b);const height=walkingHeights[Math.floor(walkingHeights.length/2)];
  // Register the head/torso vertically as well: lifted gait feet must not move the shoulders away from the arm rig.
  frames.forEach((frame,i)=>frame.root[1]=tops[i]+height-1);
  // Renderer has eight animation phases; source atlases may have seven painted gait frames.
- const normalized:Frame[]=[];for(let row=0;row<4;row++)for(let f=0;f<8;f++)normalized.push(frames[row*asset.cols+Math.min(asset.cols-1,Math.floor(f*asset.cols/8))]);
- return {image:canvas,frames:normalized,scale:40/height};
+ const normalized:Frame[]=[];for(let row=0;row<rows.length;row++)for(let f=0;f<8;f++)normalized.push(frames[row*asset.cols+Math.min(asset.cols-1,Math.floor(f*asset.cols/8))]);
+ return {image:canvas,frames:normalized.slice(0,32),attackFrames:asset.attackDirections?normalized.slice(32):undefined,scale:40/height};
 }
