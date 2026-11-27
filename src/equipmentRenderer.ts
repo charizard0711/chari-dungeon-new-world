@@ -1,4 +1,5 @@
 import {drawSmallGlints} from './online/smallGlints';
+import {equipmentIconTexture} from './artRefresh';
 import {CharacterRig} from './online/characterRig';
 import {expansionEquipmentKey} from './townEquipment';
 import { katanaSlashColor } from './equipmentAccessories';
@@ -61,8 +62,9 @@ export class EquipmentRenderer {
       this.heroGlow = undefined;
     }
     const show = enabled && body.visible && body.active && frame !== 'down';
-    this.sparkles.clear().setVisible(show&&!!weapon?.starred).setDepth(body.depth+.4);
-    if(show&&weapon?.starred){const unit=Math.abs(body.displayWidth)/64;drawSmallGlints(this.sparkles,body.x,body.y-9*unit,this.scene.time.now,0,9,18*unit,.8*unit);}
+    const variant=!!(weapon?.starred||shield?.starred||body.getData('variantArmor')||body.getData('variantNecklace')||[body.getData('wornGloves'),body.getData('wornBoots')].some(key=>typeof key==='string'&&key.startsWith('star_')));
+    this.sparkles.clear().setVisible(show&&variant).setDepth(body.depth+.4);
+    if(show&&variant){const unit=Math.abs(body.displayWidth)/64;drawSmallGlints(this.sparkles,body.x,body.y-9*unit,this.scene.time.now,0,9,18*unit,.8*unit);}
     const katana = show && weapon?.weaponType === 'katana';
     const action = playerAction(frame);
     const unit = Math.abs(body.scaleY) * (body.frame.realWidth || PLAYER_FRAME_SIZE) / 40;
@@ -99,9 +101,10 @@ export class EquipmentRenderer {
       if (type === 'katana' && action !== 'attack') { sprite.setVisible(false); continue; }
       const key = `held_${'starred' in item&&item.starred&&expansionEquipmentKey(item.key)?'star_':''}${item.key}`;
       // Keep old saves readable if an asset fails to load.
-      const starred = 'starred' in item && item.starred;
+      const starred = 'weaponType' in item && item.starred;
+      const variantShield=type==='shield'&&item.starred;
       requestEquipmentArt(key);
-      const hasArt = (!starred||expansionEquipmentKey(item.key)) && this.scene.textures.exists(key) && this.scene.textures.get(key).has(String(HELD_DIRECTION_FRAME[dir])), texture = hasArt ? key : starred ? starWeaponKey(item.key) : item.key;
+      const hasArt = !variantShield && (!starred||expansionEquipmentKey(item.key)) && this.scene.textures.exists(key) && this.scene.textures.get(key).has(String(HELD_DIRECTION_FRAME[dir])), texture = hasArt ? key : starred ? starWeaponKey(item.key) : variantShield ? equipmentIconTexture('star_'+item.key,this.scene) : item.key;
       requestEquipmentArt(texture);
       if(!this.scene.textures.exists(texture)){sprite.setVisible(false);continue;}
       const artFrame = hasArt ? HELD_DIRECTION_FRAME[dir] : undefined;

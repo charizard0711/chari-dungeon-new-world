@@ -2,7 +2,7 @@ import {boundedRequest,recordRequest}from './requestTiming';
 import type {AdventureState} from './adventure/types';
 import { online } from './api';
 export interface OnlineCharacter {invisibleUntil?:number;moveStepMs?:number;attackCooldownMs?:number;hair_color?:string;}
-export interface WorldPlayer {gloves?:string|null;boots?:string|null;invisibleUntil?:number;moveStepMs?:number;railTrip?:import('./adventure/railRoute').RailTrip;hair_color?:string;guild_flag?:number|null;guild_name?:string|null;}
+export interface WorldPlayer {necklace?:string|null;gloves?:string|null;boots?:string|null;invisibleUntil?:number;moveStepMs?:number;railTrip?:import('./adventure/railRoute').RailTrip;hair_color?:string;guild_flag?:number|null;guild_name?:string|null;}
 export type EquipmentSlot='weapon'|'armor'|'shield'|'necklace'|'boots'|'gloves';
 export interface EquipmentInstance {id:string;key:string;dur:number;max:number;}
 export interface QuickSlot {category:EquipmentSlot|'item'|'emote';key:string;instanceId?:string;}

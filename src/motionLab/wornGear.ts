@@ -1,3 +1,4 @@
+import {isEquipmentVariant,variantPalette,variantSlot,paintVariant} from '../equipmentVariants';
 import type {Atlas, Frame} from './motion';
 
 const colors: Record<string, readonly [number, number, number]> = {
@@ -8,6 +9,8 @@ const colors: Record<string, readonly [number, number, number]> = {
 };
 
 export function wornGearColor(key?:string){
+ const slot=key&&isEquipmentVariant(key)?variantSlot(key):undefined;
+ if(slot==='boots'||slot==='gloves')return variantPalette(slot)[1];
  return key ? colors[key.replace(/^(gloves|boots)_/,'')] : undefined;
 }
 
@@ -41,5 +44,35 @@ export function coloredBootFrame(body:Atlas, frame:Frame, color:Material){
  }
  ctx.putImageData(pixels,0,0);
  variants.set(color,canvas);
+ return canvas;
+}
+
+const armorFrames=new WeakMap<Frame,{canvas:HTMLCanvasElement;top:number}>();
+const armorSleeves=new WeakMap<HTMLCanvasElement,HTMLCanvasElement>();
+
+export function recoloredGear(source:CanvasImageSource,slot:Parameters<typeof paintVariant>[1],width:number,height:number,sx=0,sy=0){
+ const canvas=document.createElement('canvas');
+ canvas.width=width;canvas.height=height;
+ const g=canvas.getContext('2d')!;
+ g.drawImage(source,sx,sy,width,height,0,0,width,height);
+ const pixels=g.getImageData(0,0,width,height);
+ paintVariant(pixels,slot);g.putImageData(pixels,0,0);
+ return canvas;
+}
+
+export function coloredArmorFrame(body:Atlas,frame:Frame){
+ let armor=armorFrames.get(frame);
+ if(!armor){
+  const top=Math.max(0,Math.floor(frame.root[1]-24/body.scale));
+  const bottom=Math.min(frame.ch,Math.max(top+1,Math.ceil(frame.root[1]-10/body.scale)));
+  armor={canvas:recoloredGear(body.image,'armor',frame.cw,bottom-top,frame.sx,frame.sy+top),top};
+  armorFrames.set(frame,armor);
+ }
+ return armor;
+}
+
+export function coloredArmorSleeve(source:HTMLCanvasElement){
+ let canvas=armorSleeves.get(source);
+ if(!canvas){canvas=recoloredGear(source,'armor',source.width,source.height);armorSleeves.set(source,canvas);}
  return canvas;
 }

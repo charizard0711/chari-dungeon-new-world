@@ -70,6 +70,7 @@ export interface ShieldPassive {
 }
 
 export interface Shield {
+  starred?: boolean;
   key: string;
   name: string;
   defBonus: number;
@@ -85,6 +86,7 @@ export interface Shield {
 
 // 服・鎧。装備すると防御力とキャラクターの見た目が同時に変わる。
 export interface Armor {
+  starred?: boolean;
   trait?: import('./equipmentTraits').ArmorTrait;
   key: string;
   name: string;

@@ -26,9 +26,10 @@ export class Player {
   exp = 0;
   expNext = 20;
   onlineEquipmentRules=false;
+  onlineVariantHp=0;
   baseHpMax = 100;
-  get hpMax() { return this.baseHpMax + (this.weapon?.starred ? 50 : 0) + (this.onlineEquipmentRules?(this.armor?.defBonus??0)*5:armorTraitValue(this.armor,'hp')); }
-  set hpMax(value: number) { this.baseHpMax = value - (this.weapon?.starred ? 50 : 0) - (this.onlineEquipmentRules?(this.armor?.defBonus??0)*5:armorTraitValue(this.armor,'hp')); }
+  get hpMax() { return this.baseHpMax + (this.weapon?.starred ? 50 : 0) + (this.onlineEquipmentRules?(this.armor?.defBonus??0)*5+this.onlineVariantHp:armorTraitValue(this.armor,'hp')); }
+  set hpMax(value: number) { this.baseHpMax = value - (this.weapon?.starred ? 50 : 0) - (this.onlineEquipmentRules?(this.armor?.defBonus??0)*5+this.onlineVariantHp:armorTraitValue(this.armor,'hp')); }
   hp = 100;
   baseAtkMin = 5;
   baseAtkMax = 12;

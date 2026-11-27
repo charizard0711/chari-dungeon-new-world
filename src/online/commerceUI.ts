@@ -1,5 +1,6 @@
 import {online} from './api';
 import {ITEM_CATALOG} from '../itemCatalog';
+import {equipmentCatalogKey,isEquipmentVariant} from '../equipmentVariants';
 import {equipmentIconTexture} from '../artRefresh';
 import {createAmountControl} from './amountControl';
 import type {EquipmentInstance,EquipmentSlot} from './worldApi';
@@ -25,10 +26,10 @@ export function openCommerce(scene:any,kind:'market'|'lottery'){
   catch(e){if(alive)notice.textContent=(e as Error).message;}
   finally{busy=false;if(alive){root.removeAttribute('aria-busy');root.querySelectorAll('button').forEach(b=>b.disabled=false);}}
  }
- function definition(category:string,key:string){return ITEM_CATALOG.find(d=>d.key===(category==='armor'?'armor_'+key:key.replace(/^star_/,'')));}
+ function definition(category:string,key:string){return ITEM_CATALOG.find(d=>d.key===equipmentCatalogKey(category,key));}
  function itemCard(category:string,key:string,instance?:EquipmentInstance){
   const card=node('article'),def=definition(category,key),label=(def?.name??key)+(key.startsWith('star_')?' ★ 色違い':'');card.className='commerce-card';
-  const texture=equipmentIconTexture(key.startsWith('star_')?key:def?.textureKey??key);
+  const texture=equipmentIconTexture((isEquipmentVariant(key)?'star_':'')+(def?.textureKey??equipmentCatalogKey(category,key)),scene);
   if(scene.textures.exists(texture)){const img=node('img');img.alt=label;img.src=scene.textures.getBase64(texture);card.append(img);}
   card.append(node('strong',label));if(def)card.append(node('p',def.summary));if(instance?.max)card.append(node('small',`耐久 ${instance.dur} / ${instance.max}`));return card;
  }

@@ -1012,10 +1012,10 @@ export class UIScene extends Phaser.Scene {
     const empty = { tex: null, sub: 'なし', plus: 0 };
     const slotInfo: Record<'weapon' | 'armor' | 'shield', { tex: string | null; sub: string; plus: number; grade?: EquipmentGrade; element?: Element }> = {
       weapon: w ? { tex: w.starred ? starWeaponKey(w.key) : w.key, sub: `攻${w.atkMin}-${w.atkMax}`, plus: w.plus, grade: w.grade, element: w.element } : empty,
-      armor: a ? { tex: armorTextureKey(a.key), sub: `防+${a.defBonus + a.plus}`, plus: a.plus, grade: a.grade } : empty,
+      armor: a ? { tex: (a.starred?'star_':'')+armorTextureKey(a.key), sub: `防+${a.defBonus + a.plus}`, plus: a.plus, grade: a.grade } : empty,
       shield: isTwoHanded(w)
         ? { tex: weaponAccessoryKey(w) ?? (w.starred ? starWeaponKey(w.key) : w.key), sub: weaponAccessoryKey(w) ? weaponAccessoryLabel(w) : w.dual ? '二刀流' : '両手持ち', plus: w.plus, grade: w.grade, element: w.element }
-        : s ? { tex: s.key, sub: `防+${s.defBonus + s.plus}`, plus: s.plus, grade: s.grade, element: s.element } : empty
+        : s ? { tex: (s.starred?'star_':'')+s.key, sub: `防+${s.defBonus + s.plus}`, plus: s.plus, grade: s.grade, element: s.element } : empty
     };
     this.equipSlots.forEach((slot) => {
       const info = slotInfo[slot.kind];
@@ -1026,7 +1026,7 @@ export class UIScene extends Phaser.Scene {
       slot.bg.fillStyle((info.tex?.startsWith('star_') || slot.kind === 'shield' && !!w?.starred && !!weaponAccessoryKey(w)) ? STAR_EQUIPMENT_BACKGROUND : 0x0a1c20, has ? .96 : 0.5).fillRoundedRect(sx, sy, sw, sh, 10);
       slot.bg.lineStyle(info.grade === 'SSS' ? 3.5 : info.grade === 'S' ? 3 : info.grade === 'A' ? 2.5 : 1.5, rim, has ? 1 : 0.5).strokeRoundedRect(sx, sy, sw, sh, 8);
       if (has) {
-        slot.icon.setTexture(requestEquipmentArt(equipmentIconTexture(info.tex!))).setFlipX(equipmentIconFlipX(info.tex!)).setDisplaySize(this.equipIconSize, this.equipIconSize).setVisible(true).setAlpha(1);
+        slot.icon.setTexture(requestEquipmentArt(equipmentIconTexture(info.tex!,this))).setFlipX(equipmentIconFlipX(info.tex!)).setDisplaySize(this.equipIconSize, this.equipIconSize).setVisible(true).setAlpha(1);
         slot.icon.clearTint().setRotation(0);
         if (info.tex?.startsWith('sheath_')) slot.icon.setDisplaySize(this.equipIconSize, this.equipIconSize * .2).setRotation(-Math.PI / 4);
       } else {
@@ -2244,14 +2244,14 @@ export class UIScene extends Phaser.Scene {
       return label;
     };
     const addArt = (entry: CatalogEntry, cx: number, cy: number, size: number) => {
-      const icon = this.add.image(cx, cy, equipmentIconTexture(entry.textureKey)).setFlipX(equipmentIconFlipX(entry.textureKey));
+      const icon = this.add.image(cx, cy, equipmentIconTexture(entry.textureKey,this)).setFlipX(equipmentIconFlipX(entry.textureKey));
       icon.setScale(size / Math.max(icon.width, icon.height));
       this.overlay.add(icon);
       if (entry.key === 'w_katana_divine' || !entry.textureKey.startsWith('star_') && ['w_hero_sword', 's_arcadia_guard', 'w_hw_emedral', 's_hw_emerald'].includes(entry.key)) { const aura = new LegendaryAura(this, icon, entry.key.startsWith('w_') ? 'sword' : 'shield'); aura.emerald = entry.key.startsWith('w_hw_') || entry.key.startsWith('s_hw_'); aura.artRotation = icon.texture.key.startsWith('icon_') ? Math.PI / 4 : 0; }
     };
     if (this.catalogDetail) {
       const baseEntry = this.catalogDetail;
-      const hasStar = baseEntry.category === 'weapon' && (!equipmentOnly || this.gs.discoveredEquipment.has(starWeaponKey(baseEntry.key)));
+      const hasStar = (baseEntry.category === 'weapon' || this.gs.player.onlineEquipmentRules && baseEntry.category !== 'item') && (!equipmentOnly || this.gs.discoveredEquipment.has(starWeaponKey(baseEntry.key)));
       const showStar = hasStar && (this.catalogVariant === 'star' || equipmentOnly && this.catalogVariant !== 'normal');
       const entry = showStar ? {...baseEntry,name:baseEntry.name+'★',textureKey:starWeaponKey(baseEntry.key),description:baseEntry.description+'\n装備中の最大HP +50'} : baseEntry;
       if (showStar) this.overlay.add(this.add.rectangle(x+16,y+88,w-32,h-130,STAR_EQUIPMENT_BACKGROUND).setOrigin(0).setName('star-catalog-background'));
@@ -2275,7 +2275,7 @@ export class UIScene extends Phaser.Scene {
       if (rareLine) addText(x+24,description.y+description.height+6,rareLine,16,'#ff83d9',w-48);
       if (!equipmentOnly) {
         addText(x + 24, y + h - 112, this.catalogClaimMessage, 14, '#fff2cb', w - 48);
-        const ownedArmor = entry.category === 'armor' && this.gs.ownsArmor(entry.key.slice('armor_'.length));
+        const ownedArmor = !this.gs.player.onlineEquipmentRules && entry.category === 'armor' && this.gs.ownsArmor(entry.key.slice('armor_'.length));
         this.overlay.add(this.rowButton(x + 24, y + h - 74, 168, ownedArmor ? '所持済み' : 'もう1つ取得', true,
           () => this.selectCatalogItem(entry), !ownedArmor));
       }
@@ -2307,7 +2307,7 @@ export class UIScene extends Phaser.Scene {
     const cardH = (h - 164 - gap * (rows - 1)) / rows;
     page.entries.forEach((entry, index) => {
       const found = !equipmentOnly || this.gs.discoveredEquipment.has(entry.key);
-      const hasStar = entry.category === 'weapon' && this.gs.discoveredEquipment.has(starWeaponKey(entry.key));
+      const hasStar = (entry.category === 'weapon' || this.gs.player.onlineEquipmentRules && entry.category !== 'item') && this.gs.discoveredEquipment.has(starWeaponKey(entry.key));
       const displayEntry = hasStar ? {...entry,name:entry.name+'★',textureKey:starWeaponKey(entry.key)} : entry;
       const px = x + 16 + (index % columns) * (cardW + gap);
       const py = y + 114 + Math.floor(index / columns) * (cardH + gap);

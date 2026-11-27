@@ -9,6 +9,7 @@ import type {Atlas} from '../motionLab/motion';
 import {playerAction} from '../playerAnimation';
 import {PLAYER_WALK_FRAMES,type PlayerVisualFrame,type PlayerGender} from '../playerAppearance';
 import type {Dir,Weapon,Shield} from '../types';
+import {ensureEquipmentVariantTexture} from '../equipmentVariants';
 import {isTwoHanded} from '../equipmentRules';
 
 const images=new Map<string,Promise<HTMLImageElement>>(),looks=new Map<string,Promise<{body:Atlas;arms:LimbParts}>>();
@@ -47,23 +48,29 @@ export class CharacterRig {
   if(artKey!==this.artKey){this.artKey=artKey;this.art=undefined;this.visual=undefined;this.sheet=sheet;if(artKey&&sheet)loadWeaponVisual(sheet,!!weapon?.starred,loadRigImage).then(visual=>{if(!this.disposed&&this.artKey===artKey){this.visual=visual;this.art=visual.image;this.signature='';}}).catch(()=>{});}
   const gloves=body.getData('wornGloves'),boots=body.getData('wornBoots'),seated=!!body.getData('seated');
   const externalWeapon=!!weapon&&!this.art;
-  let shieldArt:HTMLImageElement|undefined;
-  if(shield&&!isTwoHanded(weapon)&&this.scene.textures.exists(shield.key)){
-   const source=this.scene.textures.get(shield.key).getSourceImage();
-   if(source instanceof HTMLImageElement&&!source.src.startsWith('data:'))shieldArt=source;
+  const variantArmor=!!body.getData('variantArmor'),variantNecklace=!!body.getData('variantNecklace');
+  let shieldArt:HTMLImageElement|HTMLCanvasElement|undefined;
+  let shieldKey=shield?.key;
+  if(shield?.starred){
+   const variant='star_'+shield.key;ensureEquipmentVariantTexture(this.scene,variant);
+   if(this.scene.textures.exists(variant))shieldKey=variant;
+  }
+  if(shieldKey&&!isTwoHanded(weapon)&&this.scene.textures.exists(shieldKey)){
+   const source=this.scene.textures.get(shieldKey).getSourceImage();
+   if(source instanceof HTMLCanvasElement||source instanceof HTMLImageElement&&!source.src.startsWith('data:'))shieldArt=source;
   }
   // Compose the north-facing shield even while the weapon uses its older layer.
   const integratedShield=externalWeapon&&dir!=='up'?undefined:shieldArt;
-  if(!this.look||externalWeapon&&!gloves&&!boots&&!integratedShield){body.setCrop();this.image.setVisible(false);return false;}
+  if(!this.look||externalWeapon&&!gloves&&!boots&&!integratedShield&&!variantArmor&&!variantNecklace){body.setCrop();this.image.setVisible(false);return false;}
   const action=playerAction(frame),attack=action==='attack'||action==='windup',walk=action==='walk',heavy=weapon?.weaponType==='greatsword',windup=heavy?200:58,duration=heavy?460:268;
   const attackRate=Number(body.getData('attackRate')??1);elapsed/=attackRate;const t=attack?Math.min(1,(elapsed+(action==='attack'?windup:0))/duration):walk?Number(body.getData('walkPhase')??Math.max(0,PLAYER_WALK_FRAMES.indexOf(frame as typeof PLAYER_WALK_FRAMES[number]))/PLAYER_WALK_FRAMES.length):0;
   const phase=attack?Math.round(t*24):walk?Math.floor(t*8):0;
-  const signature=[gloves,boots,seated,externalWeapon,lookKey,artKey,integratedShield&&shield?.key,dir,action,phase].join('|');
+  const signature=[gloves,boots,seated,variantArmor,variantNecklace,externalWeapon,lookKey,artKey,integratedShield&&shieldKey,dir,action,phase].join('|');
   if(signature!==this.signature&&(this.scene.time.now>=this.nextDraw||!this.signature)){
    this.nextDraw=this.scene.time.now+1000/30;this.signature=signature;
    const g=this.texture.context;g.clearRect(0,0,256,256);g.save();g.translate(128,176);
    const type=weapon?.weaponType??'dagger',blank=document.createElement('canvas');blank.width=blank.height=1;
-   drawOriginalRig(g,this.look.body,this.look.arms,this.art??blank as unknown as HTMLImageElement,type,this.visual?.directional??false,dir,t,attack,walk,2,false,{...this.visual?.options,shield:integratedShield,seated,gloves,boots,externalWeapon});
+   drawOriginalRig(g,this.look.body,this.look.arms,this.art??blank as unknown as HTMLImageElement,type,this.visual?.directional??false,dir,t,attack,walk,2,false,{...this.visual?.options,shield:integratedShield,seated,gloves,boots,variantArmor,variantNecklace,externalWeapon});
    g.restore();this.texture.refresh();
   }
   body.setCrop(0,0,0,0);this.onReady(!externalWeapon,!!integratedShield);

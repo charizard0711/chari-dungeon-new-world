@@ -1,8 +1,8 @@
-const backs=new WeakMap<HTMLImageElement,HTMLCanvasElement>();
+const backs=new WeakMap<HTMLImageElement|HTMLCanvasElement,HTMLCanvasElement>();
 const SIZE=96;
 
 /** Paint the inside of the shield using the silhouette of its own item art. */
-export function shieldBack(face:HTMLImageElement){
+export function shieldBack(face:HTMLImageElement|HTMLCanvasElement){
  const cached=backs.get(face);
  if(cached)return cached;
  const back=document.createElement('canvas');
