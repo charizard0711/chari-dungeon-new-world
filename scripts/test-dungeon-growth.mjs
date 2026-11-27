@@ -1,0 +1,15 @@
+import fs from 'node:fs/promises';import assert from 'node:assert/strict';import {makeHousingDb}from './housing-test-db.mjs';
+const kit=await makeHousingDb({before:'202611270008'}),{db,login,rpc}=kit;try{
+const uid='11111111-1111-4111-8111-111111111111';await db.query('insert into auth.users values($1)',[uid]);await login(uid);let state=await rpc('create_character',{name:'SoakTest',gender:'male'});await rpc('join',{character_id:state.characters[0].id});await db.exec("update online_presence set x=4,y=10,moved_at='epoch'");state=await rpc('room_create',{name:'Local soak'});const rid=state.adventure.id;
+// Emulate a long-lived room with repeated trail entries; keep all other state byte-for-byte.
+const webs=Array.from({length:30000},(_,i)=>({x:40+i%80,y:25+i%50}));await db.query("update online_adventure_rooms set snapshot=jsonb_set(snapshot,'{webs}',$2) where id=$1",[rid,JSON.stringify(webs)]);const before=(await db.query('select snapshot from online_adventure_rooms where id=$1',[rid])).rows[0].snapshot;
+await db.exec(await fs.readFile('supabase/migrations/202611270008_online_bounded_webs.sql','utf8'));const after=(await db.query('select snapshot from online_adventure_rooms where id=$1',[rid])).rows[0].snapshot;
+assert(after.webs.length<=256);assert.equal(new Set(after.webs.map(w=>w.x+','+w.y)).size,after.webs.length);const{webs:oldWebs,...oldRest}=before,{webs:newWebs,...newRest}=after;assert.deepEqual(oldRest,newRest,'migration preserves room progress');
+await db.exec(`do $$declare w jsonb:='[]';begin for i in 1..20000 loop w:=online_add_web(w,i%100,i%79);end loop;perform set_config('test.webs',w::text,false);end$$;`);
+// PGlite multi statement query may return its last result; independently read the test value.
+const list=(await db.query("select current_setting('test.webs')::jsonb webs")).rows[0].webs;assert.equal(list.length,256);assert.equal(new Set(list.map(w=>w.x+','+w.y)).size,256);
+for(const role of ['anon','authenticated'])assert.equal((await db.query(`select has_function_privilege($1,'online_add_web(jsonb,int,int)','execute') ok`,[role])).rows[0].ok,false);
+const patched=(await db.query("select pg_get_functiondef('online_turn_enemy_pre_cinematic(uuid,text,uuid)'::regprocedure) body")).rows[0].body;assert(patched.includes('online_add_web('));const active=(await db.query("select prosrc body from pg_proc where proname='online_enemy_step_state'")).rows[0].body;assert(active.includes('online_add_web('),'active in-memory AI path must be bounded too');await db.exec(await fs.readFile('supabase/migrations/202611270008_online_bounded_webs.sql','utf8'));
+state=await rpc('poll');await fs.mkdir('tmp',{recursive:true});await fs.writeFile('tmp/dungeon-soak-state.json',JSON.stringify(state));
+console.log(JSON.stringify({pass:true,legacyWebs:oldWebs.length,boundedWebs:newWebs.length,legacyBytes:JSON.stringify(oldWebs).length,boundedBytes:JSON.stringify(newWebs).length,simulatedTrailWrites:20000,progressPreserved:true}));
+}finally{await db.close();}
