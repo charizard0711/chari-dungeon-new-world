@@ -127,7 +127,7 @@ export function playerFrameIndex(dir: Dir, frame: PlayerVisualFrame): number {
 export function playerSheetPath(gender:PlayerGender,armor:PlayerArmor='leather'):string {
   const selected=canonicalArmorKey(armor);
   if(selected==='pumpkin')return 'assets/characters/smooth-walk-v1/male-pumpkin_male.webp';
-  const folder=selected==='crimson'||selected==='aqua'?'celestial-armor-v8':'smooth-walk-v1';
+  const folder=selected==='crimson'||selected==='aqua'?'celestial-armor-v9':'smooth-walk-v1';
   return `assets/characters/${folder}/${gender}-${selected}.webp`;
 }
 export function versionedPlayerAssetPath(path:string):string {

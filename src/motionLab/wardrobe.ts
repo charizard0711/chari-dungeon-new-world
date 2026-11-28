@@ -7,9 +7,9 @@ export const COSTUMES=[
  {key:'arcane',name:'秘術装甲',grade:'A',icon:'/assets/ui/generated/armor-arcane.png'},
  {key:'dragon',name:'竜鱗神鎧',grade:'S',icon:'/assets/ui/generated/armor-dragon.png'},
  {key:'dawn',name:'暁白の聖装',grade:'SS',icon:'/assets/armor-icons-v3/armor_dawn.webp'},
- {key:'aqua',name:'蒼白の天聖鎧',grade:'SSS',icon:'/assets/characters/celestial-armor-v7/armor_aqua_v2.webp',hood:true},
- {key:'crimson',name:'紅黒の天聖鎧',grade:'SSS',icon:'/assets/characters/celestial-armor-v7/armor_crimson_v2.webp',hood:true},
- {key:'pumpkin',name:'かぼちゃの騎士服',grade:'A',icon:'/assets/characters/pumpkin-outfit-v2/armor_pumpkin.webp',hood:true},
+ {key:'aqua',name:'蒼白の天聖鎧',grade:'SSS',icon:'/assets/characters/celestial-armor-v9/armor_aqua.webp',hood:true},
+ {key:'crimson',name:'紅黒の天聖鎧',grade:'SSS',icon:'/assets/characters/celestial-armor-v9/armor_crimson.webp',hood:true},
+ {key:'pumpkin',name:'かぼちゃの騎士服',grade:'A',icon:'/assets/characters/pumpkin-outfit-v3/armor_pumpkin.webp',hood:true},
 ] as const;
 export type Costume=typeof COSTUMES[number];
 export const HAIR_COLORS=[

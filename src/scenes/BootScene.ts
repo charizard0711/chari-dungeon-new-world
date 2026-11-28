@@ -110,8 +110,8 @@ const SHIELD_ART = {
 
 const UI_ART = {
   armor_dawn: 'assets/armor-icons-v3/armor_dawn.webp',
-  armor_aqua: 'assets/characters/celestial-armor-v7/armor_aqua_v2.webp',
-  armor_crimson: 'assets/characters/celestial-armor-v7/armor_crimson_v2.webp',
+  armor_aqua: 'assets/characters/celestial-armor-v9/armor_aqua.webp',
+  armor_crimson: 'assets/characters/celestial-armor-v9/armor_crimson.webp',
   ui_nav_damage_log: 'assets/ui/journal-v1/nav-damage-log.webp',
   ui_damage_journal_panel: 'assets/ui/journal-v1/modal.webp',
   ui_nav_explore: 'assets/ui/generated/nav-explore.png',
@@ -126,7 +126,7 @@ const UI_ART = {
   armor_plate: 'assets/ui/generated/armor-plate.png',
   armor_arcane: 'assets/ui/generated/armor-arcane.png',
   armor_dragon: 'assets/ui/generated/armor-dragon.png',
-  armor_pumpkin: 'assets/characters/pumpkin-outfit-v2/armor_pumpkin.webp'
+  armor_pumpkin: 'assets/characters/pumpkin-outfit-v3/armor_pumpkin.webp'
 } as const;
 
 const ORIGINAL_ITEM_ART = {
