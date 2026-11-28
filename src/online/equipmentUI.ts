@@ -3,6 +3,7 @@ import {quickSlots,shortcutDrop} from './quickSlots';
 import {emoteById,emoteArt} from './emotes';
 import {attackTiming} from './adventure/combatProfiles';
 import {weaponSkill} from '../weaponSkills';
+import {railNow} from './adventure/railway';
 import {SKILL_ICON_ART,skillIconKey} from '../skillArt';
 import type {CharacterSkill} from './worldApi';
 import {renderGuildPanel,type GuildDraft} from './guildUI';
@@ -133,9 +134,9 @@ export function mountTownEquipmentUI(hud:any,gs:any){
  async function use(e:QuickEntry,equipOnly=false){
   if(e.category==='emote'){const emote=emoteById(e.key);if(emote)await run(()=>gs.action('chat',{message:`【エモート】${emote.label}`}));return;}
   if(e.category==='item'){
-   if(!['potion','repair','skill_drink',...(gs.inDungeon?['warp','invis']:[])].includes(e.key)){playTownSound(gs,'deny');say('この道具はここでは使えません。');return;}
+   if(!['potion','repair','skill_drink',...(gs.inDungeon?['warp','invis','dynamite']:[])].includes(e.key)){playTownSound(gs,'deny');say('この道具はここでは使えません。');return;}
    let target:{}={};if(e.key==='repair'){const broken=entries().find(a=>(a.category==='weapon'||a.category==='shield')&&a.instance&&a.instance.dur<a.instance.max);if(!broken){playTownSound(gs,'deny');say('修復が必要な装備はありません。');return;}target={slot:broken.category,index:broken.index,instanceId:broken.instance?.id};}
-   if(e.key==='warp')close();await run(()=>gs.action('use_item',{kind:e.key,...target}),()=>playTownSound(gs,'deny'));
+   if(e.key==='warp'||e.key==='dynamite')close();await run(()=>gs.action('use_item',{kind:e.key,...target}),()=>playTownSound(gs,'deny'));
   }else await run(async()=>{const before=JSON.stringify(character()?.gear);await gs.action('equip',{slot:e.category,key:e.key,index:e.index,instanceId:e.instance?.id,equipped:equipOnly||!e.equipped});if(before!==JSON.stringify(character()?.gear))playTownSound(gs,e.category==='necklace'?'jingle':'equip');},()=>playTownSound(gs,'deny'));
  }
  function renderNeck(){
@@ -171,7 +172,7 @@ export function mountTownEquipmentUI(hud:any,gs:any){
   else if(mode==='shop'&&shopTab==='repair'){const cost=Math.max(1,Math.ceil(((e.instance?.max??0)-(e.instance?.dur??0))/10));button(`修理 ${cost}G`,()=>void run(async()=>{await gs.action('repair_equipment',{slot:e.category,index:e.index,instanceId:e.instance?.id});say('修理しました。装備し直せます。');}));}
   else if(mode==='shop'&&shopTab==='sell'){const sale=({D:10,C:25,B:50,A:100,S:200,SS:400,SSS:800} as Record<string,number>)[e.definition.grade??'D'];button(`売却 ${sale}G`,()=>void run(async()=>{await gs.action('sell_equipment',{slot:e.category,index:e.index,instanceId:e.instance?.id});say('売却しました。');}));}
   else {
-   const broken=!!(e.instance?.max&&e.instance.dur===0);button(e.category==='item'?'使用':e.equipped?'外す':broken?'修理が必要':'装備する',()=>void use(e),broken||e.category==='item'&&!['potion','repair','skill_drink',...(gs.inDungeon?['warp','invis']:[])].includes(e.key));
+   const broken=!!(e.instance?.max&&e.instance.dur===0);button(e.category==='item'?'使用':e.equipped?'外す':broken?'修理が必要':'装備する',()=>void use(e),broken||e.category==='item'&&!['potion','repair','skill_drink',...(gs.inDungeon?['warp','invis','dynamite']:[])].includes(e.key));
    button('落とす',()=>void run(async()=>{const before=new Set<string>((gs.packet.drops??[]).map((d:{id:string})=>d.id));if(e.category==='item')await gs.action('drop_item',{kind:e.key});else await gs.action('drop_equipment',{slot:e.category,index:e.index,key:e.key,instanceId:e.instance?.id});gs.ignoreOwnDrops(before);say(`${e.definition.name}を落としました。`);})).classList.add('danger');
   }
   detail.append(actions);requestAnimationFrame(()=>scrollSync.forEach(fn=>fn()));
@@ -221,8 +222,8 @@ export function mountTownEquipmentUI(hud:any,gs:any){
  }
  function openMap(){mapScroll={x:0,y:0};mapCenter=true;if(auxiliaryPanel('map','マップ · 味方の位置')){renderMap();refresh();}}
  const skillOptions=[
-  {key:'heal',name:'ヒール',level:2,icon:'✚',detail:'自分のHPを35回復 · 再使用まで10秒'},
-  {key:'area_heal',name:'エリアヒール',level:5,icon:'✣',detail:'自分と3マス以内の仲間のHPを25回復 · 再使用まで18秒'}
+  {key:'heal',name:'ヒール',level:2,cooldown:10000,icon:'✚',detail:'自分のHPを35回復 · 再使用まで10秒'},
+  {key:'area_heal',name:'エリアヒール',level:5,cooldown:18000,icon:'✣',detail:'自分と3マス以内の仲間のHPを25回復 · 再使用まで18秒'}
  ] as const;
  function castSkill(key:CharacterSkill){
   if(hud.overlayMode!=='none')return;
@@ -232,15 +233,18 @@ export function mountTownEquipmentUI(hud:any,gs:any){
  function renderSkillDock(){
   const c=character(),type=gs.player.weapon?.weaponType as Parameters<typeof weaponSkill>[0],weapon=weaponSkill(type);
   const armed=!!gs.skillArmed,remaining=gs.skillStepsRemaining??0;
-  const waits=skillOptions.map(option=>Math.max(0,Math.ceil(((c?.skillReadyAt?.[option.key]??0)-Date.now())/1000)));
+  const stamp=railNow(gs);
+  const waits=skillOptions.map(option=>Math.max(0,Math.ceil(((c?.skillReadyAt?.[option.key]??0)-stamp)/1000)));
   const key=JSON.stringify([type,armed,remaining,c?.skillLoadout,waits]);
   if(key===lastSkillDock)return;lastSkillDock=key;
   const buttons=Array.from({length:4},(_,i)=>{
    const label=i<2?'武器 '+(i+1):'キャラ '+(i-1);
    const skill=i>=2?skillOptions.find(option=>option.key===c?.skillLoadout?.[i-2]):undefined;
-   const wait=Math.max(0,Math.ceil(((skill?c?.skillReadyAt?.[skill.key]:0)??0)/1000-Date.now()/1000));
-   const b=node('button');b.type='button';b.className='town-skill-socket';
-   b.disabled=i===1||i===0&&!weapon;
+   const wait=Math.max(0,Math.ceil(((skill?c?.skillReadyAt?.[skill.key]:0)??0)/1000-stamp/1000));
+   const b=(skillDock.children[i] as HTMLButtonElement|undefined)??node('button');b.type='button';b.className='town-skill-socket';
+   const recharge=i===0?weapon?Math.max(0,1-remaining/weapon.chargeSteps):0:skill?Math.max(0,1-Math.max(0,(c?.skillReadyAt?.[skill.key]??0)-stamp)/skill.cooldown):0;
+   b.style.setProperty('--skill-charge',`${recharge*100}%`);b.dataset.ready=String(recharge>=1);
+   b.disabled=i===1||i===0&&(!weapon||gs.inHouse);
    b.dataset.armed=String(i===0&&armed);
    const title=i===0?weapon?.name:skill?.name;
    b.title=i===1?'武器スキル２ · 未設定':i===0?remaining>0?'あと'+remaining+'歩':weapon?.name??'武器スキルなし':skill?skill.detail:'スキルを設定';
@@ -248,11 +252,11 @@ export function mountTownEquipmentUI(hud:any,gs:any){
    const art=node('span',skill?.icon??(i===0&&weapon?'⚔':'＋'));art.className='town-skill-glyph';
    if(i===0&&weapon&&type){const src=(SKILL_ICON_ART as Record<string,string>)[skillIconKey(type)];if(src){const img=node('img');img.src=src;img.alt='';img.onerror=()=>img.replaceWith('⚔');art.replaceChildren(img);}}
    const counter=i===0&&remaining>0?remaining.toString():wait>0?wait+'秒':title??'空き';
-   b.append(node('small',label),art,node('strong',counter));
+   b.replaceChildren(node('small',label),art,node('strong',counter));
    b.onclick=()=>{if(i===0){gs.useWeaponSkill();renderSkillDock();}else if(skill)castSkill(skill.key);else open('skills');};
    return b;
   });
-  skillDock.replaceChildren(...buttons);
+  if(!skillDock.children.length)skillDock.append(...buttons);
  }
  function renderSkills(){
   tabs.replaceChildren();tabMode='';body.className='town-aux-body town-skill-settings';body.replaceChildren();
@@ -280,7 +284,7 @@ export function mountTownEquipmentUI(hud:any,gs:any){
   const actions=node('div');actions.className='town-inspect-actions';for(const entry of inspectionActions(info,gs.packet.guild)){const b=node('button',entry.label);b.type='button';b.disabled=pending||!!entry.disabled;b.onclick=()=>{if(!entry.action)return;void run(async()=>{await gs.action(entry.action!,entry.payload??{});if(gs.packet.inspection?.characterId===inspected?.characterId)inspected=gs.packet.inspection;say(entry.action==='friend_request_character'?'フレンド申請を送りました。':entry.action==='guild_invite'?'ギルドへ招待しました。':entry.action==='guild_request_join'?'ギルド加入申請を送りました。':'申請を承認しました。');});};actions.append(b);}body.append(actions);
   const cards=node('div');cards.className='town-inspect-grid';for(const slot of slots){const item=info.equipment.find((e:any)=>e.slot===slot),card=node('section');card.className='town-inspect-card';card.append(node('h3',label[slot]));const def=item?.key&&definition(slot,item.key);if(item&&def){const entry:Entry={key:item.key,category:slot,index:0,count:1,equipped:true,definition:def};const icon=makeIcon(entry);icon.disabled=true;card.append(icon,node('strong',def.name+(item.key.startsWith('star_')?' ★ 色違い':'')),node('p',def.summary??''),node('p',slot==='armor'?def.description.split('\n')[0]:def.description));if(isEquipmentVariant(item.key))card.append(node('p','装備中の最大HP +50'));if(item.max)card.append(node('p',`耐久 ${item.dur??0} / ${item.max}`));}else card.append(node('p','未装備'));cards.append(card);}body.append(cards);
  }
- async function inspectPlayer(id:string){if(id===gs.packet.active?.id||gacha?.running||gs.requestBusy||pending)return;try{await gs.action('inspect_player',{character_id:id});const info=gs.packet.inspection;if(!info||!auxiliaryPanel('inspect',`${info.name} · ステータス・装備`))return;inspected=info;renderInspection();footer.textContent='近くの冒険者の装備を確認し、フレンド・ギルドの申請ができます。';refresh();}catch(e){gs.log((e as Error).message);}}
+ async function inspectPlayer(id:string){if(gs.inDungeon||gs.inHouse||id===gs.packet.active?.id||gacha?.running||gs.requestBusy||pending)return;try{await gs.action('inspect_player',{character_id:id});const info=gs.packet.inspection;if(gs.inDungeon||gs.inHouse||!info||!auxiliaryPanel('inspect',`${info.name} · ステータス・装備`))return;inspected=info;renderInspection();footer.textContent='近くの冒険者の装備を確認し、フレンド・ギルドの申請ができます。';refresh();}catch(e){gs.log((e as Error).message);}}
 
  function clearGacha(){gachaRattle?.destroy();gachaRattle=undefined;gacha?.dispose();gacha=undefined;gachaRollButton=undefined;gachaSkip=undefined;gachaResult=undefined;closeButton.disabled=false;}
  function renderGuide(){tabs.replaceChildren();body.className='town-guide';body.replaceChildren(node('p','案内人リーフ「ようこそ、はじまりの町へ。\n商人ミラから買い物や装備の修理ができます。\n西のガチャ機では、新しい装備が手に入ります。\nNPCや機械の近くで、右クリックしてみてください。」'));}

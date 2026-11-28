@@ -54,3 +54,11 @@
 .town-skill-option{padding:12px;border:1px solid #48667a;border-radius:9px;background:#101b2b}
 .town-skill-option h3,.town-skill-option p{margin:0 0 8px;color:#d8ecf5}
 .town-skill-option button{padding:6px 12px;margin-right:8px}
+.town-quick-slot>img,.town-quick-slot>.zero-emote-art{translate:0 -3px}
+.town-skill-socket{position:relative;isolation:isolate;overflow:hidden}
+.town-skill-socket::before{content:'';position:absolute;z-index:-1;inset:auto 0 0;height:var(--skill-charge,0%);background:linear-gradient(180deg,#299cc9aa,#12527acc 55%,#113954);border-top:1px solid #78e5ffab;transition:height .22s linear;pointer-events:none}
+.town-skill-socket::after{content:'';position:absolute;z-index:-1;left:0;right:0;bottom:var(--skill-charge,0%);height:3px;background:linear-gradient(90deg,transparent,#a3f1ff90,transparent);transition:bottom .22s linear;animation:town-skill-water 2.6s ease-in-out infinite;pointer-events:none}
+.town-skill-socket[data-ready=true]:not(:disabled){border-color:#81d8ef;box-shadow:inset 0 0 9px #3ac8f566,0 0 6px #238acb54}
+.town-skill-socket[data-ready=true]::after,.town-skill-socket:disabled::after{display:none}
+@keyframes town-skill-water{50%{transform:translateX(22%);opacity:.55}}
+@media (prefers-reduced-motion:reduce){.town-skill-socket::before,.town-skill-socket::after{animation:none;transition:none}}

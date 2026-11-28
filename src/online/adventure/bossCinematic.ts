@@ -4,7 +4,7 @@ import {VESPER_ART} from './vesperArt';
 import {terrainFrame} from './scenery';
 import {BOSS_STAB_PATH,actionSoundVolume,playBossStab}from '../actionAudio';
 export const BOSS_INTRO_MS=14000,SMASH_MS=3800,SMASH_IMPACT_MS=1800;
-export function bossCinematicLocked(a:any,now:number){const b=a?.snapshot?.bossEncounter;return bossStage(a)&&!!b&&(b.phase==='opening'||b.phase==='battle'&&b.smash&&now<b.smash.at+b.smash.duration);}
+export function bossCinematicLocked(a:any,_now:number){const b=a?.snapshot?.bossEncounter;return bossStage(a)&&b?.phase==='opening';}
 export function preloadBossCinematic(scene:any){if(!scene.textures.exists('crystal_pit'))scene.load.image('crystal_pit_source','assets/online/combat-fx-v2/crystal-pit.png');scene.load.audio('boss_sword_stab',BOSS_STAB_PATH);scene.load.audio('boss_last_groan','assets/online/action-audio-v1/boss-last-groan.wav');if(!scene.textures.exists('boss_stage_stairs'))scene.load.image('boss_stage_stairs','assets/terrain/boss-entrances/boss-descent.png');for(const key of ['walk','attack'])if(!scene.textures.exists('boss_intro_'+key))scene.load.image('boss_intro_'+key,`assets/online/boss-intro-demo-v2/${key}.png`);}
 const clamp=(n:number)=>Math.max(0,Math.min(1,n)),ease=(n:number)=>{n=clamp(n);return n*n*(3-2*n);};
 const poses=[...frames.walk,...frames.attack];
@@ -17,6 +17,10 @@ export function fracturedFloorTexture(scene:any,frame:number,stage=3){
  for(let i=0;i<8;i++){const a=edge[i],b=edge[i+1],angle=(i+.5)*Math.PI/4-Math.PI*.75,d=stage===1?.6:stage===2?2.4:1.5,dx=Math.cos(angle)*d,dy=Math.sin(angle)*d;g.save();g.beginPath();g.moveTo(64+dx,64+dy);g.lineTo(a[0]+dx,a[1]+dy);g.lineTo(b[0]+dx,b[1]+dy);g.closePath();g.clip();g.drawImage(img,f.cutX,f.cutY,f.cutWidth,f.cutHeight,dx,dy,128,128);g.restore();}
  for(let i=0;i<8;i++){const e=edge[i],dx=e[0]-64,dy=e[1]-64;g.beginPath();g.moveTo(64,64);g.lineTo(64+dx*.35+3,64+dy*.35-2);g.lineTo(64+dx*.7-2,64+dy*.7+2);g.lineTo(64+dx*.93,64+dy*.93);g.strokeStyle='#09060e';g.lineWidth=stage===1?2:5;g.stroke();g.strokeStyle=stage===2?'#be6ee4':'#643778';g.lineWidth=1;g.stroke();}
  g.fillStyle='#030208';g.beginPath();g.ellipse(64,64,4,13,0,0,Math.PI*2);g.fill();scene.textures.addCanvas(key,c);return key;
+}
+export function applyVesperGroundStab(body:any,passed:number){
+ const index=passed<1050?18+Math.min(2,Math.floor(passed/350)):passed<1800?21+Math.min(1,Math.floor((passed-1050)/375)):23;
+ const p=poses[index];body.setTexture('boss_intro_attack',index-8).setOrigin(p.ax,p.ay).setDisplaySize(151,151*p.h/p.w);
 }
 export function mountBossCinematic(scene:any){
  const T=48;for(const [name,list]of Object.entries(frames)){const tex=scene.textures.get('boss_intro_'+name);if(!tex.has(0))for(const [i,f]of list.entries())tex.add(i,0,f.x,f.y,f.w,f.h);}

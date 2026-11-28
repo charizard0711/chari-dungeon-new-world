@@ -9,5 +9,5 @@ export const TOWN_INTERACTIONS = [
 ] as const;
 export const WAREHOUSE_DOOR={id:'warehouse',x:22,y:3,label:'倉庫へ入る',cursor:'interact'} as const;
 export type TownInteraction = typeof TOWN_INTERACTIONS[number]|typeof WAREHOUSE_DOOR;
-export function interactionAt(x:number,y:number){if(x===22&&y===3)return WAREHOUSE_DOOR;return TOWN_INTERACTIONS.find(n=>n.x===x&&n.y===y);}
+export function interactionAt(x:number,y:number){if(x===22&&y===3)return WAREHOUSE_DOOR;return TOWN_INTERACTIONS.find(n=>n.id!=='inn'&&n.x===x&&n.y===y);}
 export function canInteract(player:{x:number;y:number},npc:{x:number;y:number}){return Math.abs(player.x-npc.x)+Math.abs(player.y-npc.y)<=2;}
