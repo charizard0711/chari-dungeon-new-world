@@ -1,0 +1,37 @@
+.town-equipment-ui .town-window[data-mode="friends"],.town-equipment-ui .town-window[data-mode="friendIcon"]{background:#111c25}
+.town-window[data-mode="friends"] .town-gold,.town-window[data-mode="friendIcon"] .town-gold{visibility:hidden}
+.town-window>header .zero-friend-icon-setting{position:absolute;width:auto;padding:0 10px;right:62px;top:50%;transform:translateY(-50%);font-size:12px}
+.town-equipment-ui.mobile .town-window>header .zero-friend-icon-setting{right:48px;top:auto;bottom:4px;transform:none;height:22px;font-size:10px}
+.town-window[data-mode="friends"] .town-tabs,.town-window[data-mode="friendIcon"] .town-tabs{display:none}
+.zero-friends{padding:0 4px;display:flex;flex-direction:column;gap:8px;min-height:0}
+.zero-friends form{gap:7px}
+.town-equipment-ui .zero-friends input{background:#0c1720;color:#e3e9ed;border-color:#3c5563}
+.zero-friends-summary{display:flex;justify-content:space-between;color:#c8d3db}
+.zero-friends-summary span+span,.zero-friend-status[data-online="true"]{color:#72c4a2}
+.zero-friends-tabs{display:flex;border-bottom:1px solid #354957}
+.town-equipment-ui .zero-friends-tabs button{border:0;border-radius:0;background:transparent;color:#9bb0bf;padding:7px 11px}
+.town-equipment-ui .zero-friends-tabs button[aria-pressed="true"]{color:#e4bc78;border-bottom:1px solid #e4bc78}
+.zero-friends-list{overflow:auto;min-height:0;padding:0 2px 35px}
+.zero-friends-list>p{color:#91a7b6;font-size:14px}
+.zero-friends-list h3{font-size:13px;color:#d4b782;display:flex;align-items:center;gap:10px}
+.zero-friends-list h3::after{content:'';flex:1;border-top:1px solid #354957}
+.zero-friend-row,.zero-friend-headings{display:grid;grid-template-columns:minmax(0,1fr) minmax(83px,.25fr) minmax(90px,.24fr);align-items:center;gap:6px}
+.zero-friend-headings{padding:0 8px 6px;color:#abbcc8;font-size:13px}
+.zero-friend-row{padding:7px 8px;margin-bottom:7px;border:1px solid #324654;border-radius:5px;background:#192833}
+.zero-friend-row[data-status="pending"]{border-color:#5a4d39;background:#262c31}
+.zero-friend-person,.zero-friend-actions{display:flex;align-items:center;gap:8px;min-width:0}
+.zero-friend-person strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e5cda6}
+.zero-friend-avatar{display:grid;place-items:center;width:32px;height:32px;flex:none;background:#0d1922;border:1px solid #536678;border-radius:5px;color:#a4b5c4}
+.zero-friend-avatar img{width:90%;height:90%;object-fit:contain}
+.zero-friend-avatar svg{width:68%;height:68%;fill:currentColor}
+.zero-friend-status{font-size:12px;color:#9baab6}
+.zero-friend-actions button,.zero-friend-actions summary{font-size:12px;padding:4px 6px;background:#233643;border:1px solid #384d5a;border-radius:4px;color:#cedbe4}
+.zero-friend-actions details{position:relative}
+.zero-friend-actions summary{list-style:none}
+.zero-friend-actions details>button{position:absolute;right:0;top:100%;z-index:1;white-space:nowrap}
+.zero-friend-picker{overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:9px;align-content:start}
+.zero-friend-picker button{display:grid;justify-items:center;gap:5px;padding:8px;border-color:#3c5563}
+.zero-friend-picker button[aria-pressed="true"]{border-color:#e4bc78}
+.zero-friend-picker button .zero-friend-avatar{width:46px;height:46px}
+.town-equipment-ui.mobile .zero-friend-row,.town-equipment-ui.mobile .zero-friend-headings{grid-template-columns:minmax(0,1fr) 84px 76px}
+.town-equipment-ui.mobile .zero-friend-actions{gap:3px}

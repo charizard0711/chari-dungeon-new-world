@@ -31,6 +31,9 @@ export function mountRedesignedModals(h:any){
    const set=(v:number)=>{if(kind==='bgm')Audio.setBgmVolume(v);else Audio.setSeVolume(v);sync();};slider.oninput=()=>set(Number(slider.value));minus.onclick=()=>set(Number(slider.value)-.05);plus.onclick=()=>set(Number(slider.value)+.05);toggle.onclick=()=>{kind==='bgm'?Audio.toggleBgm():Audio.toggleSe();sync();};sync();row.append(title,toggle,minus,slider,value,plus);sound.append(row);
   }
   const choices=el('div','','redesign-languages');for(const id of LANGUAGES){const b=button(LANGUAGE_NAMES[id],()=>{setLanguage(id);settings();});b.setAttribute('aria-pressed',String(getLanguage()===id));choices.append(b);}language.append(choices);const credits=el('a','音声クレジット');credits.href='assets/online/npc-voices-v1/credits.html';credits.target='_blank';credits.rel='noopener';sound.append(credits);left.append(sound,language);
+  const profile=section('プロフィール');
+  profile.append(button('フレンドアイコン設定',()=>{close();h.townUI?.openFriendIcon();}));
+  left.append(profile);
   body.append(left);
   if(h.gs.packet.superAccount){
    const tools=section('SUPER');

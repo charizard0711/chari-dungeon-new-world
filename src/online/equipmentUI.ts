@@ -1,3 +1,5 @@
+import {createFriendPanel} from './friendPanel';
+import {friendIcons,type FriendIcons} from './friendIcons';
 import {attachFloorTooltip,floorItemEffects} from './floorHud';
 import {explored,mapFloorColor,mapStationHidden,markPreviewMap} from './adventure/exploration';
 import {quickSlots,shortcutDrop} from './quickSlots';
@@ -50,7 +52,7 @@ export function mountTownEquipmentUI(hud:any,gs:any){
  const boots=node('button');boots.className='town-necklace-slot town-boots-slot';boots.title='靴を変更';boots.onclick=()=>open('inventory','boots');
  const shine=node('div');shine.className='town-star-overlay';shine.setAttribute('aria-hidden','true');
  const modal=node('section');modal.className='town-window';modal.hidden=true;modal.setAttribute('role','dialog');modal.setAttribute('aria-modal','false');modal.setAttribute('aria-label','所持品');
- const header=node('header'),title=node('h2','所持品'),gold=node('span');gold.className='town-gold';const closeButton=node('button','×');closeButton.type='button';closeButton.setAttribute('aria-label','閉じる');closeButton.onclick=close;header.append(title,gold,closeButton);
+ const header=node('header'),title=node('h2','所持品'),gold=node('span');gold.className='town-gold';const closeButton=node('button','×');closeButton.type='button';closeButton.setAttribute('aria-label','閉じる');closeButton.onclick=close;const friendSetting=node('button','アイコン設定');friendSetting.type='button';friendSetting.className='zero-friend-icon-setting';friendSetting.hidden=true;friendSetting.onclick=()=>openFriendIcon();header.append(title,gold,friendSetting,closeButton);
  const tabs=node('nav');tabs.className='town-tabs';tabs.setAttribute('aria-label','所持品の種類');
  const body=node('div');body.className='town-inventory-body';const grid=node('div');grid.className='town-icon-grid';grid.setAttribute('aria-label','アイテム一覧');const detail=node('section');detail.className='town-item-detail';detail.setAttribute('aria-label','選択したアイテムの詳細');
  const scrollSync:(()=>void)[]=[];
@@ -61,8 +63,8 @@ export function mountTownEquipmentUI(hud:any,gs:any){
  }
  const gridWrapper=scrollWrapper(grid),detailWrapper=scrollWrapper(detail);body.append(gridWrapper,detailWrapper);
  const footer=node('footer','アイテムを選択すると詳細を表示。下の枠へドラッグして登録できます。');footer.setAttribute('role','status');modal.append(header,tabs,body,footer);root.append(neck,boots,gloves,shine,quick,skillDock,modal);
- let mode:'inventory'|'shop'|'gacha'|'guide'|'friends'|'guild'|'skills'|'map'|'inspect'='inventory',category='all',shopTab='buy',selected='',signature='',pending=false,active=true,notice='',reward:Entry|undefined;
- let friendName='';const guildDraft:GuildDraft={name:'',description:'',joinName:'',confirm:''};let inspected:PlayerInspection|undefined;
+ let mode:'inventory'|'shop'|'gacha'|'guide'|'friends'|'guild'|'skills'|'map'|'inspect'|'friendIcon'='inventory',category='all',shopTab='buy',selected='',signature='',pending=false,active=true,notice='',reward:Entry|undefined;
+ let iconData:FriendIcons|undefined,iconRequest=0,iconPending=false;const guildDraft:GuildDraft={name:'',description:'',joinName:'',confirm:''};let inspected:PlayerInspection|undefined;
  let inputState:{hud:boolean;town:boolean;hudKeys:boolean;townKeys:boolean}|undefined;
  let cancelDrag:(()=>void)|undefined;
  let gacha:ReturnType<typeof createGachaPresentation>|undefined;let gachaRattle:ReturnType<typeof createGachaRattle>|undefined;
@@ -123,12 +125,13 @@ export function mountTownEquipmentUI(hud:any,gs:any){
   };
  }
  function emoteEntry(id:string):QuickEntry|undefined{const e=emoteById(id);return e?{category:'emote',key:e.id,index:0,count:1,equipped:false,definition:{key:e.id,category:'item',name:e.label,textureKey:'',summary:'エモート',description:'絵の吹き出しで挨拶'}}:undefined;}
- function resolve(ref:QuickSlot|null|undefined):QuickEntry|undefined{if(ref?.category==='emote')return emoteEntry(ref.key);return ref?entries().find(e=>e.category===ref.category&&e.key===ref.key&&(e.category==='item'||e.instance?.id===ref.instanceId)):undefined;}
+ function resolve(ref:QuickSlot|null|undefined, available?:Entry[]):QuickEntry|undefined{if(ref?.category==='emote')return emoteEntry(ref.key);return ref?(available??entries()).find(e=>e.category===ref.category&&e.key===ref.key&&(e.category==='item'||e.instance?.id===ref.instanceId)):undefined;}
  function renderQuick(){
+  const available=entries();
   floorTooltip.hidden=true;
   const c=character();const refs=quickSlots(c?.quickSlots);quick.replaceChildren();
   for(const i of quickIndices){
-   const e=resolve(refs[i]),b=e?makeIcon(e):node('button');b.classList.add('town-icon','town-quick-slot');b.type='button';b.dataset.quickSlot=String(i);b.dataset.occupied=String(!!e);if(e)b.title+=String.fromCharCode(10)+'ドラッグで移動・入れ替え';b.setAttribute('aria-label',`ショートカット ${i<10?'':'Shift+'}${(i+1)%10}${e?' '+e.definition.name:' 空き'}`);
+   const e=resolve(refs[i],available),b=e?makeIcon(e):node('button');b.classList.add('town-icon','town-quick-slot');b.type='button';b.dataset.quickSlot=String(i);b.dataset.occupied=String(!!e);if(e)b.title+=String.fromCharCode(10)+'ドラッグで移動・入れ替え';b.setAttribute('aria-label',`ショートカット ${i<10?'':'Shift+'}${(i+1)%10}${e?' '+e.definition.name:' 空き'}`);
    const number=node('span',`${i>=10?'⇧':''}${(i+1)%10}`);number.className='town-quick-label';b.append(number);b.onclick=()=>{if(e)void use(e,true);};
    b.oncontextmenu=event=>{event.preventDefault();void run(()=>gs.action('set_quick_slot',{index:i,ref:null}));};
    b.ondragover=event=>{event.preventDefault();if(event.dataTransfer)event.dataTransfer.dropEffect='copy';b.classList.add('drag-over');};b.ondragleave=()=>b.classList.remove('drag-over');
@@ -161,7 +164,7 @@ export function mountTownEquipmentUI(hud:any,gs:any){
   if(!list.length)grid.append(node('p',mode==='shop'&&shopTab==='repair'?'修理が必要な装備はありません。':'この種類のアイテムはありません。'));grid.scrollTop=oldScroll;renderDetail();if((import.meta as any).env.DEV)gs.game.canvas.dataset.inventoryRenderMs=String(performance.now()-renderStarted);requestAnimationFrame(()=>{const style=getComputedStyle(grid),cols=IS_MOBILE?4:9,width=(grid.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight)-(cols-1)*parseFloat(style.columnGap))/cols;if(width>0)grid.style.gridAutoRows=width+'px';scrollSync.forEach(fn=>fn());});
  }
  function renderDetail(){
-  if(modal.hidden||mode==='gacha'||mode==='guide'||mode==='friends'||mode==='guild'||mode==='map'||mode==='inspect')return;const e=visibleEntries().find(e=>keyOf(e)===selected);detail.replaceChildren();if(!e){detail.append(node('p','左のアイテムを選択してください。'));return;}
+  if(modal.hidden||mode==='gacha'||mode==='guide'||mode==='friends'||mode==='friendIcon'||mode==='guild'||mode==='map'||mode==='inspect')return;const e=visibleEntries().find(e=>keyOf(e)===selected);detail.replaceChildren();if(!e){detail.append(node('p','左のアイテムを選択してください。'));return;}
   if(e.key==='gold'){const icon=makeIcon(e);icon.style.width='78px';icon.style.height='78px';detail.append(icon,node('h3','所持金'),node('p',`${e.count.toLocaleString()} G`),node('p','落とす金額を入力してください。町のほかのプレイヤーも拾えます。'));const control=createAmountControl('落とす金額',e.count,goldDraft,value=>goldDraft=value),amount=control.input;const drop=node('button','お金を落とす');drop.type='button';drop.disabled=pending||e.count<1;drop.onclick=()=>{const value=control.value();if(!Number.isSafeInteger(value)||value<1||value>e.count){say('1Gから所持金までの整数を入力してください。');return;}void run(async()=>{const before=new Set<string>((gs.packet.drops??[]).map((d:{id:string})=>d.id));await gs.action('drop_gold',{amount:value});gs.ignoreOwnDrops(before);say(`${value.toLocaleString()} Gを落としました。`);});};detail.append(control.root,drop);requestAnimationFrame(()=>scrollSync.forEach(fn=>fn()));return;}
   const heading=node('div');heading.className='town-detail-heading';const icon=makeIcon(e);icon.tabIndex=-1;icon.style.pointerEvents='none';const name=node('h3',`${e.definition.name}${e.key.startsWith('star_')?' ★':''}${e.definition.grade&&!e.definition.name.endsWith('['+e.definition.grade+']')?' ['+e.definition.grade+']':''}`);name.style.setProperty('--grade',e.definition.grade?'#'+gradeColor(e.definition.grade).toString(16).padStart(6,'0'):'#d4dfdf');heading.append(icon,name);detail.append(heading);
   detail.append(node('p',`${label[e.category]}${e.equipped?' · 装備中':''}${e.key.startsWith('star_')?' · 色違い':''}`));
@@ -198,15 +201,67 @@ export function mountTownEquipmentUI(hud:any,gs:any){
   gachaSkip=node('button','演出をスキップ');gachaSkip.type='button';gachaSkip.className='gacha-skip';gachaSkip.onclick=()=>gacha?.skip();
   const note=node('p','演出中でも獲得した装備は保存されます。');note.className='gacha-roll-note';gachaResult=node('p');gachaResult.className='gacha-result-label';gachaResult.setAttribute('role','status');info.append(gachaRollButton,gachaSkip,gachaResult,note);body.append(gacha.element,info);updateGachaControls();
  }
- function renderFriends(){
-  tabs.replaceChildren();body.className='town-friends-body';body.replaceChildren();
-  const form=node('form');form.noValidate=true;const input=node('input');input.placeholder='相手のキャラクター名';input.setAttribute('aria-label','申請先のキャラクター名');input.maxLength=16;input.value=friendName;input.oninput=()=>friendName=input.value;const send=node('button','フレンド申請');send.type='submit';send.disabled=pending;form.append(input,send);form.onsubmit=e=>{e.preventDefault();if(!friendName.trim())return;say('申請中…');void run(async()=>{await gs.action('friend_request',{name:friendName.trim()});friendName='';say('フレンド申請を送りました。');});};body.append(form);
-  const list=node('div');list.className='town-friends-list';list.append(node('p','フレンドと申請はアカウントで共通です。最大100件。'));
-  const friends=gs.packet.friends??[];if(!friends.length)list.append(node('p','まだフレンドはいません。相手のキャラクター名から申請できます。'));
-  for(const f of friends){const row=node('div');row.className='town-friend-row';const status=f.status==='accepted'?(f.online?'● オンライン':'○ オフライン'):f.incoming?'承認待ちの申請':'申請送信済み';row.append(node('strong',f.name),node('span',status));const action=(text:string,kind:string)=>{const b=node('button',text);b.type='button';b.disabled=pending;b.onclick=()=>void run(async()=>{await gs.action(kind,{id:f.id});say(kind==='friend_accept'?'フレンドになりました。':'登録・申請を解除しました。');});row.append(b);};if(f.status==='pending'&&f.incoming)action('承認','friend_accept');action(f.status==='accepted'?'解除':f.incoming?'拒否':'取消','friend_remove');if(f.status==='accepted'){const mail=node('button','メール');mail.onclick=()=>window.dispatchEvent(new CustomEvent('zero-compose-mail',{detail:{id:f.id,name:f.name}}));row.append(mail);}list.append(row);}
-  body.append(list);
+ function avatar(key?:string){
+  const shell=node('span');shell.className='zero-friend-avatar';shell.setAttribute('aria-hidden','true');
+  const item=key&&slots.map(slot=>definition(slot,key)).find(Boolean);
+  const imageURL=item&&iconURL(key!.startsWith('star_')?'star_'+item.textureKey:item.textureKey);
+  if(imageURL){const image=node('img');image.src=imageURL;image.alt='';shell.append(image);}
+  else shell.innerHTML='<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 22c0-5 3-8 8-8s8 3 8 8z"/></svg>';
+  return shell;
  }
- function auxiliaryPanel(next:'map'|'inspect',heading:string){if(gacha?.running)return false;cancelDrag?.();clearGacha();pauseGameInput();mode=next;notice='';hud.overlay?.setVisible(false);hud.overlayMode='townInventory';gs.stopClickPath?.();gs.clearMoveInput?.();modal.hidden=false;modal.dataset.mode=mode;title.textContent=heading;modal.setAttribute('aria-label',heading);tabs.replaceChildren();tabMode='';body.className='town-aux-body';body.replaceChildren();closeButton.focus();return true;}
+ const friendsPanel=createFriendPanel({
+  avatar,
+  async request(name){let sent=false;await run(async()=>{await gs.action('friend_request',{name});sent=true;say('フレンド申請を送りました。');});if(sent)void loadFriendIcons();return sent;},
+  change(action,id){void run(async()=>{await gs.action(action,{id});say(action==='friend_accept'?'フレンドになりました。':'登録・申請を解除しました。');void loadFriendIcons();});}
+ });
+ function renderFriends(){
+  tabs.replaceChildren();body.className='town-friends-body';
+  if(friendsPanel.root.parentElement!==body)body.replaceChildren(friendsPanel.root);
+  friendsPanel.update(gs.packet.friends??[],iconData?.friends??{},pending);
+ }
+ async function loadFriendIcons(){
+  const id=++iconRequest;
+  try{
+   if(gs.preview)return;
+   const result=await friendIcons('list');
+   if(!active||iconRequest!==id||result.characterId!==character()?.id)return;
+   iconData=result;
+   if(modal.hidden)return;
+   if(mode==='friends')renderFriends();else if(mode==='friendIcon')renderFriendIcon();
+  }catch(e){if(active&&!modal.hidden&&mode==='friendIcon'&&iconRequest===id)say((e as Error).message);}
+ }
+ function renderFriendIcon(){
+  const picker=node('div');picker.className='zero-friend-picker';
+  const add=(label:string,key:string|null)=>{
+   const b=node('button');b.type='button';b.disabled=iconPending;
+   b.setAttribute('aria-pressed',String((iconData?.selected??null)===key));
+   b.append(avatar(key??undefined),node('span',label));b.onclick=()=>void saveFriendIcon(key);picker.append(b);
+  };
+  add('標準アイコン',null);
+  const seen=new Set<string>();
+  for(const entry of entries()){
+   if(entry.category==='item'||seen.has(entry.key))continue;
+   seen.add(entry.key);add(entry.definition.name+(entry.key.startsWith('star_')?' ★':''),entry.key);
+  }
+  body.replaceChildren(picker);
+ }
+ async function saveFriendIcon(key:string|null){
+  const cid=character()?.id;if(!cid||iconPending)return;
+  iconPending=true;++iconRequest;renderFriendIcon();
+  try{
+   const result=gs.preview?{characterId:cid,selected:key,friends:iconData?.friends??{}}:await friendIcons('save',key);
+   if(!active||result.characterId!==character()?.id)return;
+   iconData=result;if(mode==='friendIcon'&&!modal.hidden)say('アイコンを設定しました。');
+  }catch(e){if(active&&mode==='friendIcon'&&!modal.hidden)say((e as Error).message);}
+  finally{iconPending=false;if(active&&mode==='friendIcon'&&!modal.hidden)renderFriendIcon();}
+ }
+ function openFriendIcon(){
+  if(!auxiliaryPanel('friendIcon','フレンドアイコン設定'))return;
+  body.className='town-friends-body';
+  footer.textContent='所持している装備から、フレンド欄に表示するアイコンを選べます。';
+  renderFriendIcon();void loadFriendIcons();refresh();
+ }
+ function auxiliaryPanel(next:'map'|'inspect'|'friendIcon',heading:string){if(gacha?.running)return false;cancelDrag?.();clearGacha();pauseGameInput();mode=next;notice='';hud.overlay?.setVisible(false);hud.overlayMode='townInventory';gs.stopClickPath?.();gs.clearMoveInput?.();modal.hidden=false;modal.dataset.mode=mode;title.textContent=heading;modal.setAttribute('aria-label',heading);tabs.replaceChildren();tabMode='';body.className='town-aux-body';body.replaceChildren();closeButton.focus();return true;}
  const pinScope='room';let mapZoom=.45,mapScroll={x:0,y:0},mapCenter=true;
  function renderMap(){
   const previous=body.querySelector<HTMLElement>('.town-map-viewport');if(previous)mapScroll={x:previous.scrollLeft,y:previous.scrollTop};body.replaceChildren();markPreviewMap(gs);
@@ -295,15 +350,20 @@ export function mountTownEquipmentUI(hud:any,gs:any){
  function renderGuide(){tabs.replaceChildren();body.className='town-guide';body.replaceChildren(node('p','案内人リーフ「ようこそ、はじまりの町へ。\n商人ミラから買い物や装備の修理ができます。\n西のガチャ機では、新しい装備が手に入ります。\nNPCや機械の近くで、右クリックしてみてください。」'));}
  function open(next:'inventory'|'shop'|'gacha'|'friends'|'guild'|'skills',filter?:string){
   if(next==='shop'||next==='gacha'){const npc=TOWN_INTERACTIONS.find(n=>n.id===(next==='shop'?'merchant':'gacha'))!;if(!canInteract(gs.player,npc)){gs.log('町の設備に近づいて右クリックしてください。');return;}}
-  if(gacha?.running)return;cancelDrag?.();clearGacha();pauseGameInput();mode=next;category=filter??'all';selected='';notice='';hud.overlay?.setVisible(false);hud.overlayMode='townInventory';gs.destination=undefined;gs.clearMoveInput?.();modal.hidden=false;modal.dataset.mode=mode;title.textContent=next==='inventory'?'所持品':next==='shop'?'商人ミラ · 取引と修理':next==='friends'?'フレンド':next==='skills'?'スキル':next==='guild'?'ギルド':'魔法のガチャ';modal.setAttribute('aria-label',title.textContent);body.className='town-inventory-body';body.replaceChildren(gridWrapper,detailWrapper);footer.textContent=next==='inventory'?'アイテムを選択して詳細を確認。下の枠にドラッグすると登録できます。':next==='friends'?'キャラクター名から申請できます。相手の承認でフレンドになります。':'町の所持金で利用できます。';if(next==='gacha')renderGacha();else if(next==='friends')renderFriends();else if(next==='skills'){footer.textContent='レベルが上がると新しいスキルを装備できます。';renderSkills();}else if(next==='guild'){guildDraft.confirm='';guildDraft.flag=undefined;footer.textContent='招待・加入申請を承認して仲間を増やせます。';renderGuild();}else renderInventory();refresh();closeButton.focus();
+  if(gacha?.running)return;cancelDrag?.();clearGacha();pauseGameInput();mode=next;category=filter??'all';selected='';notice='';hud.overlay?.setVisible(false);hud.overlayMode='townInventory';gs.destination=undefined;gs.clearMoveInput?.();modal.hidden=false;modal.dataset.mode=mode;title.textContent=next==='inventory'?'所持品':next==='shop'?'商人ミラ · 取引と修理':next==='friends'?'フレンド':next==='skills'?'スキル':next==='guild'?'ギルド':'魔法のガチャ';modal.setAttribute('aria-label',title.textContent);body.className='town-inventory-body';body.replaceChildren(gridWrapper,detailWrapper);footer.textContent=next==='inventory'?'アイテムを選択して詳細を確認。下の枠にドラッグすると登録できます。':next==='friends'?'キャラクター名から申請できます。相手の承認でフレンドになります。':'町の所持金で利用できます。';if(next==='gacha')renderGacha();else if(next==='friends'){renderFriends();void loadFriendIcons();}else if(next==='skills'){footer.textContent='レベルが上がると新しいスキルを装備できます。';renderSkills();}else if(next==='guild'){guildDraft.confirm='';guildDraft.flag=undefined;footer.textContent='招待・加入申請を承認して仲間を増やせます。';renderGuild();}else renderInventory();refresh();closeButton.focus();
  }
  function openGuide(){if(gacha?.running)return;cancelDrag?.();clearGacha();pauseGameInput();mode='guide';hud.overlayMode='townInventory';modal.hidden=false;modal.dataset.mode=mode;title.textContent='案内人リーフ';renderGuide();refresh();}
  function close(){if(gacha?.running){gacha.skip();return;}cancelDrag?.();clearGacha();modal.hidden=true;resumeGameInput();if(hud.overlayMode==='townInventory')hud.overlayMode='none';gs.clearMoveInput?.();gs.game.canvas.tabIndex=0;gs.game.canvas.focus();refresh();}
- function refresh(){if(!active)return;boardUI?.refresh();warehouseUI?.refresh();if(character()?.location==='warehouse'){cancelDrag?.();modal.hidden=true;pauseGameInput();hud.overlayMode='townWarehouse';quick.hidden=true;skillDock.hidden=true;neck.hidden=true;boots.hidden=true;shine.style.display='none';return;}if(hud.overlayMode==='townWarehouse'){resumeGameInput();hud.overlayMode='none';signature='';gs.clearMoveInput?.();}const inventoryOpen=!modal.hidden&&mode==='inventory',overlay=hud.overlayMode;root.classList.toggle('emote-shortcuts',overlay==='emotes');quick.hidden=!(overlay==='none'||inventoryOpen||overlay==='emotes');skillDock.hidden=overlay!=='none';if(!skillDock.hidden)renderSkillDock();neck.hidden=overlay!=='none';boots.hidden=overlay!=='none';shine.style.display=overlay==='none'?'':'none';if(cancelDrag)return;const c=character(),next=JSON.stringify(modal.hidden?[c?.id,c?.gear,c?.quickSlots,c?.inventory,c?.instances,c?.equipment]:mode==='skills'?[mode,c?.level,c?.skillLoadout]:mode==='guild'?[mode,c?.id,gs.packet.guild,gs.packet.guildRequests]:mode==='inspect'?[mode,c?.id,gs.packet.guild,gs.packet.friends,gs.packet.guildRequests,inspected]:[c?.id,c?.gear,c?.quickSlots,c?.inventory,c?.instances,c?.equipment,c?.gold,gs.packet.shopCatalog,gs.packet.friends,mode==='map'?[gs.packet.players,gs.packet.adventure?.snapshot.keys,gs.packet.adventure?.snapshot.visionRadius,gs.packet.adventure?.exploration?.revision,gs.packet.mapPins]:null]);gold.textContent=`所持金 ${(c?.gold??0).toLocaleString()} G`;if(next===signature)return;if(!modal.hidden&&modal.contains(document.activeElement)&&(document.activeElement instanceof HTMLInputElement||document.activeElement instanceof HTMLTextAreaElement))return;signature=next;renderQuick();renderNeck();if(!modal.hidden){if(mode==='gacha')renderGacha();else if(mode==='friends')renderFriends();else if(mode==='guild')renderGuild();else if(mode==='skills')renderSkills();else if(mode==='inspect')renderInspection();else if(mode==='map')renderMap();else if(mode!=='guide')renderInventory();}if(notice)footer.textContent=notice;}
+ let previousInputs:unknown[]=[];
+ function refresh(){if(!active)return;friendSetting.hidden=modal.hidden||mode!=='friends';boardUI?.refresh();warehouseUI?.refresh();if(character()?.location==='warehouse'){cancelDrag?.();modal.hidden=true;pauseGameInput();hud.overlayMode='townWarehouse';quick.hidden=true;skillDock.hidden=true;neck.hidden=true;boots.hidden=true;shine.style.display='none';return;}if(hud.overlayMode==='townWarehouse'){resumeGameInput();hud.overlayMode='none';signature='';gs.clearMoveInput?.();}const inventoryOpen=!modal.hidden&&mode==='inventory',overlay=hud.overlayMode;root.classList.toggle('emote-shortcuts',overlay==='emotes');quick.hidden=!(overlay==='none'||inventoryOpen||overlay==='emotes');skillDock.hidden=overlay!=='none';if(!skillDock.hidden)renderSkillDock();neck.hidden=overlay!=='none';boots.hidden=overlay!=='none';shine.style.display=overlay==='none'?'':'none';if(cancelDrag)return;const c=character();
+  const inputs=modal.hidden?[c?.id,c?.gear,c?.quickSlots,c?.inventory,c?.instances,c?.equipment]:mode==='friends'?[mode,gs.packet.friends]:mode==='friendIcon'?[mode,c?.id,c?.equipment]:mode==='skills'?[mode,c?.level,c?.skillLoadout]:mode==='guild'?[mode,c?.id,gs.packet.guild,gs.packet.guildRequests]:mode==='inspect'?[mode,c?.id,gs.packet.guild,gs.packet.friends,gs.packet.guildRequests,inspected]:[c?.id,c?.gear,c?.quickSlots,c?.inventory,c?.instances,c?.equipment,c?.gold,gs.packet.shopCatalog,gs.packet.friends,mode==='map'?[gs.packet.players,gs.packet.adventure?.snapshot.keys,gs.packet.adventure?.snapshot.visionRadius,gs.packet.adventure?.exploration?.revision,gs.packet.mapPins]:null];
+  if((modal.hidden||mode==='friends'||mode==='friendIcon')&&signature&&inputs.length===previousInputs.length&&inputs.every((value,i)=>Object.is(value,previousInputs[i])))return;
+  const next=JSON.stringify(inputs);
+  if(!modal.hidden)gold.textContent=`所持金 ${(c?.gold??0).toLocaleString()} G`;if(next===signature){previousInputs=inputs;return;}if(!modal.hidden&&modal.contains(document.activeElement)&&(document.activeElement instanceof HTMLInputElement||document.activeElement instanceof HTMLTextAreaElement))return;previousInputs=inputs;signature=next;if(modal.hidden||mode==='inventory'){renderQuick();renderNeck();}if(!modal.hidden){if(mode==='gacha')renderGacha();else if(mode==='friends')renderFriends();else if(mode==='friendIcon')renderFriendIcon();else if(mode==='guild')renderGuild();else if(mode==='skills')renderSkills();else if(mode==='inspect')renderInspection();else if(mode==='map')renderMap();else if(mode!=='guide')renderInventory();}if(notice)footer.textContent=notice;}
  const onKey=(e:KeyboardEvent)=>{if(e.repeat||e.target instanceof HTMLInputElement||e.target instanceof HTMLTextAreaElement)return;if(e.key==='Escape'&&boardUI.visible){e.preventDefault();boardUI.close();return;}if(e.key==='Escape'&&character()?.location==='warehouse'){e.preventDefault();void warehouseUI.exit();return;}if(e.key==='Escape'&&!modal.hidden){e.preventDefault();close();return;}if((hud.overlayMode==='none'||!modal.hidden&&mode==='inventory')&&/^Digit\d$/.test(e.code)){const digit=Number(e.code.slice(-1)),i=(digit===0?9:digit-1)+(e.shiftKey?10:0),entry=resolve(character()?.quickSlots?.[i]);if(entry&&quickIndices.includes(i)){e.preventDefault();void use(entry,true);}}};window.addEventListener('keydown',onKey);
  root.addEventListener('keydown',e=>{if(!modal.hidden||/^Digit\d$/.test(e.code)||e.key==='Escape'){onKey(e);e.stopPropagation();}});root.addEventListener('pointerdown',e=>e.stopPropagation());root.addEventListener('contextmenu',e=>e.preventDefault());
  const boardUI=mountAdventureBoard(root,gs,()=>{modal.hidden=true;pauseGameInput();hud.overlayMode='adventureBoard';quick.hidden=true;skillDock.hidden=true;neck.hidden=true;boots.hidden=true;shine.style.display='none';gs.destination=undefined;},()=>{resumeGameInput();hud.overlayMode='none';refresh();},refresh);
  const warehouseUI=mountWarehouseUI(root,gs,entries,makeIcon,refresh);
  const textureAdded=(key:string)=>{if(!iconKeys.has(key))return;urls.delete(key);gridCache.clear();if(textureRefresh)return;textureRefresh=requestAnimationFrame(()=>{textureRefresh=0;signature='';refresh();});};hud.textures.on('addtexture',textureAdded);refresh();
- return {attachEmote(button:HTMLButtonElement,id:string,onTap:()=>void,onRegistered:(text:string)=>void){const entry=emoteEntry(id);if(entry)attachDrag(button,entry,undefined,onTap,onRegistered);},cancelExternalDrag(){cancelDrag?.();},openMap,inspectPlayer,openBoard(){if(!gacha?.running)boardUI.open();},open,openGuide,close,refresh,destroy(){floorTooltip.remove();active=false;cancelAnimationFrame(textureRefresh);boardUI.destroy();warehouseUI.destroy();cancelDrag?.();clearGacha();resize.disconnect();window.removeEventListener('resize',fit);window.removeEventListener('scroll',fit);window.removeEventListener('keydown',onKey);hud.textures.off('addtexture',textureAdded);root.remove();}};
+ return {attachEmote(button:HTMLButtonElement,id:string,onTap:()=>void,onRegistered:(text:string)=>void){const entry=emoteEntry(id);if(entry)attachDrag(button,entry,undefined,onTap,onRegistered);},cancelExternalDrag(){cancelDrag?.();},openFriendIcon,openMap,inspectPlayer,openBoard(){if(!gacha?.running)boardUI.open();},open,openGuide,close,refresh,destroy(){floorTooltip.remove();active=false;cancelAnimationFrame(textureRefresh);boardUI.destroy();warehouseUI.destroy();cancelDrag?.();clearGacha();resize.disconnect();window.removeEventListener('resize',fit);window.removeEventListener('scroll',fit);window.removeEventListener('keydown',onKey);hud.textures.off('addtexture',textureAdded);root.remove();}};
 }
