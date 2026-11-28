@@ -816,7 +816,7 @@ export class UIScene extends Phaser.Scene {
       const risk = durabilityRisk(weapon.dur, weapon.durMax);
       return this.showTooltip(
         weaponFullName(weapon),
-        `攻撃力 ${p.atkMin}–${p.atkMax}\n耐久 ${weapon.dur} / ${weapon.durMax}（${risk.label}）\n効果 ${this.weaponEffectText(weapon)}`,
+        `攻撃力 ${p.atkMin}–${p.atkMax}${p.onlineEquipmentRules?'':`\n耐久 ${weapon.dur} / ${weapon.durMax}（${risk.label}）`}\n効果 ${this.weaponEffectText(weapon)}`,
         anchorX, anchorY
       );
     }
@@ -838,7 +838,7 @@ export class UIScene extends Phaser.Scene {
     const risk = durabilityRisk(shield.dur, shield.durMax);
     return this.showTooltip(
       shieldFullName(shield),
-      `防御力 +${shield.defBonus + shield.plus}\n耐久 ${shield.dur} / ${shield.durMax}（${risk.label}）\n効果 ${this.shieldEffectText(shield)}`,
+      `防御力 +${shield.defBonus + shield.plus}${p.onlineEquipmentRules?'':`\n耐久 ${shield.dur} / ${shield.durMax}（${risk.label}）`}\n効果 ${this.shieldEffectText(shield)}`,
       anchorX, anchorY
     );
   }

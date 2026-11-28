@@ -42,7 +42,10 @@ export function mountRedesignedModals(h:any){
  }
  function art(key:string,flip=false){const image=el('img');image.alt='';image.draggable=false;const textureKey=key.startsWith('m_')?key:equipmentIconTexture(key,h);image.dataset.texture=textureKey;image.dataset.equipmentKey=key;if(flip)image.style.transform='scaleX(-1)';const fill=()=>{if(!h.textures.exists(textureKey))return;let url=renderedArt.get(textureKey);if(!url){const texture=h.textures.get(textureKey),f=texture.get(),canvas=document.createElement('canvas');canvas.width=f.cutWidth;canvas.height=f.cutHeight;canvas.getContext('2d')!.drawImage(texture.source[f.sourceIndex].image,f.cutX,f.cutY,f.cutWidth,f.cutHeight,0,0,f.cutWidth,f.cutHeight);url=canvas.toDataURL();renderedArt.set(textureKey,url);}image.src=url;};fill();if(!image.src)requestEquipmentArt(textureKey);return image;}
  function codex(){
-  const box=shell('冒険図鑑'),toolbar=el('div','','redesign-codex-toolbar'),tabs=el('nav');tabs.setAttribute('aria-label','図鑑の種類');
+  const box=panel?.dataset.codex==='true'?panel:shell('冒険図鑑');
+  box.dataset.codex='true';box.dataset.mode=mode;
+  for(const child of Array.from(box.children).slice(1))child.remove();
+  const toolbar=el('div','','redesign-codex-toolbar'),tabs=el('nav');tabs.setAttribute('aria-label','図鑑の種類');
   for(const [tab,label]of [['codex','モンスター'],['equipmentcatalog','装備']]as const){const b=button(label,()=>{mode=tab;page=0;selected='';codex();});b.setAttribute('aria-pressed',String(mode===tab));tabs.append(b);}toolbar.append(tabs);
   const equipment=mode==='equipmentcatalog',found=(key:string)=>equipment?h.gs.discoveredEquipment.has(key):h.gs.discovered.has(key);
   const all=equipment?ITEM_CATALOG.filter(e=>e.category!=='item'):MONSTER_DEFS;

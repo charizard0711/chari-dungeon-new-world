@@ -13,7 +13,7 @@ export async function inboxRpc(action:string,payload:Record<string,unknown>={}){
  if(error)throw Error(error.message);
  return data;
 }
-export function badgeText(n:number){return n>=10?'+':n>0?String(n):'';}
+export function badgeText(n:number){return n>0?String(n):'';}
 export function mailForm(parent:HTMLElement,send:(title:string,body:string)=>Promise<unknown>){
  const form=el('form'),title=el('input'),body=el('textarea'),status=el('p'),submit=el('button','送信');title.placeholder='件名（100文字まで）';title.maxLength=100;title.setAttribute('aria-label','件名');body.placeholder='メッセージ（4000文字まで）';body.maxLength=4000;body.setAttribute('aria-label','本文');submit.type='submit';status.role='status';form.className='zero-mail-form';form.noValidate=true;form.append(title,body,submit,status);parent.append(form);
  form.onsubmit=async e=>{e.preventDefault();if(submit.disabled)return;if(!title.value.trim()||!body.value.trim()){status.textContent='件名と本文を入力してください。';return;}submit.disabled=true;try{await send(title.value.trim(),body.value.trim());status.textContent='送信しました。';title.value='';body.value='';}catch(e){status.textContent=(e as Error).message;}finally{submit.disabled=false;}};return {form,title,body,status,submit};

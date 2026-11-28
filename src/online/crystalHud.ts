@@ -22,11 +22,26 @@ function resourceBar(g:any,x:number,y:number,w:number,h:number,ratio:number,heal
 }
 export function crystalMenu(h:any){
  const items=[['ui_nav_inventory','持ち物',()=>h.openInventory()],['ui_nav_codex','冒険図鑑',()=>h.setOverlay('codex')],['ui_nav_friends','フレンド',()=>h.townUI?.open('friends')],['ui_nav_guild','ギルド',()=>h.townUI?.open('guild')],['ui_nav_guild','スキル',()=>h.townUI?.open('skills')],['ui_nav_friends','エモート',()=>h.inboxUI?.emotes()]] as const;
- items.forEach(([icon,label,fn],i)=>{const x=1044+i%2*112,y=420+Math.floor(i/2)*47;const g=crystalPanel(h,x,y,108,41);h.add.image(x+20,y+20,icon).setDisplaySize(23,23);h.add.text(x+38,y+20,label,{fontFamily:'Meiryo',fontSize:'11px',color:'#e6f6ff'}).setOrigin(0,.5);h.add.zone(x,y,108,41).setOrigin(0).setInteractive({useHandCursor:true}).on('pointerover',()=>g.setAlpha(.75)).on('pointerout',()=>g.setAlpha(1)).on('pointerdown',()=>{Audio.playSe('click');fn();});});
+ items.forEach(([icon,label,fn],i)=>{const x=1044+i%2*112,y=420+Math.floor(i/2)*47;const g=crystalPanel(h,x,y,108,41);h.add.image(x+20,y+20,icon).setDisplaySize(23,23);h.add.text(x+38,y+20,label,{fontFamily:'Meiryo',fontSize:'11px',color:'#e6f6ff'}).setOrigin(0,.5);h.add.zone(x,y,108,41).setOrigin(0).setInteractive({useHandCursor:true}).on('pointerover',()=>g.setAlpha(.75)).on('pointerout',()=>g.setAlpha(1)).on('pointerdown',()=>{Audio.playSe('click');fn();});if(i===2||i===3)requestBadge(h,i===2?'friends':'guild',x+98,y+9);});
+}
+export function requestBadge(h:any,kind:'friends'|'guild',x:number,y:number){
+ const circle=h.add.circle(x,y,8,0xd5294a).setVisible(false);
+ const text=h.add.text(x,y,'',{fontFamily:'sans-serif',fontStyle:'bold',fontSize:'9px',color:'#fff'}).setOrigin(.5).setVisible(false);
+ (h.requestBadges??={})[kind]={circle,text,count:0};
+}
+export function refreshRequestBadges(h:any){
+ const counts={friends:h.gs.packet.friends?.filter((f:{status:string;incoming:boolean})=>f.status==='pending'&&f.incoming).length??0,
+  guild:h.gs.packet.guildRequests?.filter((r:{incoming:boolean})=>r.incoming).length??0};
+ for(const kind of ['friends','guild'] as const){
+  const badge=h.requestBadges?.[kind],count=counts[kind];
+  if(!badge||badge.count===count)continue;
+  badge.count=count;badge.circle.setRadius(count>9?10:8).setVisible(count>0);
+  badge.text.setText(String(count)).setVisible(count>0);
+ }
 }
 export function crystalStatus(h:any){
  h.expText=undefined;h.lastExpRatio=undefined;h.miniNext=0;const style={fontFamily:'Meiryo',fontSize:'12px',color:'#e5e7ea'};neutralHudPanel(h,8,47,1028,43);const dividers=h.add.graphics();dividers.lineStyle(1,0x989fa5,.3).lineBetween(232,54,232,83).lineBetween(704,54,704,83);h.L.hpBar={x:246,y:75,w:188};
- h.statusText=h.add.text(20,61,'',{...style,fontSize:'13px'});h.hpLabel=h.add.text(246,52,'',{...style,fontSize:'11px'});h.hpBar=h.add.graphics();h.atkLabel=h.add.text(714,61,'',style);h.durabilityLabel=h.add.text(1054,347,'',{...style,fontSize:'9px'});
+ h.statusText=h.add.text(20,61,'',{...style,fontSize:'13px'});h.hpLabel=h.add.text(246,52,'',{...style,fontSize:'11px'});h.hpBar=h.add.graphics();h.atkLabel=h.add.text(714,61,'',style);
  h.expBar=h.add.graphics();neutralHudPanel(h,1044,47,228,129,'周辺マップ');h.miniGraphics=h.add.graphics();h.add.zone(1044,47,228,129).setOrigin(0).setInteractive({useHandCursor:true}).on('pointerdown',()=>h.townUI?.openMap()).on('wheel',(_p:any,_dx:number,dy:number)=>{h.miniZoom=Math.max(.75,Math.min(3,(h.miniZoom??1)*(dy<0?1.2:1/1.2)));h.miniSignature='';});
  h.panel(1044,184,228,228,'装備');h.equipSlots=[];h.equipIconSize=49;
  for(const [kind,tag,x,y,index] of [['weapon','武器',1054,213,0],['armor','服',1164,213,1],['shield','盾',1164,279,2]] as const){const bg=h.add.graphics(),icon=h.add.image(x+28,y+29,'coin').setDisplaySize(49,49),name=h.add.text(x+76,y+29,tag,{...style,fontSize:'10px'}).setOrigin(.5),sub=h.add.text(0,0,'').setVisible(false);h.equipSlots.push({kind,tag,bg,icon,name,sub,rect:[x,y,100,60]});h.add.zone(x,y,100,60).setOrigin(0).setInteractive({useHandCursor:true}).on('pointerover',()=>h.showEquipmentTooltip(kind,x,y)).on('pointerout',()=>h.hideTooltip()).on('pointerdown',()=>{h.hideTooltip();h.pickSlot=index;h.setOverlay('pick');});}

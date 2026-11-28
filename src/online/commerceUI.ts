@@ -31,7 +31,7 @@ export function openCommerce(scene:any,kind:'market'|'lottery'){
   const card=node('article'),def=definition(category,key),label=(def?.name??key)+(key.startsWith('star_')?' ★ 色違い':'');card.className='commerce-card';
   const texture=equipmentIconTexture((isEquipmentVariant(key)?'star_':'')+(def?.textureKey??equipmentCatalogKey(category,key)),scene);
   if(scene.textures.exists(texture)){const img=node('img');img.alt=label;img.src=scene.textures.getBase64(texture);card.append(img);}
-  card.append(node('strong',label));if(def)card.append(node('p',def.summary));if(instance?.max)card.append(node('small',`耐久 ${instance.dur} / ${instance.max}`));return card;
+  card.append(node('strong',label));if(def)card.append(node('p',def.summary));return card;
  }
  function listingCard(l:Listing){const card=itemCard(l.category,l.item_key,l.item_state);card.append(node('p',`${l.price.toLocaleString()}G · ${l.seller_name??'自分の出品'}`));
   if(l.mine){if(l.seller_id===scene.packet.active.id)card.append(button('出品を取り消す',()=>void run('market_cancel',{listingId:l.id})));else card.append(node('small','出品したキャラクターで取消できます。'));}
