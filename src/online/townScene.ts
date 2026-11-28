@@ -3,6 +3,7 @@ import {preloadVesper} from './adventure/vesperArt';
 import {preloadNpcVoices,installNpcVoice,playNpcVoice} from './npcVoices';
 import {mountPerformanceTrace} from './performanceTrace';
 import {backgroundRetryDelay} from './requestTiming';
+import {combatSyncInterval,worldSyncInterval} from './syncCadence';
 import {actionSoundVolume} from './actionAudio';
 import {playRecallEffect} from './adventure/recallEffect';
 import {preloadBoots,prepareBoots,preloadGloves,prepareGloves} from './bootsArt';
@@ -88,7 +89,7 @@ export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)
  class Town extends SceneBase{
   playerSignature='';adventureBoardPending=false;musicName='';cameraFollow?:ReturnType<typeof onlineCameraFollow>;deathRevision=0;deathPlaying=false;deathReveal=false;remoteDeaths:Record<string,number>={};deathReady?:()=>void;
   moveQueue:TownTile[]=[];moveSending=false;lastMoveSent=0;confirmedPacket?:WorldState;
-  combatPulseTimer?:ReturnType<typeof setInterval>;combatPulseBusy=false;
+  combatPulseTimer?:ReturnType<typeof setInterval>;combatPulseBusy=false;lastWorldSnapshotAt=0;
   get playerAttackMs(){return this.packet.active?.attackCooldownMs??Math.round(attackTiming(this.player.weapon?.weaponType).cooldown*1.15);}
   get moveStepMs(){return movementStepMs(this.packet?.active?.moveStepMs,this.speedPanelActive(this.packet?.active?.id));}
   speedPanelActive(id?:string){const a=this.packet?.adventure;return !!(id&&a?.inside&&a.floor===1&&(a.snapshot.speedPanelUntil?.[id]??0)>railNow(this));}
@@ -221,14 +222,17 @@ export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)
    const entryLoading=this.entryLoading;this.events.once('shutdown',()=>entryLoading?.destroy());void this.rigReady.then(()=>{if(!this.scene.isActive()||this.entryLoading!==entryLoading)return;this.game.events.once('postrender',()=>{if(!this.scene.isActive())return;entryLoading?.finish(()=>{this.busy=false;});if(this.deathReady){const ready=this.deathReady;this.deathReady=undefined;this.deathReveal=false;ready();}else if(!entryLoading)this.busy=false;});});
    const generation=this.generation;
    this.combatPulseBusy=false;
+   this.lastWorldSnapshotAt=performance.now();
    let pollAfter=0,pulseAfter=0,pollFailures=0,pulseFailures=0;
    this.pollTimer=setInterval(async()=>{
+    const now=performance.now();
+    const elapsed=now-this.lastWorldSnapshotAt;
+    const interval=worldSyncInterval(this.inDungeon,elapsed);
     if(this.deathPlaying||this.preview||this.moveSending||this.requestBusy||this.pollBusy||
-       this.combatPulseBusy||!this.scene.isActive()||document.hidden||performance.now()<pollAfter)return;
+       this.combatPulseBusy||!this.scene.isActive()||document.hidden||now<pollAfter||elapsed<(this.inDungeon?3000:800))return;
     this.pollBusy=true;
     const revision=this.requestRevision;
-    const interval=this.inDungeon?3000:800;
-    pollAfter=performance.now()+interval;
+    pollAfter=now+interval;
     try{
      const response=await world('poll');
      if(generation!==this.generation)return;
@@ -251,6 +255,7 @@ export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)
        this.moveQueue.length>0||this.pollBusy||this.combatPulseBusy||document.hidden||
        !this.scene.isActive()||performance.now()-this.lastMotionReplyAt<140||performance.now()<pulseAfter)return;
     const revision=this.requestRevision;
+    pulseAfter=performance.now()+combatSyncInterval(this.packet.adventure);
     this.combatPulseBusy=true;
     try{
      const pulse=await combatPulse();
@@ -268,7 +273,7 @@ export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)
     }catch{
      if(generation===this.generation)pulseAfter=performance.now()+backgroundRetryDelay(++pulseFailures,320,2400);
     }finally{if(generation===this.generation)this.combatPulseBusy=false;}
-   },160);
+   },80);
    this.events.once('shutdown',()=>{this.generation++;clearInterval(this.pollTimer);clearInterval(this.combatPulseTimer);this.chat?.destroy();this.chat=undefined;this.scene.stop('OnlineUIScene');if(!this.transitioning)void Audio.playBgm('title');if(!this.preview&&!this.transitioning)void world('leave').catch(()=>{});});
   }
   approachAdventureBoard(){if(this.busy||this.requestBusy||this.moveSending||this.hud?.overlayMode!=='none')return;if(Math.abs(this.player.x-3)+Math.abs(this.player.y-9)<=3){this.stopClickPath();this.hud?.townUI?.openBoard();}else{this.adventureBoardPending=true;this.destination={x:4,y:10};}}
@@ -429,7 +434,7 @@ export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)
     else if(action==='drop_item'){if(!c.inventory.potion)throw Error('落とせるアイテムがありません。');c.inventory.potion--;this.packet.drops??=[];this.packet.drops.push({id:crypto.randomUUID(),kind:'potion',x:me.x,y:me.y});}
     else if(action==='pickup_item'){const item=this.packet.drops?.find(d=>d.id===payload.drop_id);if(!item||Math.abs(item.x-me.x)+Math.abs(item.y-me.y)>1)throw Error('アイテムの近くまで移動してください。');this.packet.drops=this.packet.drops!.filter(d=>d.id!==item.id);if(item.category&&item.category!=='item'){c.equipment??={weapon:['w_iron_dagger'],armor:['leather'],shield:[]};c.equipment[item.category as 'weapon'|'armor'|'shield'].push(item.category==='armor'?item.kind.slice(6):item.kind);}else c.inventory.potion++;}
     apply(this.packet);return;
-   }const state=await world(action,payload);if(gen===this.generation)apply(state);}catch(error){loading?.destroy();if(gen===this.generation){this.drawPlayers();}throw error;}finally{if(gen===this.generation)this.requestBusy=false;}}
+   }const state=await world(action,payload);if(gen===this.generation){this.lastWorldSnapshotAt=performance.now();apply(state);}}catch(error){loading?.destroy();if(gen===this.generation){this.drawPlayers();}throw error;}finally{if(gen===this.generation)this.requestBusy=false;}}
   updateCursorTile(){const p=this.input.activePointer;const valid=this.input.isOver&&!p.wasTouch&&this.hud?.overlayMode==='none'&&p.x>=MAP_X&&p.x<MAP_X+MAP_W&&p.y>=MAP_Y&&p.y<MAP_Y+MAP_H;if(!valid){this.cursorTile?.setVisible(false);return;}const point=this.cameras.main.getWorldPoint(p.x,p.y);const x=Math.floor(point.x/TILE),y=Math.floor(point.y/TILE);this.cursorTile?.setPosition((x+.5)*TILE,(y+.5)*TILE).setVisible(!this.blocked(x,y));}
   tapTarget?:TapTarget;
   tapAdventure(id:string){const p=(this.packet.adventure?.floor===2?[{id:'entry_crystal',x:5,y:6}]:ADVENTURE_PROPS).find(p=>p.id===id);if(p)startTapAction(this,{x:p.x,y:p.y,reach:1,run:()=>this.interactAdventure(id)});}

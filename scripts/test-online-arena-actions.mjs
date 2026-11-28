@@ -22,10 +22,14 @@ try{
  const before=await snapshot();
  const retainer=before.enemies.find(e=>e.retainer);
  assert.ok(retainer);
+ assert.equal(before.enemies.filter(e=>e.retainer).length,3);
+ const cfg=(await db.query("select data from online_adventure_config where id='floor1'")).rows[0].data;
+ const step=async(enemy,frame)=>(await db.query('select online_enemy_step_cached($1,$2,$3,$4,$5) as s',
+  [room,enemy,id,JSON.stringify(frame),JSON.stringify(cfg)])).rows[0].s;
  let patternFrame={...before,telegraphs:[]};
  const cast=async(enemy,frame)=>{
   frame={...frame,telegraphs:[],enemies:frame.enemies.map(e=>e.id===enemy?{...e,nextAreaAt:0,nextMoveAt:9e12,nextAttackAt:9e12}:e)};
-  return (await db.query('select online_enemy_step_state($1,$2,$3,$4) as s',[room,enemy,id,JSON.stringify(frame)])).rows[0].s;
+  return step(enemy,frame);
  };
  const shapes=[];
  for(let i=0;i<3;i++){
@@ -40,6 +44,31 @@ try{
   assert.equal(warned.telegraphs[0].pattern,e.areaPattern);
  }
 
+ const bossOf=frame=>frame.enemies.find(e=>e.id==='vesper');
+ const health=async()=>(await db.query('select hp from online_characters where id=$1',[id])).rows[0].hp;
+ const guardFrame={...before,brokenFloors:[],bossEncounter:{...before.bossEncounter,smash:undefined},telegraphs:[],enemies:before.enemies.map(e=>{
+  if(e.boss)return {...e,x:50,y:10,nextMoveAt:0,nextAttackAt:0,nextAreaAt:9e12};
+  if(e.id===retainer.id)return {...e,x:49,y:11,nextMoveAt:0,nextAttackAt:0,nextAreaAt:9e12};
+  return e;
+ })};
+ let stepResult=await step('vesper',guardFrame);
+ assert.deepEqual([bossOf(stepResult).x,bossOf(stepResult).y],[50,10],'the guarded boss stays put');
+ await place(50,11);
+ const hp=await health();
+ await step('vesper',guardFrame);
+ assert.equal(await health(),hp,'walking up to the guarded boss does not trigger a normal strike');
+ await step(retainer.id,guardFrame);
+ assert.ok(await health()<hp,'a retainer attacks before Vesper engages');
+ await db.query('update online_characters set hp=$2 where id=$1',[id,hp]);
+ const retaliation={...guardFrame,enemies:guardFrame.enemies.map(e=>e.boss?{...e,counterTarget:id,counterUntil:Date.now()+3000}:e)};
+ stepResult=await step('vesper',retaliation);
+ assert.ok(await health()<hp,'Vesper can counter the player who hit him');
+ assert.equal(bossOf(stepResult).counterTarget,undefined,'a counter consumes the hit');
+ await db.query('update online_characters set hp=$2 where id=$1',[id,hp]);
+ await place(50,13);
+ const unguarded={...guardFrame,enemies:guardFrame.enemies.map(e=>e.retainer?{...e,hp:0}:e)};
+ assert.equal(bossOf(await step('vesper',unguarded)).y,11,'Vesper resumes pursuit after all guards fall');
+
  await assert.rejects(()=>rpc('inspect_player',{character_id:id}),/町で/);
  await assert.rejects(()=>rpc('use_item',{kind:'dynamite'}),/持っていません/);
  await place(48,13);
@@ -52,15 +81,20 @@ try{
   return e;
  });
  await db.query("update online_adventure_rooms set snapshot=jsonb_set(snapshot,'{enemies}',$2) where id=$1",[room,JSON.stringify(enemies)]);
+ await rpc('attack',{dir:'right'});
+ assert.ok(bossOf(await snapshot()).hp<480,'a real weapon attack damages the guarded boss');
+ assert.equal(bossOf(await snapshot()).counterTarget,id,'normal damage also opens a counter window');
+ await db.query("update online_adventure_rooms set snapshot=jsonb_set(snapshot,'{enemies}',$2) where id=$1",[room,JSON.stringify(enemies)]);
  state=await rpc('use_item',{kind:'dynamite'});
  const after=await snapshot(),find=enemy=>after.enemies.find(e=>e.id===enemy);
  assert.equal(find('vesper').hp,432);
+ assert.equal(find('vesper').counterTarget,id);
  assert.equal(find(retainer.id).hp,70);
  assert.equal(find(mob.id).hp,0);
  assert.equal(state.active.inventory.dynamite,0);
  assert.equal(after.blasts.length,1);
  assert.deepEqual({x:after.blasts[0].x,y:after.blasts[0].y},{x:48,y:13});
- console.log('PASS: three distinct boss patterns, individual retainer patterns, inspections blocked in combat, authoritative dynamite damage');
+ console.log('PASS: the live cached AI supports guard-first combat, counters, pursuit, all arena patterns, and authoritative dynamite damage');
 }catch(error){
  console.error(error.message,error.where??'');process.exitCode=1;
 }finally{await db.close();}
