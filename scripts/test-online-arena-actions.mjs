@@ -52,7 +52,17 @@ try{
   return e;
  })};
  let stepResult=await step('vesper',guardFrame);
- assert.deepEqual([bossOf(stepResult).x,bossOf(stepResult).y],[50,10],'the guarded boss stays put');
+ assert.deepEqual([bossOf(stepResult).x,bossOf(stepResult).y],[51,10],'the boss patrols behind the guards');
+ for(let i=0;i<8;i++){
+  stepResult=await step('vesper',stepResult);
+  const boss=bossOf(stepResult);
+  assert.ok(boss.x>=47&&boss.x<=53&&boss.y<11,'the guarded boss stays behind the front line');
+ }
+ const behindBoss={...guardFrame,enemies:guardFrame.enemies.map(e=>e.retainer?{...e,x:e.x===50?48:e.x,y:9}:e)};
+ assert.equal(bossOf(await step('vesper',behindBoss)).y,9,'the boss steps back toward the cage if guards are behind him');
+ const blockedRetreat={...behindBoss,brokenFloors:[{x:50,y:9}]};
+ const detour=bossOf(await step('vesper',blockedRetreat));
+ assert.deepEqual([detour.x,detour.y],[51,10],'the boss detours around a broken floor');
  await place(50,11);
  const hp=await health();
  await step('vesper',guardFrame);
@@ -75,7 +85,7 @@ try{
  await db.query("update online_characters set inventory=jsonb_set(inventory,'{dynamite}','1') where id=$1",[id]);
  const mob=before.enemies.find(e=>e.hp>0&&!e.boss&&!e.retainer&&!e.elite);
  const enemies=before.enemies.map(e=>{
-  if(e.boss)return {...e,x:49,y:13};
+  if(e.boss)return {...e,x:49,y:13,nextMoveAt:9e12,nextAttackAt:9e12,nextAreaAt:9e12};
   if(e.id===retainer.id)return {...e,x:48,y:14};
   if(e.id===mob.id)return {...e,x:47,y:13};
   return e;
