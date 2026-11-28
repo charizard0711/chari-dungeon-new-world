@@ -18,9 +18,19 @@ export interface WorldState {houses?:{id:string;ownerId:string|null;ownerName:st
 export async function world(action:string,payload:Record<string,unknown>={}):Promise<WorldState>{
   if(!online)throw Error('オンラインに接続できません。');
   const started=performance.now();
-  try{const client=online;const {data,error}=await boundedRequest(signal=>client.rpc('online_world',{action,payload:action==='poll'?{...payload,allow_deferred:true}:payload}).abortSignal(signal));
+  const timeout=action==='poll'?2200:8000;
+  try{const client=online;const {data,error}=await boundedRequest(signal=>client.rpc('online_world',{action,payload:action==='poll'?{...payload,allow_deferred:true}:payload}).abortSignal(signal),timeout);
   if(error)throw Error(error.message);if(data?.pollDeferred){const deferred=new Error('');deferred.name='DeferredPoll';throw deferred;}const received=performance.now();recordRequest(action,received-started,'ok');return {...data,clockReceivedAt:received,clockLatencyMs:Math.min(250,(received-started)/2)} as WorldState;
-  }catch(error){recordRequest(action,performance.now()-started,(error as Error).message.includes('状態を再確認')?'timeout':'error');throw error;}
+  }catch(error){if((error as Error).name!=='DeferredPoll')recordRequest(action,performance.now()-started,(error as Error).name==='RequestTimeout'?'timeout':'error');throw error;}
+}
+
+export async function lobbyCharacters():Promise<WorldState>{
+  if(!online)throw Error('オンラインに接続できません。');
+  const client=online;
+  const {data,error}=await boundedRequest(signal=>client.rpc('online_lobby_characters').abortSignal(signal),5000);
+  if(error?.code==='PGRST202'||error?.code==='42883')return world('list');
+  if(error)throw Error(error.message);
+  return {characters:data,active:null,players:[],messages:[],superAccount:false};
 }
 
 export type CharacterSkill='heal'|'area_heal';

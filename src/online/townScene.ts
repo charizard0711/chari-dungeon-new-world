@@ -2,6 +2,7 @@ import {innBlocked,innInteractionAt,mountInnInterior,preloadInn} from './inn';
 import {preloadVesper} from './adventure/vesperArt';
 import {preloadNpcVoices,installNpcVoice,playNpcVoice} from './npcVoices';
 import {mountPerformanceTrace} from './performanceTrace';
+import {backgroundRetryDelay} from './requestTiming';
 import {actionSoundVolume} from './actionAudio';
 import {playRecallEffect} from './adventure/recallEffect';
 import {preloadBoots,prepareBoots,preloadGloves,prepareGloves} from './bootsArt';
@@ -219,8 +220,55 @@ export function installOnlineScenes(host:Phaser.Scene,lobby:(scene:Phaser.Scene)
    this.drawPlayers();
    const entryLoading=this.entryLoading;this.events.once('shutdown',()=>entryLoading?.destroy());void this.rigReady.then(()=>{if(!this.scene.isActive()||this.entryLoading!==entryLoading)return;this.game.events.once('postrender',()=>{if(!this.scene.isActive())return;entryLoading?.finish(()=>{this.busy=false;});if(this.deathReady){const ready=this.deathReady;this.deathReady=undefined;this.deathReveal=false;ready();}else if(!entryLoading)this.busy=false;});});
    const generation=this.generation;
-   this.pollTimer=setInterval(()=>{if(this.deathPlaying||this.preview||this.moveSending||this.requestBusy||this.pollBusy||this.inDungeon&&this.combatPulseBusy||!this.scene.isActive()||document.hidden)return;if(Date.now()-(this as any).lastTownPoll<(this.inDungeon?2000:500))return;(this as any).lastTownPoll=Date.now();this.pollBusy=true;const revision=this.requestRevision;void world('poll').then(state=>{if(generation===this.generation&&revision===this.requestRevision&&!this.requestBusy){state=reconcileWorldMetadata(state,this.confirmedPacket);playPanelChanges(this as Phaser.Scene,this.confirmedPacket,state);this.sharedTurnFeedback(this.confirmedPacket,state);this.confirmedPacket=state;this.packet=predictedWorld(state,this.moveQueue);this.syncPlayer();this.drawPlayers();}}).catch(e=>{if((e as Error).name!=='DeferredPoll')this.log((e as Error).message);}).finally(()=>{this.pollBusy=false;});},100);
-   this.combatPulseTimer=setInterval(()=>{if(!this.inDungeon||this.preview||this.deathPlaying||this.requestBusy||this.moveSending||this.moveQueue.length>0||this.pollBusy||this.combatPulseBusy||performance.now()-this.lastMotionReplyAt<140||document.hidden||!this.scene.isActive())return;const gen=this.generation,revision=this.requestRevision;this.combatPulseBusy=true;void combatPulse().then(pulse=>{if(gen!==this.generation||revision!==this.requestRevision||this.requestBusy)return;const merged=mergeCombatPulse(this.confirmedPacket??this.packet,pulse);if(!merged)return;playPanelChanges(this as Phaser.Scene,this.confirmedPacket,merged);this.confirmedPacket=merged;if(bossCinematicLocked(merged.adventure,railNow(this))||(merged.adventure?.snapshot.deaths?.[merged.active!.id]??0)>this.deathRevision)this.moveQueue=[];this.packet=predictedWorld(merged,this.moveQueue);this.syncPlayer();this.drawPlayers();}).catch(()=>{}).finally(()=>{this.combatPulseBusy=false;});},160);
+   this.combatPulseBusy=false;
+   let pollAfter=0,pulseAfter=0,pollFailures=0,pulseFailures=0;
+   this.pollTimer=setInterval(async()=>{
+    if(this.deathPlaying||this.preview||this.moveSending||this.requestBusy||this.pollBusy||
+       this.combatPulseBusy||!this.scene.isActive()||document.hidden||performance.now()<pollAfter)return;
+    this.pollBusy=true;
+    const revision=this.requestRevision;
+    const interval=this.inDungeon?3000:800;
+    pollAfter=performance.now()+interval;
+    try{
+     const response=await world('poll');
+     if(generation!==this.generation)return;
+     pollFailures=0;
+     if(revision!==this.requestRevision||this.requestBusy)return;
+     const state=reconcileWorldMetadata(response,this.confirmedPacket);
+     playPanelChanges(this as Phaser.Scene,this.confirmedPacket,state);
+     this.sharedTurnFeedback(this.confirmedPacket,state);
+     this.confirmedPacket=state;
+     this.packet=predictedWorld(state,this.moveQueue);
+     this.syncPlayer();this.drawPlayers();
+    }catch(error){
+     if(generation!==this.generation||(error as Error).name==='DeferredPoll')return;
+     pollAfter=performance.now()+backgroundRetryDelay(++pollFailures,interval,8000);
+     if(pollFailures===2)this.log('通信が混み合っています。同期を再試行します。');
+    }finally{if(generation===this.generation)this.pollBusy=false;}
+   },100);
+   this.combatPulseTimer=setInterval(async()=>{
+    if(!this.inDungeon||this.preview||this.deathPlaying||this.requestBusy||this.moveSending||
+       this.moveQueue.length>0||this.pollBusy||this.combatPulseBusy||document.hidden||
+       !this.scene.isActive()||performance.now()-this.lastMotionReplyAt<140||performance.now()<pulseAfter)return;
+    const revision=this.requestRevision;
+    this.combatPulseBusy=true;
+    try{
+     const pulse=await combatPulse();
+     if(generation!==this.generation)return;
+     pulseFailures=0;
+     if(pulse.deferred){pulseAfter=performance.now()+320;return;}
+     if(revision!==this.requestRevision||this.requestBusy)return;
+     const merged=mergeCombatPulse(this.confirmedPacket??this.packet,pulse);
+     if(!merged)return;
+     playPanelChanges(this as Phaser.Scene,this.confirmedPacket,merged);
+     this.confirmedPacket=merged;
+     if(bossCinematicLocked(merged.adventure,railNow(this))||(merged.adventure?.snapshot.deaths?.[merged.active!.id]??0)>this.deathRevision)this.moveQueue=[];
+     this.packet=predictedWorld(merged,this.moveQueue);
+     this.syncPlayer();this.drawPlayers();
+    }catch{
+     if(generation===this.generation)pulseAfter=performance.now()+backgroundRetryDelay(++pulseFailures,320,2400);
+    }finally{if(generation===this.generation)this.combatPulseBusy=false;}
+   },160);
    this.events.once('shutdown',()=>{this.generation++;clearInterval(this.pollTimer);clearInterval(this.combatPulseTimer);this.chat?.destroy();this.chat=undefined;this.scene.stop('OnlineUIScene');if(!this.transitioning)void Audio.playBgm('title');if(!this.preview&&!this.transitioning)void world('leave').catch(()=>{});});
   }
   approachAdventureBoard(){if(this.busy||this.requestBusy||this.moveSending||this.hud?.overlayMode!=='none')return;if(Math.abs(this.player.x-3)+Math.abs(this.player.y-9)<=3){this.stopClickPath();this.hud?.townUI?.openBoard();}else{this.adventureBoardPending=true;this.destination={x:4,y:10};}}

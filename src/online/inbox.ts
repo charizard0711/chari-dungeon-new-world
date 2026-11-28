@@ -1,9 +1,18 @@
 import {EMOTES,emoteVoiceEnabled,setEmoteVoice,emoteArt} from './emotes';
 import {online} from './api';
+import {backgroundRetryDelay,boundedRequest} from './requestTiming';
 import {GAME_W,GAME_H,IS_MOBILE} from '../layout';
 import './inbox.css';
 export const el=<K extends keyof HTMLElementTagNameMap>(tag:K,text='')=>{const n=document.createElement(tag);n.textContent=text;return n;};
-export async function inboxRpc(action:string,payload:Record<string,unknown>={}){if(!online)throw Error('オンライン設定を確認してください。');const {data,error}=await online.rpc('online_inbox',{action,payload});if(error)throw Error(error.message);return data;}
+export async function inboxRpc(action:string,payload:Record<string,unknown>={}){
+ if(!online)throw Error('オンライン設定を確認してください。');
+ const client=online;
+ const {data,error}=await (action==='counts'
+  ? boundedRequest(signal=>client.rpc('online_inbox',{action,payload}).abortSignal(signal),2500)
+  : client.rpc('online_inbox',{action,payload}));
+ if(error)throw Error(error.message);
+ return data;
+}
 export function badgeText(n:number){return n>=10?'+':n>0?String(n):'';}
 export function mailForm(parent:HTMLElement,send:(title:string,body:string)=>Promise<unknown>){
  const form=el('form'),title=el('input'),body=el('textarea'),status=el('p'),submit=el('button','送信');title.placeholder='件名（100文字まで）';title.maxLength=100;title.setAttribute('aria-label','件名');body.placeholder='メッセージ（4000文字まで）';body.maxLength=4000;body.setAttribute('aria-label','本文');submit.type='submit';status.role='status';form.className='zero-mail-form';form.noValidate=true;form.append(title,body,submit,status);parent.append(form);
@@ -20,7 +29,24 @@ export function mountInbox(hud:any){
  const resumeInput=()=>{if(!inputState)return;hud.input.enabled=inputState.hud;hud.gs.input.enabled=inputState.town;for(const [input,key]of [[hud.input,'hudKeys'],[hud.gs.input,'townKeys']]as const)if(input.keyboard){input.keyboard.resetKeys();input.keyboard.enabled=inputState[key];}inputState=undefined;};
  const fit=()=>{const r=hud.game.canvas.getBoundingClientRect();document.documentElement.style.setProperty('--zero-ui-scale',String(r.width/GAME_W));host.style.cssText=`left:${r.left}px;top:${r.top}px;width:${GAME_W}px;height:${GAME_H}px;transform:scale(${r.width/GAME_W},${r.height/GAME_H})`;};const ro=new ResizeObserver(fit);ro.observe(hud.game.canvas);window.addEventListener('resize',fit);window.addEventListener('scroll',fit);fit();
  const applyCounts=(s:any)=>{for(const [key,n] of [['bell',s.noticeCount],['mail',s.mailCount]] as const){buttons[key].querySelector('.zero-badge')!.textContent=badgeText(n);buttons[key].title=`${key==='bell'?'お知らせ':'メール'}・未読 ${n}件`;}};
- const poll=async()=>{if(countsBusy||hud.gs.preview)return;countsBusy=true;try{const s=await inboxRpc('counts');if(active)applyCounts(s);}catch{/* Opening the inbox reports connection errors. */}finally{countsBusy=false;}};void poll();const timer=setInterval(poll,15000);
+ let nextCounts=0,countsFailures=0;
+ const poll=async()=>{
+  if(countsBusy||!active||hud.gs.preview||document.hidden||modal||performance.now()<nextCounts)return;
+  if(hud.gs.requestBusy||hud.gs.moveSending)return;
+  countsBusy=true;
+  const token=generation;
+  try{
+   const state=await inboxRpc('counts');
+   countsFailures=0;
+   if(active&&token===generation)applyCounts(state);
+  }catch{countsFailures++;}
+  finally{
+   countsBusy=false;
+   nextCounts=performance.now()+backgroundRetryDelay(countsFailures,15000,90000);
+  }
+ };
+ void poll();
+ const timer=setInterval(poll,1000);
  function close(){resumeInput();hud.townUI?.cancelExternalDrag();generation++;modal?.remove();modal=undefined;scrim.hidden=true;hud.overlayMode=oldMode;hud.gs.clearMoveInput?.();hud.townUI?.refresh();hud.game.canvas.focus();}
  function shell(title:string){scrim.hidden=false;if(!modal){pauseInput();oldMode=hud.overlayMode;hud.overlayMode='inbox';hud.gs.stopClickPath?.();hud.gs.clearMoveInput?.();hud.townUI?.refresh();}else modal.remove();modal=el('section');modal.className='zero-window';modal.role='dialog';modal.setAttribute('aria-modal','true');modal.setAttribute('aria-label',title);const head=el('header'),exit=el('button','✕');exit.setAttribute('aria-label','閉じる');exit.onclick=close;head.append(el('h2',title),exit);modal.append(head);host.append(modal);exit.focus();return modal;}
  async function open(next:string){kind=next;offset=0;await list();}

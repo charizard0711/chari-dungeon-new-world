@@ -5,6 +5,10 @@ export function recordRequest(action:string,ms:number,status:RequestTiming['stat
 export function recentRequestTimings(){return recent.map(row=>({...row}));}
 export async function boundedRequest<T>(run:(signal:AbortSignal)=>PromiseLike<T>,timeoutMs=8000):Promise<T>{
  const controller=new AbortController();let timer:ReturnType<typeof setTimeout>|undefined;
- try{return await Promise.race([Promise.resolve().then(()=>run(controller.signal)),new Promise<never>((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(new Error('通信が遅れています。状態を再確認します。'));},timeoutMs);})]);}
+ try{return await Promise.race([Promise.resolve().then(()=>run(controller.signal)),new Promise<never>((_,reject)=>{timer=setTimeout(()=>{controller.abort();const error=new Error('通信が遅れています。状態を再確認します。');error.name='RequestTimeout';reject(error);},timeoutMs);})]);}
  finally{if(timer)clearTimeout(timer);}
+}
+
+export function backgroundRetryDelay(failures:number,baseMs:number,maxMs:number){
+ return Math.min(maxMs,baseMs*2**Math.min(failures,8));
 }

@@ -14,7 +14,7 @@ import {installGamePresentation,type TownAudioSettings} from './presentation';
 import {mountCharacterPreview} from './characterPreview';
 import {HAIR_COLORS} from '../motionLab/wardrobe';
 import {mountTownLoading} from './townLoading';
-import { world, type WorldState } from './worldApi';
+import { lobbyCharacters, world, type WorldState } from './worldApi';
 
 const node = <K extends keyof HTMLElementTagNameMap>(tag:K, text='') => {
   const el=document.createElement(tag); el.textContent=text; return el;
@@ -79,8 +79,19 @@ export function mountOnlineLobby(scene:Phaser.Scene,previewState?:WorldState) {
     content.append(form,notice,button('キャラクター選択へ戻る',()=>characters(state)));
   };
   const servers=()=>{
-    shell('キャラクターを読み込み中…');content.append(notice);
-    void world('list').then(state=>{if(!disposed)characters(state);}).catch(error);
+    const token=++revision;
+    shell('キャラクターを読み込み中…');
+    notice.classList.remove('is-error');notice.setAttribute('role','status');
+    notice.textContent='ログイン済み。キャラクター一覧を取得しています。';
+    const retry=button('一覧を再読み込み',servers);
+    content.append(notice);
+    void lobbyCharacters().then(state=>{
+      if(!disposed&&token===revision)characters(state);
+    }).catch(()=>{
+      if(disposed||token!==revision)return;
+      error(new Error('ログインは完了しました。キャラクター一覧を取得できなかったため、再読み込みしてください。'));
+      content.append(retry);
+    });
   };
   const run=async(fn:()=>Promise<void>)=>{if(busy||disposed)return;busy=true;notice.classList.remove('is-error');notice.setAttribute('role','status');notice.textContent='';try{await fn();}catch(e){error(e);}finally{busy=false;}};
   const auth=(mode:'login'|'signup'|'resend'='login',savedEmail='',feedback='')=>{
