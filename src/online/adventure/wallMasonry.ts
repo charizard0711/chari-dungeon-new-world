@@ -28,19 +28,25 @@ export function createWallGrid({width, height, ground, exclude}: WallLayout): Ce
 }
 
 function materialPattern(ctx: CanvasRenderingContext2D, atlas: CanvasImageSource,
-  sy: number, width: number, height: number, displayHeight = height, offsetY = 0) {
+  tint: string, sy: number, width: number, height: number, displayHeight = height, offsetY = 0) {
   const swatch = document.createElement('canvas');
   swatch.width = width;
   swatch.height = displayHeight + offsetY;
-  swatch.getContext('2d')!.drawImage(atlas, 0, sy, width, height, 0, offsetY, width, displayHeight);
+  const pigment = swatch.getContext('2d')!;
+  pigment.drawImage(atlas, 0, sy, width, height, 0, offsetY, width, displayHeight);
+  pigment.globalCompositeOperation = 'color';
+  pigment.fillStyle = tint;
+  pigment.fillRect(0, offsetY, width, displayHeight);
   return ctx.createPattern(swatch, 'repeat')!;
 }
 
 /** Paint a stationary, world-aligned wall chunk. Each pixel belongs to a single chunk. */
 export function createMasonryPainter(ctx: CanvasRenderingContext2D, atlas: CanvasImageSource,
-  wall: CellTest, ground: CellTest) {
-  const top = materialPattern(ctx, atlas, 0, 288, 96);
-  const face = materialPattern(ctx, atlas, 96, 192, 22, CAP_INSET, TILE - CAP_INSET);
+  wall: CellTest, ground: CellTest, fountain: {x: number;y: number}) {
+  const top = materialPattern(ctx, atlas, '#778269d9', 0, 288, 96);
+  const face = materialPattern(ctx, atlas, '#39483fdd', 96, 192, 22, CAP_INSET, TILE - CAP_INSET);
+  const lightX = (fountain.x + .5) * TILE, lightY = (fountain.y + .5) * TILE;
+  const lightRadius = TILE * 5;
   const n = CAP_INSET;
 
   function shade(x: number, y: number, w: number, h: number, dx: number, dy: number, near: string, far: string) {
@@ -53,8 +59,8 @@ export function createMasonryPainter(ctx: CanvasRenderingContext2D, atlas: Canva
   }
 
   const slopeLight = {
-    north: ['#17150fe0', '#3b32247d', '#e1cda857'], west: ['#1d1914d4', '#56493673', '#e1cda845'],
-    south: ['#0d0c0bf0', '#30261c87', '#a88b6650'], east: ['#16130fe8', '#2d241a9c', '#a88b6635'],
+    north: ['#141b18e0', '#3c49387d', '#d8dfc557'], west: ['#172019d4', '#4a564073', '#d8dfc545'],
+    south: ['#0b100ef0', '#222f2887', '#8eaa9250'], east: ['#111915e8', '#29362f9c', '#8eaa9235'],
   };
   function slope(points: number[], x: number, y: number, dx: number, dy: number, side: keyof typeof slopeLight, masonry = false) {
     const gradient = ctx.createLinearGradient(x, y, x + dx, y + dy);
@@ -78,6 +84,14 @@ export function createMasonryPainter(ctx: CanvasRenderingContext2D, atlas: Canva
   return (startX: number, startY: number, width: number, height: number) => {
     ctx.save();
     ctx.translate(-startX * TILE, -startY * TILE);
+    let reflection: CanvasGradient | undefined;
+    if (startX*TILE < lightX+lightRadius && (startX+width)*TILE > lightX-lightRadius &&
+        startY*TILE < lightY+lightRadius && (startY+height)*TILE > lightY-lightRadius) {
+      reflection = ctx.createRadialGradient(lightX,lightY,0,lightX,lightY,lightRadius);
+      reflection.addColorStop(0,'#58dfc567');
+      reflection.addColorStop(.55,'#58dfc537');
+      reflection.addColorStop(1,'#58dfc500');
+    }
     for (let y = startY; y < startY + height; y++) {
       for (let x = startX; x < startX + width; x++) {
         const l = x * TILE, t = y * TILE, r = l + TILE, b = t + TILE;
@@ -109,6 +123,10 @@ export function createMasonryPainter(ctx: CanvasRenderingContext2D, atlas: Canva
           const insetX = cx - dx * n, insetY = cy - dy * n;
           slope([cx,cy,insetX,cy,insetX,insetY],cx,cy,-dx*n,0,dx < 0 ? 'west' : 'east');
           slope([cx,cy,cx,insetY,insetX,insetY],cx,cy,0,-dy*n,dy < 0 ? 'north' : 'south',dy > 0);
+        }
+        if (reflection) {
+          ctx.fillStyle = reflection;
+          ctx.fillRect(l,t,TILE,TILE);
         }
       }
     }

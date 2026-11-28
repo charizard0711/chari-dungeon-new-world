@@ -21,7 +21,7 @@ export function drawContinuousWalls(scene: Phaser.Scene) {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = TERRAIN_CHUNK * TILE;
   const ctx = canvas.getContext('2d')!;
-  const paint = createMasonryPainter(ctx, atlas, wall, ground);
+  const paint = createMasonryPainter(ctx, atlas, wall, ground, C.fountain);
 
   streamTerrain(scene, C.width, C.height, (cx, cy) => {
     if (!chunksWithWalls.has(`${cx},${cy}`)) return {destroy() {}};
