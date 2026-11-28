@@ -20,9 +20,47 @@ function resourceBar(g:any,x:number,y:number,w:number,h:number,ratio:number,heal
  if(ratio>0){g.fillStyle(health?0xce2235:0xb28d4c).fillRoundedRect(x,y,w*ratio,h,h/2);g.fillStyle(health?0xff4c59:0xe2c280,.9).fillRoundedRect(x+1,y+1,Math.max(1,w*ratio-2),Math.max(2,h*.35),h/4);}
  g.lineStyle(1,health?0x9c4a54:0x9e865c).strokeRoundedRect(x,y,w,h,h/2);
 }
-export function crystalMenu(h:any){
- const items=[['ui_nav_inventory','持ち物',()=>h.openInventory()],['ui_nav_codex','冒険図鑑',()=>h.setOverlay('codex')],['ui_nav_friends','フレンド',()=>h.townUI?.open('friends')],['ui_nav_guild','ギルド',()=>h.townUI?.open('guild')],['ui_nav_guild','スキル',()=>h.townUI?.open('skills')],['ui_nav_friends','エモート',()=>h.inboxUI?.emotes()]] as const;
- items.forEach(([icon,label,fn],i)=>{const x=1044+i%2*112,y=420+Math.floor(i/2)*47;const g=crystalPanel(h,x,y,108,41);h.add.image(x+20,y+20,icon).setDisplaySize(23,23);h.add.text(x+38,y+20,label,{fontFamily:'Meiryo',fontSize:'11px',color:'#e6f6ff'}).setOrigin(0,.5);h.add.zone(x,y,108,41).setOrigin(0).setInteractive({useHandCursor:true}).on('pointerover',()=>g.setAlpha(.75)).on('pointerout',()=>g.setAlpha(1)).on('pointerdown',()=>{Audio.playSe('click');fn();});if(i===2||i===3)requestBadge(h,i===2?'friends':'guild',x+98,y+9);});
+export const MENU_ART_KEY='zero_rpg_menu_icons';
+export const MENU_ART_PATH='assets/online/menu-a-v1/icons.webp';
+
+export function crystalMenu(h:any,mobile=false){
+ const inventory={frame:0,label:'持ち物',run:()=>h.openInventory()},codex={frame:1,label:'冒険図鑑',run:()=>h.setOverlay('codex')};
+ const items=[inventory,codex,
+  {frame:2,label:'フレンド',run:()=>h.townUI?.open('friends')},
+  {frame:3,label:'ギルド',run:()=>h.townUI?.open('guild')},
+  {frame:4,label:'スキル',run:()=>h.townUI?.open('skills')},
+  {frame:5,label:'エモート',run:()=>h.inboxUI?.emotes()},
+ ];
+ if(mobile)items.splice(2,0,
+  {frame:-1,label:'ログ',run:()=>h.setOverlay('details')},
+  {frame:-2,label:'マップ',run:()=>h.townUI?.openMap()},
+ );
+ items.forEach(({frame,label,run},index)=>{
+  const w=mobile?42:108,height=mobile?32:41;
+  const x=mobile?12+index*46:1044+index%2*112,y=mobile?802:420+Math.floor(index/2)*47;
+  const frameArt=h.add.graphics(),corner=mobile?4:6;
+  const octagon=(inset:number)=>{
+   const left=x+inset,right=x+w-inset,top=y+inset,bottom=y+height-inset,c=corner-inset*.55;
+   return [{x:left+c,y:top},{x:right-c,y:top},{x:right,y:top+c},{x:right,y:bottom-c},
+    {x:right-c,y:bottom},{x:left+c,y:bottom},{x:left,y:bottom-c},{x:left,y:top+c}];
+  };
+  const outer=octagon(0),rim=octagon(1),inner=octagon(3);
+  const paint=(hover:boolean)=>{
+   frameArt.clear().fillStyle(0x101a24).fillPoints(outer,true);
+   frameArt.lineStyle(1,hover?0xbfe7ef:0x89a7b4).strokePoints(outer,true);
+   frameArt.lineStyle(2,0x406375).strokePoints(rim,true);
+   frameArt.fillStyle(hover?0x233c50:0x141f30).fillPoints(inner,true);
+   frameArt.lineStyle(1,hover?0xd4eff4:0xb6cbd6,.85).lineBetween(x+corner+1,y+1,x+w-corner-1,y+1);
+  };
+  paint(false);
+  const size=mobile?18:33;
+  h.add.image(x+(mobile?w/2:21),y+(mobile?10:20),frame>=0?MENU_ART_KEY:frame===-1?'ui_nav_damage_log':'ui_online_map',frame>=0?frame:undefined).setDisplaySize(size,size);
+  const caption=mobile&&frame===1?'図鑑':mobile&&frame===2?'友達':label;
+  h.add.text(x+(mobile?w/2:41),y+(mobile?25:20),caption,{fontFamily:'Meiryo',fontSize:mobile?'8px':'11px',fontStyle:'bold',color:'#eef1ec'}).setOrigin(mobile?.5:0,.5);
+  h.add.zone(x,y,w,height).setName('rpg-menu-'+frame).setOrigin(0).setInteractive({useHandCursor:true})
+   .on('pointerover',()=>paint(true)).on('pointerout',()=>paint(false)).on('pointerdown',()=>{void Audio.playSe('click');run();});
+  if(frame===2||frame===3)requestBadge(h,frame===2?'friends':'guild',x+w-(mobile?3:8),y+(mobile?4:7));
+ });
 }
 export function requestBadge(h:any,kind:'friends'|'guild',x:number,y:number){
  const circle=h.add.circle(x,y,8,0xd5294a).setVisible(false);
